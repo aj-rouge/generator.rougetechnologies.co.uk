@@ -1,0 +1,24 @@
+.rouge-technologies-tabs__paragraph,
+.rouge-technologies-tabs__dynamic-paragraph {
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+.rouge-technologies-tabs__dynamic-paragraph[data-css-var="shipping"]::before {
+  content: var(--rouge-technologies-shipping-content);
+}
+
+.rouge-technologies-tabs__dynamic-paragraph[data-css-var="warranty"]::before {
+  content: var(--rouge-technologies-warranty-content);
+}
+
+.rouge-technologies-tabs__dynamic-paragraph[data-css-var="returns"]::before {
+  content: var(--rouge-technologies-returns-content);
+}
+
+.rouge-technologies-tabs__dynamic-content {
+  display: block;
+}
+
+@import "./tabs-desktop.css";
+@import "./tabs-mobile.css";

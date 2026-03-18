@@ -1,0 +1,132 @@
+.rouge-technologies-tabs-desktop {
+  overflow: hidden;
+  padding-block: 16px;
+  display: block;
+  padding-inline: 40px;
+}
+
+.rouge-technologies-tabs-desktop__radio {
+  display: none;
+}
+
+.rouge-technologies-tabs-desktop__labels {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px;
+}
+
+.rouge-technologies-tabs-desktop__label {
+  padding: 10px 16px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 50px;
+  transition:
+    background-color 0.3s ease,
+    transform 0.2s ease,
+    color 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  color: #000;
+  display: flex;
+  align-items: center;
+}
+
+.rouge-technologies-tabs-desktop__label:hover {
+  background: darkred;
+  transform: scale(1.05);
+  color: #fff;
+}
+
+.rouge-technologies-tabs-desktop__content > div {
+  display: none;
+  padding: 20px;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: #fff;
+  margin-top: 16px;
+  color: #000;
+}
+
+.rouge-technologies-tabs-desktop__panel p {
+  margin-bottom: 16px;
+}
+
+.rouge-technologies-tabs-desktop__panel p:last-child {
+  margin-bottom: 0;
+}
+
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(1):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(1),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(2):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(2),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(3):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(3),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(4):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(4),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(5):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(5),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(6):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(6),
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(7):checked
+  ~ .rouge-technologies-tabs-desktop__labels
+  .rouge-technologies-tabs-desktop__label:nth-of-type(7) {
+  background: #a80f0f;
+  color: #fff;
+  border-color: #a80f0f;
+}
+
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(1):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-1,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(2):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-2,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(3):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-3,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(4):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-4,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(5):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-5,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(6):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-6,
+.rouge-technologies-tabs-desktop
+  input[type="radio"]:nth-of-type(7):checked
+  ~ .rouge-technologies-tabs-desktop__content
+  #rouge-technologies-content-desktop-7 {
+  display: block;
+}
+
+@media screen and (max-width: 767px) {
+  .rouge-technologies-tabs-desktop {
+    display: none !important;
+  }
+}

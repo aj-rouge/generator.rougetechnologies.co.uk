@@ -1,0 +1,308 @@
+-- Enable foreign keys
+PRAGMA foreign_keys = ON;
+
+-- =====================================================
+-- CATEGORY CONTENT TABLE
+-- Stores the rich text content for each category
+-- =====================================================
+CREATE TABLE IF NOT EXISTS category_content (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_slug TEXT NOT NULL,
+  section_order INTEGER NOT NULL,
+  subheading TEXT,
+  paragraphs TEXT NOT NULL, -- JSON array
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (category_slug) REFERENCES categories(slug) ON DELETE CASCADE,
+  UNIQUE(category_slug, section_order)
+);
+
+CREATE INDEX IF NOT EXISTS idx_category_content_category ON category_content(category_slug);
+CREATE INDEX IF NOT EXISTS idx_category_content_updated ON category_content(updated_at);
+
+-- =====================================================
+-- CONDITIONS TABLE - Stores condition sets for eBay
+-- =====================================================
+CREATE TABLE IF NOT EXISTS conditions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_key TEXT NOT NULL UNIQUE, -- 'electronics', 'business', etc.
+  group_name TEXT NOT NULL, -- Display name for the condition group
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_conditions_group_key ON conditions(group_key);
+
+-- =====================================================
+-- CONDITION OPTIONS TABLE - Individual condition options per group
+-- =====================================================
+CREATE TABLE IF NOT EXISTS condition_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  condition_group_id INTEGER NOT NULL,
+  option_order INTEGER NOT NULL, -- For maintaining the order from the array
+  option_value TEXT NOT NULL, -- The actual condition text (e.g., "New", "Used")
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (condition_group_id) REFERENCES conditions(id) ON DELETE CASCADE,
+  UNIQUE(condition_group_id, option_value) -- Prevent duplicates within a group
+);
+
+CREATE INDEX IF NOT EXISTS idx_condition_options_group_id ON condition_options(condition_group_id);
+CREATE INDEX IF NOT EXISTS idx_condition_options_value ON condition_options(option_value);
+
+-- =====================================================
+-- CATEGORIES TABLE - Enhanced with condition group reference
+-- =====================================================
+CREATE TABLE IF NOT EXISTS categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  parent_category TEXT,
+  condition_group_id INTEGER, -- References the conditions table
+  ebay_store_link TEXT, -- Direct link to eBay store category page
+  keywords TEXT, -- JSON array of keywords for search/SEO
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()), -- Track when category was last updated
+  
+  FOREIGN KEY (parent_category) REFERENCES categories(slug),
+  FOREIGN KEY (condition_group_id) REFERENCES conditions(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug);
+CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_category);
+CREATE INDEX IF NOT EXISTS idx_categories_condition_group ON categories(condition_group_id);
+
+-- =====================================================
+-- PRODUCTS TABLE - Core fields only
+-- =====================================================
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY, -- UUID
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  sku TEXT UNIQUE,
+  ean TEXT,
+  asin TEXT,
+  baselinker_id TEXT,
+  shopify_id TEXT,
+  category TEXT NOT NULL,
+  condition TEXT,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  
+  FOREIGN KEY (category) REFERENCES categories(slug)
+);
+
+-- =====================================================
+-- CRITICAL: Exact match indexes for identifiers
+-- Users will search by ASIN, EAN, SKU most frequently
+-- =====================================================
+CREATE INDEX IF NOT EXISTS idx_products_asin ON products(asin) WHERE asin IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_ean ON products(ean) WHERE ean IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku) WHERE sku IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_baselinker_id ON products(baselinker_id) WHERE baselinker_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_shopify_id ON products(shopify_id) WHERE shopify_id IS NOT NULL;
+
+-- For searches where user might paste any type of ID
+CREATE INDEX IF NOT EXISTS idx_products_all_ids ON products(asin, ean, sku, baselinker_id, shopify_id);
+
+-- =====================================================
+-- PAGINATION & FILTERING (for "get recent 10/20/50/100 updated products")
+-- =====================================================
+-- Primary pagination index - CRITICAL for performance
+CREATE INDEX IF NOT EXISTS idx_products_pagination ON products(updated_at DESC, id);
+
+-- Category + updated_at for filtered pagination
+CREATE INDEX IF NOT EXISTS idx_products_category_updated ON products(category, updated_at DESC);
+
+-- For counting queries
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+
+-- =====================================================
+-- RELATED DATA TABLES
+-- =====================================================
+CREATE TABLE IF NOT EXISTS product_paragraphs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id TEXT NOT NULL,
+  paragraph_order INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS product_features (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id TEXT NOT NULL,
+  feature_order INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS product_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id TEXT NOT NULL,
+  image_order INTEGER NOT NULL,
+  url TEXT NOT NULL,
+  s3_path TEXT,
+  alt_text TEXT,
+  warnings TEXT,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS product_feedbacks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  count INTEGER DEFAULT 0,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- =====================================================
+-- Indexes for joins
+-- =====================================================
+CREATE INDEX IF NOT EXISTS idx_product_paragraphs_product_id ON product_paragraphs(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_features_product_id ON product_features(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_feedbacks_product_id ON product_feedbacks(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warnings) WHERE warnings IS NOT NULL;
+
+-- =====================================================
+-- VIEW for full product data (useful for responses)
+-- =====================================================
+DROP VIEW IF EXISTS v_product_full;
+CREATE VIEW v_product_full AS
+SELECT 
+  p.*,
+  (
+    SELECT json_group_array(content ORDER BY paragraph_order)
+    FROM product_paragraphs 
+    WHERE product_id = p.id
+  ) as paragraphs,
+  (
+    SELECT json_group_array(
+      json_object('title', title, 'description', description) 
+      ORDER BY feature_order
+    )
+    FROM product_features 
+    WHERE product_id = p.id
+  ) as features,
+  (
+    SELECT json_group_array(
+      json_object(
+        'url', COALESCE(s3_path, url), -- Prioritizes R2 path over source URL
+        's3_path', s3_path,
+        'original_url', url,
+        'alt_text', alt_text
+      ) 
+      ORDER BY image_order
+    )
+    FROM product_images 
+    WHERE product_id = p.id
+  ) as images,
+  (
+    SELECT json_group_array(
+      json_object('name', name, 'content', content, 'count', count)
+    )
+    FROM product_feedbacks 
+    WHERE product_id = p.id
+  ) as feedbacks
+FROM products p;
+
+-- =====================================================
+-- VIEW for condition groups with their options
+-- =====================================================
+DROP VIEW IF EXISTS v_condition_groups;
+CREATE VIEW v_condition_groups AS
+SELECT 
+  c.id,
+  c.group_key,
+  c.group_name,
+  (
+    SELECT json_group_array(
+      option_value ORDER BY option_order
+    )
+    FROM condition_options 
+    WHERE condition_group_id = c.id
+  ) as options
+FROM conditions c;
+
+-- =====================================================
+-- VIEW for complete category data with content
+-- =====================================================
+DROP VIEW IF EXISTS v_category_full;
+CREATE VIEW v_category_full AS
+SELECT 
+  c.*,
+  (
+    SELECT json_group_array(
+      json_object(
+        'subheading', cc.subheading,
+        'paragraphs', json(cc.paragraphs)
+      ) ORDER BY cc.section_order
+    )
+    FROM category_content cc
+    WHERE cc.category_slug = c.slug
+  ) as content
+FROM categories c;
+
+-- =====================================================
+-- VIEW for categories with children, condition groups, and eBay links
+-- =====================================================
+DROP VIEW IF EXISTS v_category_tree;
+CREATE VIEW v_category_tree AS
+SELECT 
+  cat.id,
+  cat.slug,
+  cat.name,
+  cat.parent_category,
+  cat.condition_group_id,
+  cat.ebay_store_link,
+  cat.keywords,
+  cat.created_at,
+  cat.updated_at,
+  (SELECT COUNT(*) FROM products WHERE category = cat.slug) as product_count,
+  json_object(
+    'group_key', c.group_key,
+    'group_name', c.group_name,
+    'options', (
+      SELECT json_group_array(option_value ORDER BY option_order)
+      FROM condition_options 
+      WHERE condition_group_id = c.id
+    )
+  ) as condition_group,
+  (
+    SELECT json_group_array(
+      json_object(
+        'slug', child.slug,
+        'name', child.name,
+        'condition_group_id', child.condition_group_id,
+        'ebay_store_link', child.ebay_store_link,
+        'keywords', child.keywords,
+        'product_count', (SELECT COUNT(*) FROM products WHERE category = child.slug),
+        'condition_group', (
+          SELECT json_object(
+            'group_key', c2.group_key,
+            'group_name', c2.group_name,
+            'options', (
+              SELECT json_group_array(option_value ORDER BY option_order)
+              FROM condition_options 
+              WHERE condition_group_id = c2.id
+            )
+          )
+          FROM conditions c2
+          WHERE c2.id = child.condition_group_id
+        )
+      ) ORDER BY child.name
+    )
+    FROM categories child
+    WHERE child.parent_category = cat.slug
+  ) as children
+FROM categories cat
+LEFT JOIN conditions c ON cat.condition_group_id = c.id
+WHERE cat.parent_category IS NULL;

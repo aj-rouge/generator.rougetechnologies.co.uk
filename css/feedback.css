@@ -1,0 +1,135 @@
+.rouge-technologies-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.rouge-technologies-feedback__title {
+  padding-inline: 0px;
+  color: #000;
+}
+
+.rouge-technologies-feedback__title h4 {
+  font-size: 24px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  font-weight: 600;
+}
+
+.rouge-technologies-feedback__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 0 40px;
+}
+
+.rouge-technologies-feedback__card {
+  background-color: white;
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+  border-radius: 6px;
+  padding: 16px;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.rouge-technologies-feedback__header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rouge-technologies-feedback__icon {
+  flex-shrink: 0;
+}
+
+.rouge-technologies-feedback__author {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.rouge-technologies-feedback__content {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #000;
+}
+
+.rouge-technologies-feedback__cta {
+  background-color: #a80f0f;
+  color: #fff;
+  border-radius: 100px;
+  padding: 8px 24px;
+  display: flex;
+  width: fit-content;
+  margin-inline: auto;
+  text-align: center;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  transition:
+    background-color 0.3s ease,
+    transform 0.2s ease;
+}
+
+.rouge-technologies-feedback__cta:hover {
+  background-color: #8d0b0b;
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+/* Responsive Design for Feedback Component */
+@media only screen and (max-width: 769px) {
+  .rouge-technologies-feedback {
+    padding-inline: 16px;
+  }
+
+  .rouge-technologies-feedback__grid {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .rouge-technologies-feedback__card {
+    max-width: 100%;
+  }
+
+  .rouge-technologies-feedback__title h4 {
+    font-size: 20px;
+  }
+
+  .rouge-technologies-feedback__cta {
+    font-size: 14px;
+    padding: 8px 20px;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .rouge-technologies-feedback__title h4 {
+    font-size: 18px;
+  }
+
+  .rouge-technologies-feedback__card {
+    padding: 12px;
+  }
+
+  .rouge-technologies-feedback__author {
+    font-size: 13px;
+  }
+
+  .rouge-technologies-feedback__content {
+    font-size: 14px;
+  }
+
+  .rouge-technologies-feedback__cta {
+    font-size: 13px;
+    padding: 6px 16px;
+  }
+}

@@ -1,0 +1,119 @@
+.rouge-technologies-category {
+  padding: 16px 40px;
+}
+
+.rouge-technologies-category__wrapper {
+  width: 100%;
+  background-color: #ffffff;
+  border: 1px solid #d3d3d3;
+  padding: 20px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.rouge-technologies-category__wrapper:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #c1272d;
+}
+
+.rouge-technologies-category__heading {
+  margin-bottom: 10px;
+  font-size: 20px;
+  color: #000;
+  font-family: "Roboto", sans-serif;
+  border-bottom: 2px solid #a80f0f;
+  padding-bottom: 8px;
+  font-weight: 700;
+}
+
+.rouge-technologies-category__content {
+  line-height: 1.7;
+  font-size: 14px;
+  margin-top: 20px;
+}
+
+.rouge-technologies-category__section {
+  margin-bottom: 10px;
+  color: #000;
+}
+
+.rouge-technologies-category__section p {
+  margin-bottom: 8px;
+  color: #000;
+}
+
+.rouge-technologies-category__section:last-child {
+  margin-bottom: 0;
+}
+
+.rouge-technologies-category__section br {
+  display: block;
+  content: "";
+  margin-top: 10px;
+}
+
+.rouge-technologies-category__subheading {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #000;
+}
+
+.rouge-technologies-category__paragraph {
+  margin-bottom: 8px;
+  color: #000;
+}
+
+@media only screen and (max-width: 768px) {
+  .rouge-technologies-category {
+    padding: 8px 16px;
+  }
+
+  .rouge-technologies-category__wrapper {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .rouge-technologies-category__heading {
+    font-size: 16px;
+    padding-bottom: 6px;
+  }
+
+  .rouge-technologies-category__content {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-top: 16px;
+  }
+
+  .rouge-technologies-category__section {
+    margin-bottom: 16px;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .rouge-technologies-category__wrapper {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .rouge-technologies-category__heading {
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  .rouge-technologies-category__content {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .rouge-technologies-category__section {
+    margin-bottom: 12px;
+  }
+
+  .rouge-technologies-category__subheading {
+    font-size: 16px;
+  }
+}

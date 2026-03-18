@@ -1,0 +1,15 @@
+.rouge-technologies-shipping-notice {
+  width: 100%;
+  background-color: black;
+  text-align: center;
+  font-family: "Helvetica", sans-serif;
+  color: white;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: bold;
+  padding: 0.75rem 0;
+}
+
+.rouge-technologies-dynamic-time::before {
+  content: var(--dynamic-time-text, "5 minutes");
+}

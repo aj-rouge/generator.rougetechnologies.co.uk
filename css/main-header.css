@@ -1,0 +1,48 @@
+.rouge-technologies-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: "Roboto", sans-serif;
+}
+
+.rouge-technologies-header__inner {
+}
+
+.rouge-technologies-main-header {
+  background-color: white;
+  border-bottom: 1px solid #d3d3d3;
+}
+
+.rouge-technologies-container {
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.rouge-technologies-navbar {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 0.75rem;
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-navbar {
+    flex-direction: row;
+    padding-top: 1.25rem;
+    justify-content: space-between;
+  }
+}
+
+.rouge-technologies-navbar__content {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-navbar__content {
+    flex-direction: row;
+  }
+}

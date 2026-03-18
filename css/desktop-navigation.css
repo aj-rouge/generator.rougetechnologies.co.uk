@@ -1,0 +1,75 @@
+.rouge-technologies-desktop-nav {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-desktop-nav {
+    display: flex;
+  }
+}
+
+.rouge-technologies-desktop-nav__title {
+  font-size: 2.25rem;
+  line-height: 2.5rem;
+  font-weight: 700;
+  color: black;
+  text-decoration: none;
+}
+
+.rouge-technologies-desktop-nav__title:hover {
+  text-decoration: none;
+}
+
+@media (min-width: 1280px) {
+  .rouge-technologies-desktop-nav__title {
+    font-size: 40px;
+  }
+}
+
+.rouge-technologies-desktop-nav__title--red {
+  color: rgb(193, 39, 45);
+  font-size: 2.5rem;
+}
+
+.rouge-technologies-desktop-nav__menu {
+  display: none;
+  gap: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .rouge-technologies-desktop-nav__menu {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-desktop-nav__menu {
+    display: flex;
+  }
+}
+
+.rouge-technologies-desktop-nav__item {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.rouge-technologies-desktop-nav__link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: black;
+  text-underline-offset: 4px;
+}
+
+.rouge-technologies-desktop-nav__link:hover {
+  color: rgb(193, 39, 45);
+  text-decoration: underline;
+}

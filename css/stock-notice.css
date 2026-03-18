@@ -1,0 +1,17 @@
+.rouge-technologies-stock-notice {
+  width: 100%;
+  background-color: black;
+  text-align: center;
+  font-family: "Helvetica", sans-serif;
+  color: white;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: bold;
+  padding: 0.75rem 0;
+  border-top: 1px solid white;
+}
+
+.rouge-technologies-red-text {
+  color: rgb(193, 39, 45);
+  font-weight: bold;
+}

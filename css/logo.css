@@ -1,0 +1,81 @@
+.rouge-technologies-logo {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-logo {
+    justify-content: flex-start;
+    padding: 0;
+  }
+}
+
+.rouge-technologies-logo__link {
+  display: block;
+  text-decoration: none;
+}
+
+.rouge-technologies-logo__wrapper {
+  display: flex;
+  height: 60px;
+  width: 157px;
+  align-items: center;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .rouge-technologies-logo__wrapper {
+    width: 250px;
+  }
+}
+
+@media (min-width: 768px) {
+  .rouge-technologies-logo__wrapper {
+    height: 60px;
+    width: 260px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-logo__wrapper {
+    height: 119px;
+    width: 119px;
+  }
+}
+
+.rouge-technologies-logo__small {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .rouge-technologies-logo__small {
+    display: none;
+  }
+}
+
+.rouge-technologies-logo__medium {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .rouge-technologies-logo__medium {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-logo__medium {
+    display: none;
+  }
+}
+
+.rouge-technologies-logo__large {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .rouge-technologies-logo__large {
+    display: block;
+  }
+}
