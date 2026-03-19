@@ -1,3 +1,6 @@
+@import "./tabs-desktop.css";
+@import "./tabs-mobile.css";
+
 .rouge-technologies-tabs__paragraph,
 .rouge-technologies-tabs__dynamic-paragraph {
   white-space: pre-line;
@@ -19,6 +22,3 @@
 .rouge-technologies-tabs__dynamic-content {
   display: block;
 }
-
-@import "./tabs-desktop.css";
-@import "./tabs-mobile.css";

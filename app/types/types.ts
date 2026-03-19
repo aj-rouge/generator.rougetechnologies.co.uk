@@ -66,9 +66,3 @@ export interface ProductFilter {
   sortBy?: "created_at" | "updated_at";
   sortOrder?: "ASC" | "DESC";
 }
-
-export interface ProductSearchResult {
-  products: Product[];
-  total: number;
-  hasMore: boolean;
-}

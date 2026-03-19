@@ -3,11 +3,7 @@
 import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
-import {
-  getImportanceColor,
-  getValidationColor,
-  calculateValidationScore,
-} from "../../utils/ui/validationHelpers";
+import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 import { LengthIndicatorBar } from "./LengthIndicatorBar";
 
@@ -18,20 +14,16 @@ const TITLE_CONFIG = {
 };
 
 export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
-  // Function to format keywords for display
+  // Format keywords for display
   const formatKeywords = (keywords) => {
     if (!keywords || keywords.length === 0) return "No category selected";
-
     if (keywords.length <= TITLE_CONFIG.DISPLAY_KEYWORDS_LIMIT) {
       return keywords.join(", ");
     }
-
-    return `${keywords
-      .slice(0, TITLE_CONFIG.DISPLAY_KEYWORDS_LIMIT)
-      .join(", ")}...`;
+    return `${keywords.slice(0, TITLE_CONFIG.DISPLAY_KEYWORDS_LIMIT).join(", ")}...`;
   };
 
-  // Function to check if title includes any category keywords in first N chars
+  // Check if title includes any category keywords in first N chars
   const checkKeywordUsage = () => {
     if (categoryKeywords.length === 0) return null;
 
@@ -42,24 +34,17 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
       firstChars.includes(keyword.toLowerCase()),
     );
 
-    const unusedKeywords = categoryKeywords.filter(
-      (keyword) => !firstChars.includes(keyword.toLowerCase()),
-    );
-
     return {
       used: usedKeywords,
-      unused: unusedKeywords,
+      unused: categoryKeywords.filter((k) => !usedKeywords.includes(k)),
       hasAtLeastOne: usedKeywords.length >= 1,
     };
   };
 
-  // Add handleTitleChange function
   const handleTitleChange = (e) => {
-    const value = e.target.value;
-    setTitle(value);
+    setTitle(e.target.value);
   };
 
-  // Get keyword usage status
   const getKeywordStatus = () => {
     if (categoryKeywords.length === 0) return "❌ No category selected";
     if (!title || title.length === 0) return "No title entered";
@@ -67,70 +52,57 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
     const keywordAnalysis = checkKeywordUsage();
     if (!keywordAnalysis) return "Analyzing...";
 
-    if (keywordAnalysis.used.length === 0) {
-      return "❌ No category keywords used";
-    } else {
-      return `✅ ${keywordAnalysis.used.length} category keyword(s) used`;
-    }
+    return keywordAnalysis.hasAtLeastOne
+      ? `✅ ${keywordAnalysis.used.length} category keyword(s) used`
+      : "❌ No category keywords used";
   };
 
-  // Check if we have a category selected
   const hasCategory = categoryKeywords.length > 0;
 
-  // Validation rules checker
-  const checkValidationRules = () => {
-    const rules = [
-      {
-        id: 1,
-        name: "Category Selected",
-        description: "Select a product category first",
-        check: () => hasCategory,
-        importance: "critical",
-        isCategoryRule: true,
-        errorMessage: !hasCategory
-          ? "❌ Missing: Select a category from the dropdown above"
+  // Validation rules
+  const validationRules = [
+    {
+      id: 1,
+      name: "Category Selected",
+      description: "Select a product category first",
+      check: () => hasCategory,
+      importance: "critical",
+      errorMessage: !hasCategory
+        ? "❌ Missing: Select a category from the dropdown above"
+        : null,
+    },
+    {
+      id: 2,
+      name: "Minimum Length",
+      description: `At least ${TITLE_CONFIG.MIN_LENGTH} characters`,
+      check: () => title.length >= TITLE_CONFIG.MIN_LENGTH,
+      importance: "critical",
+      condition: hasCategory,
+      errorMessage:
+        hasCategory && title.length < TITLE_CONFIG.MIN_LENGTH
+          ? `❌ Too short: Need at least ${TITLE_CONFIG.MIN_LENGTH} characters (currently ${title.length})`
           : null,
+    },
+    {
+      id: 3,
+      name: "Category Keywords",
+      description: `Use at least one keyword in first ${
+        TITLE_CONFIG.MIN_LENGTH
+      } characters: ${formatKeywords(categoryKeywords)}`,
+      check: () => {
+        if (categoryKeywords.length === 0 || title.length === 0) return false;
+        const keywordAnalysis = checkKeywordUsage();
+        return keywordAnalysis?.hasAtLeastOne ?? false;
       },
-      {
-        id: 2,
-        name: "Minimum Length",
-        description: `At least ${TITLE_CONFIG.MIN_LENGTH} characters`,
-        check: () => title.length >= TITLE_CONFIG.MIN_LENGTH,
-        importance: "critical",
-        condition: hasCategory,
-        errorMessage:
-          hasCategory && title.length < TITLE_CONFIG.MIN_LENGTH
-            ? `❌ Too short: Need at least ${TITLE_CONFIG.MIN_LENGTH} characters (currently ${title.length})`
-            : null,
-      },
-      {
-        id: 3,
-        name: "Category Keywords",
-        description: `Use at least one keyword in first ${
-          TITLE_CONFIG.MIN_LENGTH
-        } characters: ${formatKeywords(categoryKeywords)}`,
-        check: () => {
-          if (categoryKeywords.length === 0 || title.length === 0) return false;
-          const keywordAnalysis = checkKeywordUsage();
-          return keywordAnalysis && keywordAnalysis.hasAtLeastOne;
-        },
-        importance: "critical",
-        condition: hasCategory && title.length > 0,
-        errorMessage:
-          hasCategory && title.length > 0 && !checkKeywordUsage()?.hasAtLeastOne
-            ? `❌ Missing: Add at least one keyword from: ${categoryKeywords.join(", ")}`
-            : null,
-      },
-    ];
+      importance: "critical",
+      condition: hasCategory && title.length > 0,
+      errorMessage:
+        hasCategory && title.length > 0 && !checkKeywordUsage()?.hasAtLeastOne
+          ? `❌ Missing: Add at least one keyword from: ${categoryKeywords.join(", ")}`
+          : null,
+    },
+  ];
 
-    return rules;
-  };
-
-  const keywordAnalysis = checkKeywordUsage();
-  const hasAnalysis = keywordAnalysis && categoryKeywords.length > 0;
-  const validationRules = checkValidationRules();
-
-  // Filter out rules that shouldn't be displayed
   const displayRules = validationRules.filter(
     (rule) =>
       rule.condition !== false && !(rule.id === 3 && title.length === 0),
@@ -139,7 +111,6 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
   const { passedRules, totalRules, allRulesPass, validationScore } =
     calculateValidationScore(displayRules);
 
-  // Get header icon based on validation status
   const getHeaderIcon = () => {
     if (!hasCategory) return VALIDATION_COLORS.icon.critical;
     if (allRulesPass) return VALIDATION_COLORS.icon.success;
@@ -147,39 +118,33 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
     return VALIDATION_COLORS.icon.critical;
   };
 
-  // Get overall status
   const getOverallStatus = () => {
-    if (!hasCategory) {
-      return "⚠️ Select Category";
-    }
-    if (!title) {
-      return "⚠️ Enter Title";
-    }
-    if (allRulesPass) {
-      return "✓ Perfect Title";
-    }
+    if (!hasCategory) return "⚠️ Select Category";
+    if (!title) return "⚠️ Enter Title";
+    if (allRulesPass) return "✓ Perfect Title";
     return "⚠️ Needs Attention";
   };
 
-  // Get input border color based on specific validation
   const getInputBorderColor = () => {
     if (!hasCategory) {
-      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500 dark:focus:ring-yellow-400";
+      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500";
     }
     if (title.length > TITLE_CONFIG.MAX_LENGTH) {
-      return "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400";
+      return "border-red-300 dark:border-red-500 focus:ring-red-500";
     }
     if (title.length < TITLE_CONFIG.MIN_LENGTH) {
-      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500 dark:focus:ring-yellow-400";
+      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500";
     }
-    if (keywordAnalysis && keywordAnalysis.used.length === 0) {
-      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500 dark:focus:ring-yellow-400";
+    if (checkKeywordUsage()?.used.length === 0) {
+      return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500";
     }
     if (allRulesPass) {
-      return "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400";
+      return "border-green-300 dark:border-green-500 focus:ring-green-500";
     }
-    return "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400";
+    return "border-gray-300 dark:border-gray-600 focus:ring-blue-500";
   };
+
+  const keywordAnalysis = checkKeywordUsage();
 
   return (
     <ValidationWrapper validationScore={validationScore}>
@@ -200,10 +165,10 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
             Enter your title:
           </label>
           <div className="flex items-center gap-2">
-            {hasAnalysis && (
+            {hasCategory && keywordAnalysis && (
               <span
                 className={`text-sm font-medium px-2 py-1 rounded ${
-                  keywordAnalysis.used.length >= 1
+                  keywordAnalysis.hasAtLeastOne
                     ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                     : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                 }`}
@@ -249,39 +214,34 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
           disabled={!hasCategory}
         />
 
-        {/* Length indicator bar - Only show if category is selected */}
         {hasCategory && (
           <LengthIndicatorBar
             currentLength={title.length}
             minLength={TITLE_CONFIG.MIN_LENGTH}
             maxLength={TITLE_CONFIG.MAX_LENGTH}
-            showMinLine={true}
-            showMaxLine={true}
+            showMinLine
+            showMaxLine
             barHeight="h-2"
             className="mt-4"
           />
         )}
 
-        {/* Keyword usage visualization - Only show if category is selected */}
         {hasCategory && title.length > 0 && (
           <div className="mt-4">
             <div className="mb-2">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {getKeywordStatus()}
               </p>
-              {keywordAnalysis &&
-                keywordAnalysis.used.length === 0 &&
-                categoryKeywords.length > 0 && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    Add at least one keyword from: {categoryKeywords.join(", ")}
-                  </p>
-                )}
+              {keywordAnalysis && keywordAnalysis.used.length === 0 && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  Add at least one keyword from: {categoryKeywords.join(", ")}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-1 text-xs">
               {categoryKeywords.map((keyword, index) => {
-                const isUsed =
-                  keywordAnalysis && keywordAnalysis.used.includes(keyword);
+                const isUsed = keywordAnalysis?.used.includes(keyword);
                 return (
                   <span
                     key={index}
@@ -303,11 +263,9 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
 
       <ValidationRules
         rules={displayRules}
-        getImportanceColor={getImportanceColor}
         headerIcon={getHeaderIcon()}
         headerText="Title Requirements"
         validationScore={validationScore}
-        getValidationColor={getValidationColor}
         allRulesPass={allRulesPass}
         passedRules={passedRules}
         totalRules={totalRules}

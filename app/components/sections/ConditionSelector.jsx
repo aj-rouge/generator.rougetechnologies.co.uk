@@ -1,22 +1,101 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 
+// Helper to find a category by slug (recursive)
+const findCategoryBySlug = (categories, slug) => {
+  if (!categories || !slug) return null;
+
+  for (const cat of categories) {
+    if (cat.slug === slug) return cat;
+    if (cat.children && cat.children.length > 0) {
+      const found = findCategoryBySlug(cat.children, slug);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 export default function ConditionSelector({
   condition,
   setCondition,
   selectedCategory,
-  conditionOptions,
-  conditionGroup,
-  validationState,
-  isLoading,
-  error,
+  categories,
 }) {
+console.log("ConditionSelector props:", {
+  condition,
+  selectedCategory,
+});
+
+  const [conditionOptions, setConditionOptions] = useState([]);
+  const [conditionGroup, setConditionGroup] = useState(null);
+  const [validationState, setValidationState] = useState({
+    isValid: null,
+    suggestedCondition: null,
+  });
+  const [error, setError] = useState(null);
+
+  // Find the selected category object whenever selectedCategory or categories change
+  useEffect(() => {
+    if (!selectedCategory || !categories) {
+      setConditionOptions([]);
+      setConditionGroup(null);
+      setValidationState({ isValid: null, suggestedCondition: null });
+      setError(null);
+      return;
+    }
+
+    const cat = findCategoryBySlug(categories, selectedCategory);
+
+    if (cat) {
+      if (cat.condition_group && cat.condition_group.options) {
+        const options = cat.condition_group.options.map((opt) => ({
+          value: opt,
+          label: opt,
+        }));
+
+        setConditionOptions(options);
+        setConditionGroup(cat.condition_group);
+        console.log("Found condition group:", cat.condition_group);
+        setError(null);
+
+        // Validate current condition against new options
+        if (condition) {
+          const isValid = cat.condition_group.options.includes(condition);
+          setValidationState({
+            isValid,
+            suggestedCondition:
+              !isValid && options.length > 0 ? options[0].value : null,
+          });
+        } else {
+          setValidationState({ isValid: null, suggestedCondition: null });
+        }
+      } else {
+        setConditionOptions([]);
+        setConditionGroup(null);
+        setError("Category has no condition group mapping");
+        setValidationState({ isValid: null, suggestedCondition: null });
+      }
+    } else {
+      setConditionOptions([]);
+      setConditionGroup(null);
+      setError(`Category "${selectedCategory}" not found`);
+      setValidationState({ isValid: null, suggestedCondition: null });
+    }
+  }, [selectedCategory, categories, condition]);
+
+  // Auto-select first condition if none selected and options are available
+  useEffect(() => {
+    if (conditionOptions.length > 0 && !condition) {
+      setCondition(conditionOptions[0].value);
+    }
+  }, [conditionOptions, condition, setCondition]);
+
   // --- Helper: eBay group name display ---
   const conditionGroupValue =
     conditionGroup?.group_name || conditionGroup?.group_key || "Not mapped";
@@ -51,14 +130,13 @@ export default function ConditionSelector({
             </a>
           </span>
         ),
-        check: () => !!conditionOptions && !error,
+        check: () => conditionOptions.length > 0 && !error,
         importance: "critical",
         condition: !!selectedCategory,
         errorMessage: (() => {
           if (!selectedCategory) return null;
-          if (isLoading) return "⏳ Loading condition options...";
           if (error) return `❌ Error: ${error}`;
-          if (!conditionOptions)
+          if (conditionOptions.length === 0)
             return `❌ Error: Category "${selectedCategory}" is not properly mapped to eBay conditions`;
           return null;
         })(),
@@ -69,9 +147,9 @@ export default function ConditionSelector({
         description: "Choose an item condition",
         check: () => !!condition,
         importance: "critical",
-        condition: !!conditionOptions,
+        condition: conditionOptions.length > 0,
         errorMessage:
-          conditionOptions && !condition
+          conditionOptions.length > 0 && !condition
             ? "❌ Missing: Choose a condition from the dropdown above"
             : null,
       },
@@ -81,9 +159,9 @@ export default function ConditionSelector({
         description: "Condition must be valid for this category",
         check: () => validationState?.isValid === true,
         importance: "critical",
-        condition: !!condition && !!conditionOptions,
+        condition: !!condition && conditionOptions.length > 0,
         errorMessage: (() => {
-          if (!condition || !conditionOptions) return null;
+          if (!condition || conditionOptions.length === 0) return null;
           if (validationState?.isValid === false) {
             return `❌ Invalid condition for this category. Suggested: ${validationState.suggestedCondition || "None"}`;
           }
@@ -97,7 +175,6 @@ export default function ConditionSelector({
     selectedCategory,
     conditionOptions,
     error,
-    isLoading,
     condition,
     validationState,
     conditionGroupValue,
@@ -114,16 +191,14 @@ export default function ConditionSelector({
   // --- Overall status string ---
   const getOverallStatus = useCallback(() => {
     if (!selectedCategory) return "⚠️ Select Category";
-    if (isLoading) return "⏳ Loading...";
     if (error) return "⚠️ Error";
-    if (!conditionOptions) return "⚠️ Category Mapping Error";
+    if (conditionOptions.length === 0) return "⚠️ Category Mapping Error";
     if (!condition) return "⚠️ Select Condition";
     if (validationState?.isValid === false) return "⚠️ Invalid Condition";
     if (allRulesPass && validationState?.isValid) return "✓ Condition Set";
     return "⚠️ Needs Attention";
   }, [
     selectedCategory,
-    isLoading,
     error,
     conditionOptions,
     condition,
@@ -133,7 +208,7 @@ export default function ConditionSelector({
 
   // --- Header icon ---
   const getHeaderIcon = useCallback(() => {
-    if (!selectedCategory || isLoading || error || !conditionOptions) {
+    if (!selectedCategory || error || conditionOptions.length === 0) {
       return VALIDATION_COLORS.icon.critical;
     }
     if (!condition || validationState?.isValid === false) {
@@ -145,7 +220,6 @@ export default function ConditionSelector({
     return VALIDATION_COLORS.icon.warning;
   }, [
     selectedCategory,
-    isLoading,
     error,
     conditionOptions,
     condition,
@@ -160,7 +234,7 @@ export default function ConditionSelector({
     return (
       <>
         Category: <span className="font-medium">{selectedCategory}</span>
-        {conditionOptions && conditionGroup && (
+        {conditionOptions.length > 0 && conditionGroup && (
           <span className="ml-3">
             eBay group:{" "}
             <span className="font-medium">{conditionGroupValue}</span>{" "}
@@ -193,7 +267,7 @@ export default function ConditionSelector({
           <label className="block text-black dark:text-gray-100 font-medium">
             Select condition:
           </label>
-          {selectedCategory && conditionOptions && (
+          {selectedCategory && conditionOptions.length > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {conditionOptions.length} eBay options
             </span>
@@ -221,18 +295,6 @@ export default function ConditionSelector({
           </div>
         )}
 
-        {/* Loading State */}
-        {selectedCategory && isLoading && (
-          <div
-            className={`mb-4 p-3 ${VALIDATION_COLORS.bg.warning} rounded-lg border ${VALIDATION_COLORS.border.warning}`}
-          >
-            <p className={`text-sm ${VALIDATION_COLORS.text.warning}`}>
-              <span className="animate-pulse">⏳</span>{" "}
-              <strong>Loading condition options...</strong>
-            </p>
-          </div>
-        )}
-
         {/* Error State */}
         {selectedCategory && error && (
           <div
@@ -246,7 +308,7 @@ export default function ConditionSelector({
         )}
 
         {/* Category Mapped but no options */}
-        {selectedCategory && !isLoading && !error && !conditionOptions && (
+        {selectedCategory && !error && conditionOptions.length === 0 && (
           <div
             className={`mb-4 p-3 ${VALIDATION_COLORS.bg.critical} rounded-lg border ${VALIDATION_COLORS.border.critical}`}
           >
@@ -267,7 +329,7 @@ export default function ConditionSelector({
         )}
 
         {/* Condition Selector */}
-        {conditionOptions && (
+        {conditionOptions.length > 0 && (
           <>
             <select
               value={condition || ""}
@@ -337,19 +399,17 @@ export default function ConditionSelector({
         overallStatusMessage={
           !selectedCategory
             ? "Select Category"
-            : isLoading
-              ? "Loading..."
-              : error
-                ? "Error"
-                : !conditionOptions
-                  ? "Mapping Error"
-                  : !condition
-                    ? "Select Condition"
-                    : validationState?.isValid === false
-                      ? "Invalid Condition"
-                      : allRulesPass && validationState?.isValid
-                        ? "Perfect!"
-                        : "Needs work"
+            : error
+              ? "Error"
+              : conditionOptions.length === 0
+                ? "Mapping Error"
+                : !condition
+                  ? "Select Condition"
+                  : validationState?.isValid === false
+                    ? "Invalid Condition"
+                    : allRulesPass && validationState?.isValid
+                      ? "Perfect!"
+                      : "Needs work"
         }
       />
     </ValidationWrapper>

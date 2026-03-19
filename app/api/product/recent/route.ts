@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../utils/d1/db";
+import { getRecentProducts } from "../../../utils/d1/getRecentProducts";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,25 +10,17 @@ export async function GET(request: NextRequest) {
       "updated_at";
     const sortOrder =
       (searchParams.get("sortOrder") as "ASC" | "DESC") || "DESC";
-    const category = searchParams.get("category") || undefined; // 👈 new
+    const category = searchParams.get("category") || undefined;
 
     // Validate limit (prevent excessive requests)
     const validLimit = Math.min(Math.max(limit, 1), 100);
 
-    let products;
-    if (sortBy === "updated_at") {
-      products = await db.productsNew.getRecentlyUpdated(
-        validLimit,
-        sortOrder,
-        category, // 👈 pass category
-      );
-    } else {
-      products = await db.productsNew.getRecentlyCreated(
-        validLimit,
-        sortOrder,
-        category, // 👈 pass category
-      );
-    }
+    const products = await getRecentProducts({
+      limit: validLimit,
+      order: sortOrder,
+      category,
+      sortBy,
+    });
 
     return NextResponse.json(products);
   } catch (error) {

@@ -173,45 +173,59 @@ CREATE INDEX IF NOT EXISTS idx_product_feedbacks_product_id ON product_feedbacks
 CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warnings) WHERE warnings IS NOT NULL;
 
 -- =====================================================
--- VIEW for full product data (useful for responses)
+-- VIEW for full product data (no category enrichment)
 -- =====================================================
-DROP VIEW IF EXISTS v_product_full;
-CREATE VIEW v_product_full AS
+
+DROP VIEW IF EXISTS v_product_complete;
+CREATE VIEW v_product_complete AS
 SELECT 
-  p.*,
+  p.id,
+  p.slug,
+  p.title,
+  p.sku,
+  p.ean,
+  p.asin,
+  p.baselinker_id,
+  p.shopify_id,
+  p.category AS category_slug,
+  p.condition AS product_condition,
+  p.note,
+  p.created_at,
+  p.updated_at,
+  
   (
     SELECT json_group_array(content ORDER BY paragraph_order)
-    FROM product_paragraphs 
-    WHERE product_id = p.id
-  ) as paragraphs,
+    FROM product_paragraphs WHERE product_id = p.id
+  ) AS paragraphs,
+  
   (
     SELECT json_group_array(
-      json_object('title', title, 'description', description) 
+      json_object('title', title, 'description', description)
       ORDER BY feature_order
     )
-    FROM product_features 
-    WHERE product_id = p.id
-  ) as features,
+    FROM product_features WHERE product_id = p.id
+  ) AS features,
+  
   (
     SELECT json_group_array(
       json_object(
-        'url', COALESCE(s3_path, url), -- Prioritizes R2 path over source URL
+        'url', COALESCE(s3_path, url),
         's3_path', s3_path,
         'original_url', url,
-        'alt_text', alt_text
-      ) 
-      ORDER BY image_order
+        'alt_text', alt_text,
+        'warnings', warnings
+      ) ORDER BY image_order
     )
-    FROM product_images 
-    WHERE product_id = p.id
-  ) as images,
+    FROM product_images WHERE product_id = p.id
+  ) AS images,
+  
   (
     SELECT json_group_array(
       json_object('name', name, 'content', content, 'count', count)
     )
-    FROM product_feedbacks 
-    WHERE product_id = p.id
-  ) as feedbacks
+    FROM product_feedbacks WHERE product_id = p.id
+  ) AS feedbacks
+
 FROM products p;
 
 -- =====================================================

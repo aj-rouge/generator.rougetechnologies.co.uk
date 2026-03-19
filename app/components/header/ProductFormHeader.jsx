@@ -3,8 +3,9 @@ import Link from "next/link";
 import { Home } from "lucide-react";
 import { DarkModeToggle } from "./DarkModeToggle";
 import SaveNotification from "./SaveNotification";
-import DeleteButton from "./DeleteButton";
-import SaveButton from "./SaveButton"; // Import the new SaveButton
+import DeleteButton from "./delete-product/DeleteButton";
+import SaveButton from "./save-product/SaveButton";
+import UpdateBaselinkerButton from "./UpdateBaselinkerButton"; // Import the new button
 
 export default function ProductFormHeader({
   mode,
@@ -15,7 +16,9 @@ export default function ProductFormHeader({
   onSave,
   selectedCategory,
   notification,
-  hasPendingUploads = false, // Add this prop if needed
+  hasPendingUploads = false,
+  uuid,
+  baselinkerId, // Add this prop
 }) {
   const isEdit = mode === "edit";
 
@@ -40,6 +43,7 @@ export default function ProductFormHeader({
                 <DeleteButton
                   productTitle={title}
                   selectedCategory={selectedCategory}
+                  uuid={uuid}
                 />
               </div>
             ) : (
@@ -63,6 +67,17 @@ export default function ProductFormHeader({
             className={`flex flex-row justify-end gap-3 w-full ${isEdit ? "lg:w-auto flex-1" : ""}`}
           >
             <DarkModeToggle />
+
+            {/* Add the Baselinker update button here (only show in edit mode) */}
+            {isEdit && baselinkerId && (
+              <UpdateBaselinkerButton
+                baselinkerId={baselinkerId}
+                productTitle={title}
+                disabled={isSaving}
+                uuid={uuid}
+              />
+            )}
+
             <div className="flex items-center gap-3">
               <SaveButton
                 onSave={onSave}

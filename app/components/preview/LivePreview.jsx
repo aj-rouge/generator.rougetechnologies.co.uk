@@ -1,3 +1,4 @@
+// components/preview/LivePreview.tsx
 import Header from "./header/Header";
 import ProductGallery from "./ProductGallery";
 import ProductDetails from "./ProductDetails";
@@ -16,9 +17,10 @@ const LivePreview = ({
   features,
   note,
   feedbacks,
-  seoSectionData,
+  categoryContent,
   selectedCategory,
   ebayLink,
+  categoryName,
 }) => {
   return (
     <div className="rouge-technologies-live-preview">
@@ -45,8 +47,8 @@ const LivePreview = ({
           ebayLink={ebayLink}
         />
         <Category
-          categoryName={seoSectionData.name}
-          categoryContent={seoSectionData.sections}
+          categoryName={categoryName} // now from prop
+          categoryContent={categoryContent?.content || []}
         />
         <Footer />
       </div>

@@ -1,3 +1,11 @@
+@import "./promotion-grid.css";
+@import "./tabs.css";
+@import "./product-details.css";
+@import "./product-gallery.css";
+@import "./header.css";
+@import "./feedback.css";
+@import "./category.css";
+
 :root {
   /* Shipping Content */
   --rouge-technologies-shipping-content: "We always strive to offer a smooth and uninterrupted delivery service. Orders purchased before 10:30am will be dispatched the very same day (Mon - Fri). Purchases made after 10:30am Mon - Fri will be shipped the following working day."
@@ -18,14 +26,6 @@
     "\A \A Refunds will typically be issued within 3-5 working days after being received at our warehouse. We will reach out to you directly if there is anything further to clarify prior to issuing your refund."
     "\A\A Please kindly note that sealed hygiene items, software/media and personalised items are exempted from returns once opened.";
 }
-
-@import "./promotion-grid.css";
-@import "./tabs.css";
-@import "./product-details.css";
-@import "./product-gallery.css";
-@import "./header.css";
-@import "./feedback.css";
-@import "./category.css";
 
 .rouge-technologies-live-preview {
   background-color: #fff;
