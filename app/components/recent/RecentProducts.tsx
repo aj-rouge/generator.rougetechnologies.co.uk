@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
-type LimitOption = 5 | 10 | 20 | 50 | 100;
+type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 
 interface RecentProductsProps {
   initialProducts: any[];

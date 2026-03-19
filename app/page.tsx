@@ -11,7 +11,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
 
   // Parse search params for initial filters
-  const limit = Math.min(Math.max(Number(searchParams.limit) || 10, 1), 100);
+  const limit = Math.min(Math.max(Number(searchParams.limit) || 10, 1), 500);
   const sortBy = (
     searchParams.sortBy === "created_at" ? "created_at" : "updated_at"
   ) as "updated_at" | "created_at";

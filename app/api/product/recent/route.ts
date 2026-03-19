@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category") || undefined;
 
     // Validate limit (prevent excessive requests)
-    const validLimit = Math.min(Math.max(limit, 1), 100);
+    const validLimit = Math.min(Math.max(limit, 1), 500);
 
     const products = await getRecentProducts({
       limit: validLimit,

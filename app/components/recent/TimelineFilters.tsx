@@ -6,7 +6,7 @@ import { FilterDropdown } from "./FilterDropdown";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
-type LimitOption = 5 | 10 | 20 | 50 | 100;
+type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 
 interface TimelineFiltersProps {
   sortField: SortField;
@@ -21,7 +21,7 @@ interface TimelineFiltersProps {
   // 👇 category props removed
 }
 
-const limitOptions = [5, 10, 20, 50, 100].map((n) => ({
+const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
   value: n as LimitOption,
   label: `${n} items`,
 }));
