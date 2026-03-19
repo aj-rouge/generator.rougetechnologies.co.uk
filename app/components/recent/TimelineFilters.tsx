@@ -49,7 +49,7 @@ export const TimelineFilters = ({
         layout
         onClick={() => setShowFilters(true)}
         className="
-          md:hidden p-2 text-gray-500 rounded-lg
+           p-2 text-gray-500 rounded-lg
           hover:bg-gray-100 dark:hover:bg-gray-800
           transition-colors
         "
@@ -59,7 +59,7 @@ export const TimelineFilters = ({
       </motion.button>
 
       {/* Desktop filters (all remaining filters) */}
-      <div className="hidden md:flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <FilterDropdown
           label={sortOptions.find((o) => o.value === sortField)?.label || ""}
           options={sortOptions}
@@ -124,7 +124,7 @@ export const TimelineFilters = ({
         onClick={fetchRecent}
         disabled={loading}
         className="
-          md:hidden p-2 rounded-md border transition-all duration-200
+           p-2 rounded-md border transition-all duration-200
           bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
           text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700
           disabled:opacity-50 disabled:cursor-not-allowed

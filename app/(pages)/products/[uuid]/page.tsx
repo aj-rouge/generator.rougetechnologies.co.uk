@@ -1,9 +1,8 @@
-// app/edit/[uuid]/page.tsx
 import { notFound } from "next/navigation";
-import EditProductForm from "../../../components/forms/EditProductForm";
 import { getProductById } from "../../../utils/d1/product/readProduct";
 import { getCategories } from "../../../utils/d1/category/getCategories";
 import { getCategoryContent } from "../../../utils/d1/getCategoryContent";
+import ProductForm from "../../../components/ProductForm";
 
 export default async function EditPage({
   params,
@@ -11,22 +10,20 @@ export default async function EditPage({
   params: Promise<{ uuid: string }>;
 }) {
   const { uuid } = await params;
-
   const initialData = await getProductById(uuid, { transformToForm: true });
   if (!initialData) notFound();
 
   const categories = await getCategories();
-
-  // Fetch content for the selected category
   const categoryContent = await getCategoryContent(
     initialData.selectedCategory,
   );
 
   return (
-    <EditProductForm
-      initialData={initialData}
+    <ProductForm
+      mode="edit"
       categories={categories}
-      categoryContent={categoryContent} // Pass as separate prop
+      initialData={initialData}
+      categoryContent={categoryContent}
     />
   );
 }

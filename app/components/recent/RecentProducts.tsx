@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Clock, Inbox, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "./ProductCard";
-import { MobileFilterPanel } from "./MobileFilterPanel";
 import CategoryFilter from "./CategoryFilter";
 import { TimelineFilters } from "./TimelineFilters";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -120,25 +119,6 @@ export default function RecentProducts({
           setShowFilters={setShowFilters}
         />
       </div>
-
-      {/* Mobile filter panel */}
-      <AnimatePresence>
-        {showFilters && (
-          <MobileFilterPanel
-            onClose={() => setShowFilters(false)}
-            sortField={sortField}
-            setSortField={setSortField}
-            sortOrder={sortOrder}
-            toggleSortOrder={() =>
-              setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC"))
-            }
-            limit={limit}
-            setLimit={setLimit}
-            category={category}
-            setCategory={setCategory}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Results area */}
       <div className="relative min-h-[200px]">
