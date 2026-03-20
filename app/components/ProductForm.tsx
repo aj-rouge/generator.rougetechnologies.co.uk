@@ -311,6 +311,7 @@ export default function ProductForm({
         selectedCategory={formData.selectedCategory}
         uuid={mode === "edit" ? formData.id : undefined}
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
+        shopifyId={mode === "edit" ? formData.shopify_id : undefined} // ← add this line
       />
 
       <div className="flex flex-col gap-2">

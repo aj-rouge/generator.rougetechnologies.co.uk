@@ -44,20 +44,6 @@ export const TimelineFilters = ({
 }: TimelineFiltersProps) => {
   return (
     <motion.div layout className="flex items-center gap-2 px-2">
-      {/* Mobile filter button */}
-      <motion.button
-        layout
-        onClick={() => setShowFilters(true)}
-        className="
-           p-2 text-gray-500 rounded-lg
-          hover:bg-gray-100 dark:hover:bg-gray-800
-          transition-colors
-        "
-        whileTap={{ scale: 0.95 }}
-      >
-        <Filter className="w-5 h-5" />
-      </motion.button>
-
       {/* Desktop filters (all remaining filters) */}
       <div className="flex items-center gap-2">
         <FilterDropdown
@@ -117,23 +103,6 @@ export const TimelineFilters = ({
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </motion.button>
       </div>
-
-      {/* Refresh button for mobile is already inside the row, but we can keep it visible on mobile too */}
-      <motion.button
-        layout
-        onClick={fetchRecent}
-        disabled={loading}
-        className="
-           p-2 rounded-md border transition-all duration-200
-          bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-          text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700
-          disabled:opacity-50 disabled:cursor-not-allowed
-        "
-        whileTap={{ scale: 0.95 }}
-        title="Refresh"
-      >
-        <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-      </motion.button>
     </motion.div>
   );
 };

@@ -1,3 +1,4 @@
+// app/api/baselinker-html-description-update/route.ts
 import { NextResponse } from "next/server";
 import { generateProductHTML } from "../../utils/htmlGenerator/generateProductHTML";
 
