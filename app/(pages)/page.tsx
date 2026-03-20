@@ -1,11 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { DarkModeToggle } from "./components/header/DarkModeToggle";
-import RecentProducts from "./components/recent/RecentProducts";
-import { getRecentProducts } from "./utils/d1/getRecentProducts";
-import DotGridBackground from "./components/DotGridBackgroundProps";
-import { getCategories } from "./utils/d1/category/getCategories";
+import { DarkModeToggle } from "../components/header/DarkModeToggle";
+import RecentProducts from "../components/recent/RecentProducts";
+import { getRecentProducts } from "../utils/d1/getRecentProducts";
+import { getCategories } from "../utils/d1/category/getCategories";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -35,12 +34,9 @@ export default async function Page(props: { searchParams: SearchParams }) {
   });
 
   return (
-    <div className="relativeflex flex-col items-center gap-4 p-4 min-h-screen bg-white dark:bg-black transition-colors duration-300">
-      {/* Add the background component */}
-      <DotGridBackground />
-
-      {/* Existing absolute positioned elements (toggle, link) */}
-      <div className="absolute top-4 right-4 md:top-4 md:right-6 flex items-center gap-3 z-10">
+    <div className="flex flex-col items-center gap-4 p-4 min-h-screen transition-colors duration-300">
+      {/* Absolute positioned elements */}
+      <div className="absolute top-4 right-4 md:top-4 md:right-6 flex items-center gap-3 z-20">
         <DarkModeToggle />
 
         <Link
@@ -53,7 +49,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
       </div>
 
       {/* Main Content */}
-      <div className="mt-16 w-full flex flex-col items-center gap-4 relative z-10">
+      <div className="mt-16 w-full flex flex-col items-center gap-4">
         <RecentProducts
           initialProducts={initialProducts}
           categories={categories}

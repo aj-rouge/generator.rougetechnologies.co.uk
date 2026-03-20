@@ -22,29 +22,35 @@ export default function ProductFormHeader({
 }) {
   const isEdit = mode === "edit";
 
+  // Reusable Home button
+  const HomeButton = () => (
+    <Link
+      href="/"
+      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+    >
+      <Home className="w-4 h-4" />
+      <span className="hidden sm:inline">Home</span>
+    </Link>
+  );
+
   return (
-    <div className="sticky top-0 z-40 bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
+    <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
       <div className="py-4">
         <div
           className={`flex flex-col lg:flex-row gap-4 items-center ${
             isEdit ? "justify-between" : "grid lg:grid-cols-3"
           }`}
         >
-          {/* LEFT SECTION: Home button (for edit mode) or Title (for create mode) */}
+          {/* LEFT SECTION */}
           <div
             className={`flex items-center gap-3 w-full ${
               isEdit ? "lg:w-auto flex-col items-start" : "justify-start"
             }`}
           >
             {isEdit ? (
+              // Edit mode: Home + Delete buttons
               <div className="flex items-center gap-3">
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Home className="w-4 h-4" />
-                  <span className="hidden sm:inline">Home</span>
-                </Link>
+                <HomeButton />
                 <DeleteButton
                   productTitle={title}
                   selectedCategory={selectedCategory}
@@ -52,13 +58,17 @@ export default function ProductFormHeader({
                 />
               </div>
             ) : (
-              <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
-                {title || "Create New Product"}
-              </h2>
+              // Create mode: Home button + title
+              <div className="flex items-center gap-3">
+                <HomeButton />
+                <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
+                  {title || "Create New Product"}
+                </h2>
+              </div>
             )}
           </div>
 
-          {/* CENTER SECTION: Page Title (for edit mode) */}
+          {/* CENTER SECTION (only visible in edit mode) */}
           {isEdit && (
             <div className="hidden lg:block text-center">
               <h1 className="text-xl font-bold text-black dark:text-white truncate max-w-fit">
@@ -73,12 +83,12 @@ export default function ProductFormHeader({
               isEdit ? "lg:w-auto flex-1" : ""
             }`}
           >
+            {/* Dark mode toggle - always on the right */}
             <DarkModeToggle />
 
-            {/* External Product Links - only show in edit mode when IDs exist */}
+            {/* External product links (edit mode only) */}
             {isEdit && (shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
-                {/* Shopify Link */}
                 {shopifyId && (
                   <a
                     href={`https://admin.shopify.com/store/rouge-technologies/products/${shopifyId}`}
@@ -92,8 +102,6 @@ export default function ProductFormHeader({
                     <ExternalLink className="w-3 h-3 opacity-70" />
                   </a>
                 )}
-
-                {/* Baselinker Link */}
                 {baselinkerId && (
                   <a
                     href={`https://panel-g.baselinker.com/inventory_products#product:${baselinkerId}#tab:information`}
@@ -110,7 +118,7 @@ export default function ProductFormHeader({
               </div>
             )}
 
-            {/* Baselinker Update Button - only show in edit mode */}
+            {/* Baselinker update button (edit mode only) */}
             {isEdit && baselinkerId && (
               <UpdateBaselinkerButton
                 baselinkerId={baselinkerId}
@@ -120,7 +128,7 @@ export default function ProductFormHeader({
               />
             )}
 
-            {/* Save Button */}
+            {/* Save button */}
             <div className="flex items-center gap-3">
               <SaveButton
                 onSave={onSave}
@@ -136,7 +144,7 @@ export default function ProductFormHeader({
         </div>
       </div>
 
-      {/* Notification Area */}
+      {/* Notification area */}
       <div
         className={`relative w-full overflow-hidden transition-all duration-300 ${
           notification?.message

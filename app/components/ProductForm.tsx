@@ -299,7 +299,7 @@ export default function ProductForm({
   // 7. Render
   // ---------------------------------------------------------------------
   return (
-    <div className="w-full px-4 xl:px-5 bg-gray-200 dark:bg-black min-h-screen">
+    <div className="w-full min-h-screen">
       <ProductFormHeader
         mode={mode}
         title={formData.title}
@@ -314,7 +314,7 @@ export default function ProductForm({
         shopifyId={mode === "edit" ? formData.shopify_id : undefined} // ← add this line
       />
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col px-4 gap-2 pt-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector
             selectedCategory={formData.selectedCategory}
