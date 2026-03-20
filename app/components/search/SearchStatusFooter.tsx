@@ -5,6 +5,7 @@ interface SearchStatusFooterProps {
   detectedTypeLabel: string;
   minChars: number;
   maxLength: number;
+  loading?: boolean;
 }
 
 export default function SearchStatusFooter({
@@ -12,6 +13,7 @@ export default function SearchStatusFooter({
   detectedTypeLabel,
   minChars,
   maxLength,
+  loading = false,
 }: SearchStatusFooterProps) {
   return (
     <AnimatePresence>
@@ -29,9 +31,36 @@ export default function SearchStatusFooter({
                   query.length >= minChars ? "text-green-500" : "text-gray-400"
                 }`}
               >
-                {query.length >= minChars
-                  ? "● Ready"
-                  : `○ Min ${minChars} chars`}
+                {query.length >= minChars ? (
+                  loading ? (
+                    <span className="flex items-center gap-1">
+                      <svg
+                        className="animate-spin h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Searching
+                    </span>
+                  ) : (
+                    "● Ready"
+                  )
+                ) : (
+                  `○ Min ${minChars} chars`
+                )}
               </span>
 
               {query.length > 0 && (

@@ -6,7 +6,7 @@ export type SearchType =
   | "title"
   | "shopify_id"
   | "baselinker_id"
-  | "slug"
+  | "slug";
 
 export const DETECTORS = {
   // EAN: Strictly 13 digits
@@ -28,7 +28,6 @@ export function detectSearchType(input: string): {
   label: string;
 } {
   const trimmed = input.trim();
-
 
   // 1. Check for BaseLinker ID first (8-10 digits)
   if (DETECTORS.baselinker_id.regex.test(trimmed)) {
@@ -64,4 +63,7 @@ export function detectSearchType(input: string): {
   if (trimmed.includes(" ") || trimmed.length > 15) {
     return { type: "title", label: "Product Title" };
   }
+
+  // Fallback for any unhandled case (e.g., short lowercase strings)
+  return { type: "title", label: "Product Title" };
 }

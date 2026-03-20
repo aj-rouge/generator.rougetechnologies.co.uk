@@ -5,6 +5,7 @@ import { DarkModeToggle } from "../components/header/DarkModeToggle";
 import RecentProducts from "../components/recent/RecentProducts";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
 import { getCategories } from "../utils/d1/category/getCategories";
+import SearchBar from "../components/search/SearchBar";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -50,6 +51,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
 
       {/* Main Content */}
       <div className="mt-16 w-full flex flex-col items-center gap-4">
+        <SearchBar />
         <RecentProducts
           initialProducts={initialProducts}
           categories={categories}

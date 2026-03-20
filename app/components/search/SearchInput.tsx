@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface SearchInputProps {
   query: string;
@@ -9,8 +9,10 @@ interface SearchInputProps {
   onFocus: () => void;
   onBlur: () => void;
   onClear: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
   maxLength: number;
 }
+
 export default function SearchInput({
   query,
   setQuery,
@@ -19,6 +21,7 @@ export default function SearchInput({
   onFocus,
   onBlur,
   onClear,
+  onKeyDown,
   maxLength,
 }: SearchInputProps) {
   return (
@@ -28,12 +31,10 @@ export default function SearchInput({
           {!searchActive && (
             <motion.button
               key="icon"
-              // When clicking the icon, force focus on the input
               onClick={() => inputRef.current?.focus()}
               initial={{ opacity: 0, scale: 0.8, x: -10 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.5, x: -20 }}
-              // cursor-text makes it feel like part of the input
               className="text-gray-400 mr-2 cursor-text hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <Search className="w-5 h-5" />
@@ -51,6 +52,7 @@ export default function SearchInput({
         onChange={(e) => setQuery(e.target.value)}
         onFocus={onFocus}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         placeholder="Search by title, SKU, EAN..."
         className="flex-1 bg-transparent outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 py-2"
         transition={{ type: "spring", stiffness: 300, damping: 30 }}

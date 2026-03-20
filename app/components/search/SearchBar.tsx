@@ -1,145 +1,95 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, LayoutGroup } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import SearchInput from "./SearchInput";
 import SearchStatusFooter from "./SearchStatusFooter";
-import CategoryFilter from "../recent/CategoryFilter";
+import { useDebounce } from "../../utils/useDebounce";
 import { detectSearchType } from "../../utils/search/recognize";
+import SearchDropdown from "./SearchDropdown";
 
-const DEBOUNCE_MS = 500;
-const MIN_CHARS = 4;
-const DEFAULT_LIMIT = 80;
+const MIN_CHARS = 2;
+const DEBOUNCE_MS = 300;
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [searchActive, setSearchActive] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [category, setCategory] = useState(""); // This will be synced with CategoryFilter
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const debouncedQuery = useDebounce(query, DEBOUNCE_MS);
   const { label: detectedTypeLabel } = detectSearchType(query);
 
-  const fetchResults = useCallback(
-    async (searchQuery: string, nextCursor?: string) => {
-      if (searchQuery.length < MIN_CHARS) return;
-
-      setLoading(true);
-      setHasSearched(true);
-      try {
-        const params = new URLSearchParams({
-          q: searchQuery,
-          type: "auto",
-          limit: DEFAULT_LIMIT.toString(),
-          ...(nextCursor && { cursor: nextCursor }),
-        });
-
-        // Add filters
-        if (category) params.append("category", category);
-
-        const response = await fetch(`/api/product/search?${params}`);
-        const data = await response.json();
-
-        setResults((prev) =>
-          nextCursor ? [...prev, ...data.results] : data.results,
-        );
-        setCursor(data.nextCursor || null);
-        setHasMore(!!data.nextCursor);
-        setShowDropdown(true);
-      } catch (error) {
-        console.error("Search failed:", error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [category],
-  );
-
-  // Handle category changes from CategoryFilter
-  const handleCategoryChange = useCallback(
-    (newCategory: string) => {
-      setCategory(newCategory);
-      // Optionally reset search results when category changes
-      setResults([]);
-      setCursor(null);
-      if (query.length >= MIN_CHARS) {
-        fetchResults(query);
-      }
-    },
-    [query, fetchResults],
-  );
-
+  // Fetch results when debounced query changes
   useEffect(() => {
-    if (query.length < MIN_CHARS) {
+    if (debouncedQuery.length >= MIN_CHARS) {
+      setLoading(true);
+      fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setResults(data.results);
+          setShowDropdown(true);
+        })
+        .catch((err) => console.error("Search error:", err))
+        .finally(() => setLoading(false));
+    } else {
       setResults([]);
       setShowDropdown(false);
-      return;
     }
+    setSelectedIndex(-1);
+  }, [debouncedQuery]);
 
-    const timer = setTimeout(() => {
-      fetchResults(query);
-    }, DEBOUNCE_MS);
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [query, fetchResults]);
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showDropdown || results.length === 0) return;
 
-  const handleScroll = () => {
-    if (!resultsRef.current || !cursor || !hasMore || loading) return;
-    const { scrollTop, scrollHeight, clientHeight } = resultsRef.current;
-    if (scrollHeight - scrollTop - clientHeight < 50) {
-      fetchResults(query, cursor);
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % results.length);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex(
+          (prev) => (prev - 1 + results.length) % results.length,
+        );
+        break;
+      case "Enter":
+        if (selectedIndex >= 0 && results[selectedIndex]) {
+          window.location.href = `/products/${results[selectedIndex].slug}`;
+        }
+        break;
+      case "Escape":
+        setShowDropdown(false);
+        inputRef.current?.blur();
+        break;
     }
   };
-  // Inside SearchBar component, after the existing useEffect
-  useEffect(() => {
-    // If the query matches an identifier pattern and has the exact length,
-    // we can call the instant endpoint immediately (bypassing debounce).
-    const { type } = detectSearchType(query);
-    const isCompleteIdentifier =
-      (type === "ean" && query.length === 13) ||
-      (type === "asin" && query.length === 10) ||
-      (type === "sku" && query.length >= 3 && query.length <= 50) ||
-      (type === "baselinker_id" && query.length >= 8 && query.length <= 10) ||
-      (type === "shopify_id" && query.length === 14);
 
-    if (isCompleteIdentifier && query.length >= MIN_CHARS) {
-      // Cancel any pending debounce
-      // Call instant endpoint
-      const checkInstant = async () => {
-        setLoading(true);
-        try {
-          const res = await fetch(
-            `/api/product/instant?q=${encodeURIComponent(query)}`,
-          );
-          const data = await res.json();
-          if (data.redirect) {
-            window.location.href = data.redirect; // or use router.push
-          } else if (data.results.length > 0) {
-            setResults(data.results);
-            setShowDropdown(true);
-          } else {
-            setResults([]);
-            setShowDropdown(true); // show "no results"
-          }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      checkInstant();
-    }
-  }, [query]); // careful: this will run on every keystroke; we need to add debounce logic
   const handleInputFocus = () => {
     setSearchActive(true);
-    if (query.length >= MIN_CHARS) {
+    if (query.length >= MIN_CHARS && results.length > 0) {
       setShowDropdown(true);
     }
   };
@@ -148,6 +98,7 @@ export default function SearchBar() {
     setTimeout(() => {
       if (document.activeElement !== inputRef.current) {
         setSearchActive(false);
+        setShowDropdown(false);
       }
     }, 150);
   };
@@ -157,14 +108,12 @@ export default function SearchBar() {
     setResults([]);
     setShowDropdown(false);
     setSearchActive(false);
-    setHasSearched(false);
-    setCategory(""); // Clear category as well
     inputRef.current?.focus();
   };
 
   return (
     <LayoutGroup>
-      <div className="relative w-full max-w-2xl mx-auto space-y-3">
+      <div className="relative w-full max-w-6xl mx-auto space-y-3">
         <motion.div
           layout
           className="relative bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm overflow-hidden"
@@ -182,16 +131,37 @@ export default function SearchBar() {
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             onClear={clearSearch}
-            maxLength={DEFAULT_LIMIT}
+            onKeyDown={handleKeyDown}
+            maxLength={80}
           />
 
           <SearchStatusFooter
             query={query}
             detectedTypeLabel={detectedTypeLabel}
             minChars={MIN_CHARS}
-            maxLength={DEFAULT_LIMIT}
+            maxLength={80}
+            loading={loading}
           />
         </motion.div>
+
+        <AnimatePresence>
+          {showDropdown && results.length > 0 && (
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-50"
+            >
+              <SearchDropdown
+                results={results}
+                selectedIndex={selectedIndex}
+                query={query}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </LayoutGroup>
   );

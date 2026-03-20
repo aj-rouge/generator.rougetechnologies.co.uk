@@ -58,7 +58,7 @@ export const TimelineFilters = ({
         <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full px-2 ">
           <Clock className="w-5 h-5 text-blue-500" />
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-            Product Timeline
+            Recent Products
           </h2>
         </div>
         <CategoryFilter
