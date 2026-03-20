@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeQuery } from "../../../utils/d1/execute/executeQuery";
 
+// Helper function to add CORS headers
+function addCorsHeaders(response: NextResponse) {
+  response.headers.set(
+    "Access-Control-Allow-Origin",
+    "https://www.rougetechnologies.co.uk",
+  );
+  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  response.headers.set("Access-Control-Max-Age", "86400"); // 24 hours cache for preflight
+  return response;
+}
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 204 });
+  response.headers.set(
+    "Access-Control-Allow-Origin",
+    "https://www.rougetechnologies.co.uk",
+  );
+  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  response.headers.set("Access-Control-Max-Age", "86400");
+  return response;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ identifier: string }> },
@@ -9,10 +34,11 @@ export async function GET(
 
   try {
     if (!identifier) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Identifier is required" },
         { status: 400 },
       );
+      return addCorsHeaders(response);
     }
 
     console.log(
@@ -61,7 +87,11 @@ export async function GET(
 
     if (!results || results.length === 0) {
       console.log("❌ Product not found for identifier:", identifier);
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      const response = NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 },
+      );
+      return addCorsHeaders(response);
     }
 
     // Extract product info from first row
@@ -89,18 +119,21 @@ export async function GET(
       }
     }
 
-    // Add cache headers
-    const headers = new Headers({
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-      "Content-Type": "application/json",
+    // Create response with CORS headers
+    const response = NextResponse.json(imageUrls, {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        "Content-Type": "application/json",
+      },
     });
 
-    return NextResponse.json(imageUrls, { headers });
+    return addCorsHeaders(response);
   } catch (error) {
     console.error("❌ Error fetching product images:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
     );
+    return addCorsHeaders(response);
   }
 }
