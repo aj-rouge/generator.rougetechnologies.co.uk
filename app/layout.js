@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <div className="flex h-screen bg-gray-100 dark:bg-black overflow-hidden">
+          <div className="flex  max-h-screen  h-screen bg-gray-100 dark:bg-black overflow-hidden">
             <div className="flex-1 flex flex-col overflow-auto">{children}</div>
           </div>
         </ThemeProvider>

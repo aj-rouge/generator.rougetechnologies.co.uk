@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowUpDown, RefreshCw, Filter } from "lucide-react";
+import { ArrowUpDown, RefreshCw, Filter, Clock } from "lucide-react";
 import { FilterDropdown } from "./FilterDropdown";
+import CategoryFilter from "./CategoryFilter";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -18,7 +19,9 @@ interface TimelineFiltersProps {
   loading: boolean;
   fetchRecent: () => void;
   setShowFilters: (show: boolean) => void;
-  // 👇 category props removed
+  categories: any[]; // Add categories to props
+  category: string; // Add current category to props
+  setCategory: (category: string) => void; // Add category setter to props
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
@@ -41,11 +44,28 @@ export const TimelineFilters = ({
   loading,
   fetchRecent,
   setShowFilters,
+  categories,
+  category,
+  setCategory,
 }: TimelineFiltersProps) => {
   return (
-    <motion.div layout className="flex items-center gap-2 px-2">
+    <motion.div
+      layout
+      className="flex items-center w-full justify-between gap-2"
+    >
       {/* Desktop filters (all remaining filters) */}
       <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full px-2 ">
+          <Clock className="w-5 h-5 text-blue-500" />
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+            Product Timeline
+          </h2>
+        </div>
+        <CategoryFilter
+          value={category}
+          onChange={setCategory}
+          categories={categories}
+        />
         <FilterDropdown
           label={sortOptions.find((o) => o.value === sortField)?.label || ""}
           options={sortOptions}
@@ -63,7 +83,7 @@ export const TimelineFilters = ({
             ${
               sortOrder === "ASC"
                 ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
             }
           `}
           whileTap={{ scale: 0.95 }}
@@ -95,7 +115,7 @@ export const TimelineFilters = ({
             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
             bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
             text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700
-            disabled:opacity-50 disabled:cursor-not-allowed
+            disabled:opacity-50 disabled:cursor-not-allowed dark:hover:text-white
           "
           whileTap={{ scale: 0.95 }}
           title="Refresh"

@@ -86,24 +86,9 @@ export default function RecentProducts({
     });
 
   return (
-    <div className="w-full max-w-2xl px-4 md:px-0">
+    <div className="w-full max-w-6xl px-4 md:px-0">
       {/* Two‑row header */}
       <div className="mb-4 space-y-3">
-        {/* Row 1: Title + CategoryFilter */}
-        <div className="flex items-center justify-between px-2">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-              Product Timeline
-            </h2>
-          </div>
-          <CategoryFilter
-            value={category}
-            onChange={setCategory}
-            categories={categories}
-          />
-        </div>
-
         {/* Row 2: All other filters */}
         <TimelineFilters
           sortField={sortField}
@@ -117,6 +102,9 @@ export default function RecentProducts({
           loading={loading}
           fetchRecent={fetchRecent}
           setShowFilters={setShowFilters}
+          categories={categories} // Pass categories to TimelineFilters
+          category={category} // Pass current category to TimelineFilters
+          setCategory={setCategory} // Pass category setter to TimelineFilters
         />
       </div>
 
@@ -124,11 +112,11 @@ export default function RecentProducts({
       <div className="relative min-h-[200px]">
         <AnimatePresence mode="wait">
           {loading ? (
-            <div className="grid gap-3">
-              {[...Array(Math.min(limit, 5))].map((_, i) => (
+            <div className="grid gap-2 grid-cols-2">
+              {[...Array(limit)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-20 w-full bg-gray-100 dark:bg-gray-800/50 animate-pulse rounded-xl border border-gray-200 dark:border-gray-700"
+                  className="h-[224.5px] w-full bg-gray-100 dark:bg-gray-800/50 animate-pulse rounded-xl border border-gray-200 dark:border-gray-700"
                 />
               ))}
             </div>
@@ -152,7 +140,7 @@ export default function RecentProducts({
               key="results"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="grid gap-3"
+              className="grid gap-2 grid-cols-2 overflow-y-auto"
             >
               {recent.map((product, index) => (
                 <ProductCard
