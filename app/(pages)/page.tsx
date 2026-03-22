@@ -6,6 +6,7 @@ import RecentProducts from "../components/recent/RecentProducts";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
 import { getCategories } from "../utils/d1/category/getCategories";
 import SearchBar from "../components/search/SearchBar";
+import { logout } from "../actions/auth";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -39,7 +40,9 @@ export default async function Page(props: { searchParams: SearchParams }) {
       {/* Absolute positioned elements */}
       <div className="absolute top-4 right-4 md:top-4 md:right-6 flex items-center gap-3 z-20">
         <DarkModeToggle />
-
+        <form action={logout}>
+          <button type="submit">Log out</button>
+        </form>
         <Link
           href="/create"
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
