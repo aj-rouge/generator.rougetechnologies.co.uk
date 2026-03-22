@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, LogOut } from "lucide-react";
 import { DarkModeToggle } from "../components/header/DarkModeToggle";
 import RecentProducts from "../components/recent/RecentProducts";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
@@ -39,10 +39,17 @@ export default async function Page(props: { searchParams: SearchParams }) {
     <div className="flex flex-col items-center gap-4 p-4 min-h-screen transition-colors duration-300">
       {/* Absolute positioned elements */}
       <div className="absolute top-4 right-4 md:top-4 md:right-6 flex items-center gap-3 z-20">
-        <DarkModeToggle />
         <form action={logout}>
-          <button type="submit">Log out</button>
+          <button
+            type="submit"
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
         </form>
+        <DarkModeToggle />
+
         <Link
           href="/create"
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
