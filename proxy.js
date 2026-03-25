@@ -2,20 +2,20 @@ import { jwtVerify } from "jose";
 import { NextResponse } from "next/server";
 
 export async function proxy(request) {
-  // ✅ Must be named "middleware"
   const { pathname } = request.nextUrl;
 
-  // Allow public routes: login page + all static assets
+  // Allow public routes: login page, API routes, and all static assets
   if (
     pathname === "/login" ||
     pathname.startsWith("/_next") || // Next.js internal files
     pathname.startsWith("/static") || // optional, if you have a /static folder
+    pathname.startsWith("/api") || // Allow all API routes to bypass authentication
     pathname.includes(".") // any file extension (favicon.ico, etc.)
   ) {
     return NextResponse.next();
   }
 
-  // For all other routes, check authentication
+  // For all other routes (non-API), check authentication
   const sessionCookie = request.cookies.get("session")?.value;
 
   if (!sessionCookie) {

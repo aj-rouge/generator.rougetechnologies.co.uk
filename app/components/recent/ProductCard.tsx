@@ -20,6 +20,7 @@ interface ProductCardProps {
   index: number;
   sortField: string;
   formatDate: (ts: number) => string;
+  categoryNameMap: Map<string, string>; // new prop
 }
 
 export const ProductCard = ({
@@ -27,15 +28,11 @@ export const ProductCard = ({
   index,
   sortField,
   formatDate,
+  categoryNameMap,
 }: ProductCardProps) => {
-  // Fallback formatter in case category_name isn't available
-  const formatCategorySlug = (slug: string) => {
-    return slug
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
+  const categoryName = product.category_slug
+    ? categoryNameMap.get(product.category_slug)
+    : undefined;
   // Helper to parse JSON strings from D1 View into arrays
   const parseJson = (data: any) => {
     if (!data) return [];
@@ -80,7 +77,7 @@ export const ProductCard = ({
         <div className="flex flex-col gap-2  flex-grow min-w-0">
           {/* 👇 Category name – now from the joined field */}
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {product.category_name || formatCategorySlug(product.category)}
+            {categoryName || "Uncategorized"}
           </div>
 
           <div className="flex items-start justify-between gap-2">

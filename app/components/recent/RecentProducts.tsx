@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Clock, Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "./ProductCard";
-import CategoryFilter from "./CategoryFilter";
 import { TimelineFilters } from "./TimelineFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -84,6 +83,21 @@ export default function RecentProducts({
       hour: "2-digit",
       minute: "2-digit",
     });
+  const buildCategoryNameMap = (categories: any[]): Map<string, string> => {
+    const map = new Map<string, string>();
+    const traverse = (cats: any[]) => {
+      for (const cat of cats) {
+        map.set(cat.slug, cat.name);
+        if (cat.children && cat.children.length) {
+          traverse(cat.children);
+        }
+      }
+    };
+    traverse(categories);
+    return map;
+  };
+
+  const categoryNameMap = buildCategoryNameMap(categories);
 
   return (
     <div className="w-full max-w-6xl px-4 md:px-0">
@@ -149,6 +163,7 @@ export default function RecentProducts({
                   index={index}
                   sortField={sortField}
                   formatDate={formatDate}
+                  categoryNameMap={categoryNameMap} // new prop
                 />
               ))}
             </motion.div>
