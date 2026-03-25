@@ -8,8 +8,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-full items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full flex flex-col items max-w-md">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-800">
+          <div className="mb-4">
+            <img
+              className="rounded-full bg-white mx-auto object-contain w-16 p-2"
+              src="https://www.rougetechnologies.co.uk/hero-logo.svg"
+            />
+          </div>
           <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-8">
             Admin Login
           </h1>
