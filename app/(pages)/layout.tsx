@@ -16,7 +16,7 @@ const geistMono = localFont({
 });
 
 export const metadata = {
-  title: "Create Ebay HTML Descriptions Fast | eBay Description Generator",
+  title: "HTML Description Generator",
   description: "Generated eBay HTML Descriptions for your listings in seconds.",
 };
 
