@@ -385,8 +385,8 @@ export default function ProductForm({
           </h3>
           <LivePreview
             {...formData}
-            categoryName={categoryName}
-            seoSectionData={categories} // keep as before if needed
+            categoryName={`${categoryName} at Rouge Technologies`}
+            seoSectionData={categories}
             categoryContent={categoryContent}
             ebayLink={formData.ebayLink}
           />

@@ -16,10 +16,8 @@ function buildPreviewData(product: any, category: any, categoryContent: any) {
     features: product.features || [],
     note: product.note,
     feedbacks: product.feedbacks || [],
-    selectedCategory: product.category_slug,
-    ebayLink: category?.ebay_store_link || "",
-    categoryName: category?.name || product.category_slug,
-    categoryContent: categoryContent?.content || [],
+    categoryContent: categoryContent || [],
+    categoryName: categoryContent?.categoryName || "",
   };
 }
 

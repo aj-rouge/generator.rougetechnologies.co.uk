@@ -10,6 +10,7 @@ export async function getCategoryContent(categorySlug: string) {
     SELECT 
       c.name as category_name,
       c.slug as category_slug,
+      c.ebay_store_link, 
       (
         SELECT json_group_array(
           json_object(
@@ -29,7 +30,8 @@ export async function getCategoryContent(categorySlug: string) {
   if (!result || result.length === 0) return null;
 
   return {
-    categoryName: result[0].category_name,
+    categoryName: `${result[0].category_name} at Rouge Technologies`,
+    ebayStoreLink: result[0].ebay_store_link,
     content: JSON.parse(result[0].content || "[]"),
   };
 }

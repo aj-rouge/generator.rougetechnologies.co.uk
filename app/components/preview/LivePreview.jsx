@@ -18,8 +18,6 @@ const LivePreview = ({
   note,
   feedbacks,
   categoryContent,
-  selectedCategory,
-  ebayLink,
   categoryName,
 }) => {
   return (
@@ -42,10 +40,7 @@ const LivePreview = ({
         </div>
         <Feedback feedbacks={feedbacks} />
         <Tabs />
-        <PromotionGrid
-          selectedCategory={selectedCategory}
-          ebayLink={ebayLink}
-        />
+        <PromotionGrid ebayLink={categoryContent?.ebayStoreLink} />
         <Category
           categoryName={categoryName} // now from prop
           categoryContent={categoryContent?.content || []}

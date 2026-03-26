@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-const PromotionGrid = ({ selectedCategory, ebayLink }) => {
+const PromotionGrid = ({ ebayLink }) => {
   const promotions = [
     {
       src: `${process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN}/view-related-products-from-rouge-technologies.webp`,
