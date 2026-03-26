@@ -378,7 +378,6 @@ export default function ProductForm({
           feedbacks={formData.feedbacks}
           setFeedbacks={(val) => updateForm({ feedbacks: val })}
         />
-        <GenerateHTML formData={formData} />
         <div className="w-full px-5 xl:px-[48px]">
           <h3 className="text-2xl text-center uppercase font-bold text-black dark:text-white">
             Live Preview:
