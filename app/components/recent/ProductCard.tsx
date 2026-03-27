@@ -119,29 +119,33 @@ export const ProductCard = ({
               {product.sku && (
                 <CopyBadge label="SKU" value={product.sku} variant="orange" />
               )}{" "}
-              {product.baselinker_id && (
+              {product.baselinker_id !== "null" && (
                 <CopyBadge
                   label="BL"
                   value={product.baselinker_id}
                   variant="blue"
                 />
               )}
-              {product.shopify_id && (
+              {product.shopify_id !== "null" && (
                 <CopyBadge
                   label="SH"
                   value={product.shopify_id}
                   variant="green"
                 />
               )}
-              {product.id && (
+              {product.id !== "null" && (
                 <CopyBadge
                   label="ID"
                   value={product.id.toString()}
                   variant="gray"
                 />
               )}
-              {product.asin && <CopyBadge label="ASIN" value={product.asin} />}
-              {product.ean && <CopyBadge label="EAN" value={product.ean} />}
+              {product.asin !== "null" && (
+                <CopyBadge label="ASIN" value={product.asin} />
+              )}
+              {product.ean !== "null" && (
+                <CopyBadge label="EAN" value={product.ean} />
+              )}
             </div>
           </div>
 

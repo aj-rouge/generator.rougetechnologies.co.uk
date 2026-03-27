@@ -61,7 +61,7 @@ export default function ProductFormHeader({
             {/* External product links */}
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
-                {shopifyId && (
+                {shopifyId !== "null" && (
                   <a
                     href={`https://admin.shopify.com/store/rouge-technologies/products/${shopifyId}`}
                     target="_blank"
@@ -74,7 +74,7 @@ export default function ProductFormHeader({
                     <ExternalLink className="w-3 h-3 opacity-70" />
                   </a>
                 )}
-                {baselinkerId && (
+                {baselinkerId !== "null" && (
                   <a
                     href={`https://panel-g.baselinker.com/inventory_products#product:${baselinkerId}#tab:information`}
                     target="_blank"
@@ -92,7 +92,7 @@ export default function ProductFormHeader({
 
             {/* Update buttons */}
             <div className="flex items-center gap-2">
-              {shopifyId && (
+              {shopifyId !== "null" && (
                 <UpdateShopifyButton
                   shopifyId={shopifyId}
                   productTitle={title}
