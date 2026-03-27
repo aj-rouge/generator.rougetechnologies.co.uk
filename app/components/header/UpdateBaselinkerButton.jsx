@@ -9,8 +9,9 @@ export default function UpdateBaselinkerButton({
   productTitle,
   disabled = false,
   uuid,
+  onSave,
 }) {
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState(null);
   console.log("UpdateBaselinkerButton props:", {
     baselinkerId,
@@ -28,29 +29,42 @@ export default function UpdateBaselinkerButton({
       return;
     }
 
-    setIsUpdating(true);
-    setNotification({
-      type: "info",
-      message: "Updating Baselinker HTML description...",
-    });
+    setIsProcessing(true);
 
+    // Step 1: Save the product first
     try {
+      setNotification({
+        type: "info",
+        message: "Saving product before updating Baselinker...",
+      });
+      await onSave(); // wait for save to complete
+    } catch (saveError) {
+      console.error("❌ Save failed:", saveError);
+      setNotification({
+        type: "error",
+        message: `Save failed: ${saveError.message || "Please check the form"}`,
+      });
+      setIsProcessing(false);
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    // Step 2: Now update Baselinker
+    try {
+      setNotification({
+        type: "info",
+        message: "Updating Baselinker HTML description...",
+      });
       const response = await fetch("/api/baselinker-html-description-update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          baselinkerId: baselinkerId,
-          productId: uuid,
-        }),
+        body: JSON.stringify({ baselinkerId, productId: uuid }),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(result.error || "Failed to update Baselinker HTML");
-      }
 
       setNotification({
         type: "success",
@@ -58,12 +72,9 @@ export default function UpdateBaselinkerButton({
       });
     } catch (error) {
       console.error("❌ Baselinker Update Error:", error);
-      setNotification({
-        type: "error",
-        message: `Error: ${error.message}`,
-      });
+      setNotification({ type: "error", message: `Error: ${error.message}` });
     } finally {
-      setIsUpdating(false);
+      setIsProcessing(false);
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -72,28 +83,31 @@ export default function UpdateBaselinkerButton({
     <div className="relative">
       <button
         onClick={handleUpdate}
-        disabled={isUpdating || disabled || !baselinkerId}
+        disabled={disabled || isProcessing || !baselinkerId}
         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
           !baselinkerId
             ? "bg-gray-400 cursor-not-allowed text-gray-200"
-            : isUpdating
+            : isProcessing
               ? "bg-blue-400 cursor-wait text-white"
               : "bg-blue-600 hover:bg-blue-700 text-white"
         }`}
         title={
           !baselinkerId
             ? "No Baselinker ID available"
-            : "Update Baselinker HTML description"
+            : isProcessing
+              ? "Saving product and updating Baselinker..."
+              : "Update Baselinker HTML description"
         }
       >
-        <RefreshCw className={`w-4 h-4 ${isUpdating ? "animate-spin" : ""}`} />{" "}
+        <RefreshCw
+          className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
+        />
         <Package className="w-4 h-4" />
         <span className="hidden sm:inline">
-          {isUpdating ? "Updating..." : "Update Baselinker HTML"}
+          {isProcessing ? "Processing..." : "Update Baselinker HTML"}
         </span>
       </button>
 
-      {/* Temporary notification tooltip */}
       {notification && (
         <div
           className={`absolute top-full mt-2 right-0 z-50 px-3 py-2 rounded-lg text-sm whitespace-nowrap ${

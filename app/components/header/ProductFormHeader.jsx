@@ -1,3 +1,4 @@
+// app/components/ProductFormHeader.jsx
 import Link from "next/link";
 import { Home, ExternalLink, ShoppingBag, Package } from "lucide-react";
 import { DarkModeToggle } from "./DarkModeToggle";
@@ -98,6 +99,7 @@ export default function ProductFormHeader({
                   productTitle={title}
                   disabled={isSaving}
                   uuid={uuid}
+                  onSave={onSave}
                 />
               )}
               {baselinkerId && (
@@ -106,6 +108,7 @@ export default function ProductFormHeader({
                   productTitle={title}
                   disabled={isSaving}
                   uuid={uuid}
+                  onSave={onSave}
                 />
               )}
             </div>
