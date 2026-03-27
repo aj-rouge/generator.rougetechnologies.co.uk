@@ -314,7 +314,7 @@ export default function ProductForm({
         shopifyId={mode === "edit" ? formData.shopify_id : undefined} // ← add this line
       />
 
-      <div className="flex flex-col px-4 gap-2 pt-20">
+      <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector
             selectedCategory={formData.selectedCategory}

@@ -5,6 +5,7 @@ import SaveNotification from "./SaveNotification";
 import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
 import UpdateBaselinkerButton from "./UpdateBaselinkerButton";
+import UpdateShopifyButton from "./UpdateShopifyButton";
 
 export default function ProductFormHeader({
   mode,
@@ -35,59 +36,30 @@ export default function ProductFormHeader({
 
   return (
     <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
-      <div className="py-4">
-        <div
-          className={`flex flex-col lg:flex-row gap-4 items-center ${
-            isEdit ? "justify-between" : "grid lg:grid-cols-3"
-          }`}
-        >
-          {/* LEFT SECTION */}
-          <div
-            className={`flex items-center gap-3 w-full ${
-              isEdit ? "lg:w-auto flex-col items-start" : "justify-start"
-            }`}
-          >
-            {isEdit ? (
-              // Edit mode: Home + Delete buttons
-              <div className="flex items-center gap-3">
-                <HomeButton />
-                <DeleteButton
-                  productTitle={title}
-                  selectedCategory={selectedCategory}
-                  uuid={uuid}
-                />
-              </div>
-            ) : (
-              // Create mode: Home button + title
-              <div className="flex items-center gap-3">
-                <HomeButton />
-                <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
-                  {title || "Create New Product"}
-                </h2>
-              </div>
-            )}
+      {isEdit ? (
+        // Edit mode: two‑row layout
+        <div className="py-4">
+          {/* Top row: Editing title + Home/Delete buttons */}
+          <div className="flex flex-wrap justify-between items-center gap-3">
+            <h1 className="text-xl font-bold text-black dark:text-white truncate max-w-fit">
+              Editing: {title}
+            </h1>
+            <div className="flex items-center gap-3">
+              <HomeButton />
+              <DeleteButton
+                productTitle={title}
+                selectedCategory={selectedCategory}
+                uuid={uuid}
+              />
+            </div>
           </div>
 
-          {/* CENTER SECTION (only visible in edit mode) */}
-          {isEdit && (
-            <div className="hidden lg:block text-center">
-              <h1 className="text-xl font-bold text-black dark:text-white truncate max-w-fit">
-                Editing: {title}
-              </h1>
-            </div>
-          )}
-
-          {/* RIGHT SECTION: Actions */}
-          <div
-            className={`flex flex-row justify-end gap-3 w-full ${
-              isEdit ? "lg:w-auto flex-1" : ""
-            }`}
-          >
-            {/* Dark mode toggle - always on the right */}
+          {/* Bottom row: all other actions */}
+          <div className="flex flex-wrap justify-end items-center gap-3 mt-4">
             <DarkModeToggle />
 
-            {/* External product links (edit mode only) */}
-            {isEdit && (shopifyId || baselinkerId) && (
+            {/* External product links */}
+            {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
                 {shopifyId && (
                   <a
@@ -118,18 +90,56 @@ export default function ProductFormHeader({
               </div>
             )}
 
-            {/* Baselinker update button (edit mode only) */}
-            {isEdit && baselinkerId && (
-              <UpdateBaselinkerButton
-                baselinkerId={baselinkerId}
-                productTitle={title}
-                disabled={isSaving}
-                uuid={uuid}
-              />
-            )}
+            {/* Update buttons */}
+            <div className="flex items-center gap-2">
+              {shopifyId && (
+                <UpdateShopifyButton
+                  shopifyId={shopifyId}
+                  productTitle={title}
+                  disabled={isSaving}
+                  uuid={uuid}
+                />
+              )}
+              {baselinkerId && (
+                <UpdateBaselinkerButton
+                  baselinkerId={baselinkerId}
+                  productTitle={title}
+                  disabled={isSaving}
+                  uuid={uuid}
+                />
+              )}
+            </div>
 
             {/* Save button */}
-            <div className="flex items-center gap-3">
+            <SaveButton
+              onSave={onSave}
+              isSaving={isSaving}
+              isFormValid={isFormValid}
+              shouldShowSave={shouldShowSave}
+              mode={mode}
+              productTitle={title}
+              hasPendingUploads={hasPendingUploads}
+            />
+          </div>
+        </div>
+      ) : (
+        // Create mode: original layout
+        <div className="py-4">
+          <div className="grid lg:grid-cols-3">
+            {/* Left section: Home + title */}
+            <div className="flex items-center gap-3 justify-start">
+              <HomeButton />
+              <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
+                {title || "Create New Product"}
+              </h2>
+            </div>
+
+            {/* Empty center */}
+            <div></div>
+
+            {/* Right section: Dark mode toggle + Save button */}
+            <div className="flex flex-row justify-end gap-3">
+              <DarkModeToggle />
               <SaveButton
                 onSave={onSave}
                 isSaving={isSaving}
@@ -142,9 +152,9 @@ export default function ProductFormHeader({
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Notification area */}
+      {/* Notification area (common for both modes) */}
       <div
         className={`relative w-full overflow-hidden transition-all duration-300 ${
           notification?.message

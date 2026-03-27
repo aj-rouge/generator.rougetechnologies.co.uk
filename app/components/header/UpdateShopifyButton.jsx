@@ -1,28 +1,23 @@
-// app/components/UpdateBaselinkerButton.jsx
+// app/components/UpdateShopifyButton.jsx
 "use client";
 
 import { useState } from "react";
-import { Package, RefreshCw } from "lucide-react";
+import { RefreshCw, ShoppingBag } from "lucide-react";
 
-export default function UpdateBaselinkerButton({
-  baselinkerId,
+export default function UpdateShopifyButton({
+  shopifyId,
   productTitle,
   disabled = false,
   uuid,
 }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [notification, setNotification] = useState(null);
-  console.log("UpdateBaselinkerButton props:", {
-    baselinkerId,
-    productTitle,
-    disabled,
-    uuid,
-  });
+
   const handleUpdate = async () => {
-    if (!baselinkerId) {
+    if (!shopifyId) {
       setNotification({
         type: "error",
-        message: "No Baselinker ID available for this product",
+        message: "No Shopify ID available for this product",
       });
       setTimeout(() => setNotification(null), 3000);
       return;
@@ -31,17 +26,17 @@ export default function UpdateBaselinkerButton({
     setIsUpdating(true);
     setNotification({
       type: "info",
-      message: "Updating Baselinker HTML description...",
+      message: "Updating Shopify product description...",
     });
 
     try {
-      const response = await fetch("/api/baselinker-html-description-update", {
+      const response = await fetch("/api/shopify-html-description-update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          baselinkerId: baselinkerId,
+          shopifyId: shopifyId,
           productId: uuid,
         }),
       });
@@ -49,15 +44,16 @@ export default function UpdateBaselinkerButton({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to update Baselinker HTML");
+        throw new Error(result.error || "Failed to update Shopify description");
       }
 
       setNotification({
         type: "success",
-        message: result.message || "Baselinker HTML updated successfully!",
+        message:
+          result.message || "Shopify product description updated successfully!",
       });
     } catch (error) {
-      console.error("❌ Baselinker Update Error:", error);
+      console.error("❌ Shopify Update Error:", error);
       setNotification({
         type: "error",
         message: `Error: ${error.message}`,
@@ -72,24 +68,24 @@ export default function UpdateBaselinkerButton({
     <div className="relative">
       <button
         onClick={handleUpdate}
-        disabled={isUpdating || disabled || !baselinkerId}
+        disabled={isUpdating || disabled || !shopifyId}
         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-          !baselinkerId
+          !shopifyId
             ? "bg-gray-400 cursor-not-allowed text-gray-200"
             : isUpdating
-              ? "bg-blue-400 cursor-wait text-white"
-              : "bg-blue-600 hover:bg-blue-700 text-white"
+              ? "bg-green-400 cursor-wait text-white"
+              : "bg-green-600 hover:bg-green-700 text-white"
         }`}
         title={
-          !baselinkerId
-            ? "No Baselinker ID available"
-            : "Update Baselinker HTML description"
+          !shopifyId
+            ? "No Shopify ID available"
+            : "Update Shopify product description"
         }
       >
-        <RefreshCw className={`w-4 h-4 ${isUpdating ? "animate-spin" : ""}`} />{" "}
-        <Package className="w-4 h-4" />
+        <RefreshCw className={`w-4 h-4 ${isUpdating ? "animate-spin" : ""}`} />
+        <ShoppingBag className="w-4 h-4" />
         <span className="hidden sm:inline">
-          {isUpdating ? "Updating..." : "Update Baselinker HTML"}
+          {isUpdating ? "Updating Shopify..." : "Update Shopify Description"}
         </span>
       </button>
 
