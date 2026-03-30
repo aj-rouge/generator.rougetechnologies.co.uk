@@ -2,14 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { html as beautify } from "js-beautify";
+import { generateHtmlFromPreviewProps } from "../../actions/generateHtml";
 
-export default function GenerateHTML({ formData }) {
+export default function GenerateHTML({
+  formData,
+  categoryName,
+  categoryContent,
+  ebayLink,
+}) {
   const [generatedHtml, setGeneratedHtml] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // Reset state if form data changes so user doesn't copy "old" version
   useEffect(() => {
     if (generatedHtml) {
       setGeneratedHtml("");
@@ -18,7 +23,6 @@ export default function GenerateHTML({ formData }) {
   }, [formData]);
 
   const handleAction = async () => {
-    // If HTML exists, this button acts as the Copy trigger
     if (generatedHtml) {
       copyToClipboard();
       return;
@@ -33,15 +37,20 @@ export default function GenerateHTML({ formData }) {
     setError("");
 
     try {
-      const response = await fetch("/api/html", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const previewProps = {
+        title: formData.title,
+        condition: formData.condition,
+        images: formData.images,
+        paragraphs: formData.paragraphs,
+        features: formData.features,
+        note: formData.note,
+        feedbacks: formData.feedbacks,
+        categoryName: `${categoryName || ""} at Rouge Technologies`,
+        categoryContent: categoryContent,
+        ebayLink: ebayLink,
+      };
 
-      if (!response.ok) throw new Error("Failed to generate HTML");
-
-      const html = await response.text();
+      const html = await generateHtmlFromPreviewProps(previewProps);
       setGeneratedHtml(html);
     } catch (err) {
       setError(err.message);
@@ -52,14 +61,12 @@ export default function GenerateHTML({ formData }) {
   };
 
   const copyToClipboard = () => {
-    // Copies the original minified one-line string from the API
     navigator.clipboard.writeText(generatedHtml).then(() => {
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     });
   };
 
-  // BEAUTIFIER LOGIC: Converts the 1-line string into readable code for the UI
   const getReadableHtml = (html) => {
     if (!html) return "";
     return beautify(html, {
@@ -72,7 +79,6 @@ export default function GenerateHTML({ formData }) {
     });
   };
 
-  // Dynamic Button State
   const getButtonState = () => {
     if (isGenerating)
       return {
@@ -92,7 +98,6 @@ export default function GenerateHTML({ formData }) {
         style: "bg-green-500 hover:bg-green-600",
         disabled: false,
       };
-
     return {
       text: "Generate HTML",
       style: "bg-blue-500 hover:bg-blue-600 disabled:opacity-50",
@@ -104,7 +109,6 @@ export default function GenerateHTML({ formData }) {
 
   return (
     <div className="w-full space-y-4">
-      {/* Main Action Button */}
       <button
         onClick={handleAction}
         disabled={state.disabled}
@@ -113,7 +117,6 @@ export default function GenerateHTML({ formData }) {
         {state.text}
       </button>
 
-      {/* Error Message */}
       {error && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           <p className="text-red-600 dark:text-red-400 text-sm font-medium">
@@ -122,7 +125,6 @@ export default function GenerateHTML({ formData }) {
         </div>
       )}
 
-      {/* Preview Section */}
       {generatedHtml && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex justify-between items-end mb-2">
@@ -146,8 +148,6 @@ export default function GenerateHTML({ formData }) {
             <pre className="bg-gray-50 dark:bg-gray-900 p-4 rounded-md text-sm h-80 overflow-auto border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 font-mono leading-relaxed shadow-inner">
               <code>{getReadableHtml(generatedHtml)}</code>
             </pre>
-
-            {/* Subtle Gradient to indicate more code below */}
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 dark:from-gray-900 to-transparent pointer-events-none rounded-b-md" />
           </div>
         </div>

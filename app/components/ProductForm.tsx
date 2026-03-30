@@ -328,7 +328,6 @@ export default function ProductForm({
             categoryKeywords={currentCategoryKeywords}
           />
         </div>
-
         <ProductIdentifiers
           asin={formData.asin}
           ean={formData.ean}
@@ -336,7 +335,6 @@ export default function ProductForm({
           shopify_id={formData.shopify_id}
           onUpdate={updateForm}
         />
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <SKUManager
             sku={formData.sku}
@@ -351,7 +349,6 @@ export default function ProductForm({
             categories={categories}
           />
         </div>
-
         <ParagraphsManager
           paragraphs={formData.paragraphs}
           setParagraphs={(val) => updateForm({ paragraphs: val })}
@@ -377,6 +374,12 @@ export default function ProductForm({
         <FeedbackManager
           feedbacks={formData.feedbacks}
           setFeedbacks={(val) => updateForm({ feedbacks: val })}
+        />
+        <GenerateHTML
+          formData={formData}
+          categoryName={categoryName}
+          categoryContent={categoryContent}
+          ebayLink={formData.ebayLink}
         />
         <div className="w-full px-5 xl:px-[48px]">
           <h3 className="text-2xl text-center uppercase font-bold text-black dark:text-white">
