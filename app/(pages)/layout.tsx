@@ -2,6 +2,7 @@ import localFont from "next/font/local";
 import "../globals.css";
 import { ThemeProvider } from "next-themes";
 import DotGridBackground from "../components/DotGridBackgroundProps";
+import { NotificationProvider } from "../context/NotificationContext";
 
 const geistSans = localFont({
   src: "../fonts/GeistVF.woff",
@@ -32,7 +33,7 @@ export default function RootLayout({ children }) {
             <DotGridBackground />
 
             <div className="flex-1 flex flex-col overflow-auto relative z-10">
-              {children}
+              <NotificationProvider>{children}</NotificationProvider>{" "}
             </div>
           </div>
         </ThemeProvider>

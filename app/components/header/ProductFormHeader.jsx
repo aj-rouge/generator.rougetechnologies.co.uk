@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { Home, ExternalLink, ShoppingBag, Package } from "lucide-react";
 import { DarkModeToggle } from "./DarkModeToggle";
-import SaveNotification from "./SaveNotification";
 import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
 import UpdateBaselinkerButton from "./UpdateBaselinkerButton";
@@ -16,7 +15,6 @@ export default function ProductFormHeader({
   shouldShowSave,
   onSave,
   selectedCategory,
-  notification,
   hasPendingUploads = false,
   uuid,
   baselinkerId,
@@ -24,7 +22,6 @@ export default function ProductFormHeader({
 }) {
   const isEdit = mode === "edit";
 
-  // Reusable Home button
   const HomeButton = () => (
     <Link
       href="/"
@@ -38,9 +35,7 @@ export default function ProductFormHeader({
   return (
     <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
       {isEdit ? (
-        // Edit mode: two‑row layout
         <div className="py-4">
-          {/* Top row: Editing title + Home/Delete buttons */}
           <div className="flex flex-wrap justify-between items-center gap-3">
             <h1 className="text-xl font-bold text-black dark:text-white truncate max-w-fit">
               Editing: {title}
@@ -54,12 +49,8 @@ export default function ProductFormHeader({
               />
             </div>
           </div>
-
-          {/* Bottom row: all other actions */}
           <div className="flex flex-wrap justify-end items-center gap-3 mt-4">
             <DarkModeToggle />
-
-            {/* External product links */}
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
                 {shopifyId !== "null" && (
@@ -75,7 +66,7 @@ export default function ProductFormHeader({
                     <ExternalLink className="w-3 h-3 opacity-70" />
                   </a>
                 )}
-                {baselinkerId !== "null" && (
+                {baselinkerId && (
                   <a
                     href={`https://panel-g.baselinker.com/inventory_products#product:${baselinkerId}#tab:information`}
                     target="_blank"
@@ -90,10 +81,8 @@ export default function ProductFormHeader({
                 )}
               </div>
             )}
-
-            {/* Update buttons */}
             <div className="flex items-center gap-2">
-              {shopifyId !== "null" && (
+              {shopifyId && (
                 <UpdateShopifyButton
                   shopifyId={shopifyId}
                   productTitle={title}
@@ -112,8 +101,6 @@ export default function ProductFormHeader({
                 />
               )}
             </div>
-
-            {/* Save button */}
             <SaveButton
               onSave={onSave}
               isSaving={isSaving}
@@ -126,21 +113,15 @@ export default function ProductFormHeader({
           </div>
         </div>
       ) : (
-        // Create mode: original layout
         <div className="py-4">
           <div className="grid lg:grid-cols-3">
-            {/* Left section: Home + title */}
             <div className="flex items-center gap-3 justify-start">
               <HomeButton />
               <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
                 {title || "Create New Product"}
               </h2>
             </div>
-
-            {/* Empty center */}
             <div></div>
-
-            {/* Right section: Dark mode toggle + Save button */}
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />
               <SaveButton
@@ -156,23 +137,6 @@ export default function ProductFormHeader({
           </div>
         </div>
       )}
-
-      {/* Notification area (common for both modes) */}
-      <div
-        className={`relative w-full overflow-hidden transition-all duration-300 ${
-          notification?.message
-            ? "max-h-20 opacity-100 mb-4"
-            : "max-h-0 opacity-0"
-        }`}
-      >
-        {notification?.message && (
-          <SaveNotification
-            message={notification.message}
-            type={notification.type}
-            progress={notification.progress}
-          />
-        )}
-      </div>
     </div>
   );
 }

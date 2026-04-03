@@ -13,12 +13,13 @@ import NoteInput from "./sections/NoteInput";
 import ImagesManager from "./sections/image-section/ImagesManager";
 import FeedbackManager from "./sections/FeedbackManager";
 import CategorySelector from "./sections/CategorySelector";
-
 import { DEFAULT_FEEDBACKS } from "../data/feedbacks";
 import ProductFormHeader from "./header/ProductFormHeader";
 import { generateSeoSlug } from "../utils/images/seoGenerator";
 import SKUManager from "./sections/SKUManager";
 import ProductIdentifiers from "./sections/ProductIdentifiers";
+import { useNotification } from "../context/NotificationContext";
+import { useRouter } from "next/navigation";
 
 // Helper to find a category by slug (recursive)
 const findCategoryBySlug = (categories, slug) => {
@@ -63,22 +64,19 @@ const INITIAL_FORM_STATE = {
   baselinker_id: "",
   shopify_id: "",
   ebayLink: "",
-  // categoryKeywords and conditionGroup are derived, not stored
 };
 
 export default function ProductForm({
-  mode = "create", // 'create' or 'edit'
-  categories = [], // parsed category tree (required for both modes)
-  initialData = null, // only for edit mode
-  categoryContent = null, // only for edit mode, optional
+  mode = "create",
+  categories = [],
+  initialData = null,
+  categoryContent = null,
 }) {
-  // ---------------------------------------------------------------------
-  // 1. Form state initialisation
-  // ---------------------------------------------------------------------
+  const router = useRouter(); // 👈
+  const { addNotification, updateNotification, removeNotification } =
+    useNotification();
   const [formData, setFormData] = useState(() => {
     if (mode === "create") return INITIAL_FORM_STATE;
-
-    // For edit mode, transform initialData into UI state
     if (initialData) {
       return {
         ...initialData,
@@ -155,11 +153,6 @@ export default function ProductForm({
   // 3. UI state (not part of product data)
   // ---------------------------------------------------------------------
   const [isSaving, setIsSaving] = useState(false);
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: string;
-    progress: number;
-  } | null>(null);
 
   // ---------------------------------------------------------------------
   // 4. Validation and change detection
@@ -229,16 +222,15 @@ export default function ProductForm({
 
   const handleInternalSave = async () => {
     if (!isFormValid) {
-      setNotification({
+      addNotification({
         message: "Please fix validation errors",
         type: "error",
-        progress: 0,
       });
       return;
     }
 
     setIsSaving(true);
-    setNotification({
+    const toastId = addNotification({
       message: "Synchronizing R2 Storage Slots...",
       type: "info",
       progress: 40,
@@ -272,25 +264,34 @@ export default function ProductForm({
         setFormData((prev) => ({ ...prev, images: syncedImages }));
       }
 
-      setNotification({
+      updateNotification(toastId, {
         message: "Update Successful!",
         type: "success",
         progress: 100,
       });
+
+      // Redirect only when creating a new product
+      if (mode === "create") {
+        setTimeout(() => {
+          router.push(`/product/${result.id}`);
+        }, 500);
+      } else {
+        // For edit: auto‑dismiss the success toast
+        setTimeout(() => removeNotification(toastId), 2000);
+      }
     } catch (error) {
       console.error("❌ Save Error:", error);
-      setNotification({
+      updateNotification(toastId, {
         message: `Error: ${error.message}`,
         type: "error",
         progress: 0,
       });
+      setTimeout(() => removeNotification(toastId), 4000);
     } finally {
       setIsSaving(false);
-      setTimeout(() => setNotification(null), 2000);
     }
   };
 
-  // Debug (optional)
   useEffect(() => {
     if (mode === "edit") console.log("Edit formData:", formData);
   }, [formData, mode]);
@@ -307,11 +308,10 @@ export default function ProductForm({
         isFormValid={isFormValid}
         shouldShowSave={shouldShowSave}
         onSave={handleInternalSave}
-        notification={notification}
         selectedCategory={formData.selectedCategory}
         uuid={mode === "edit" ? formData.id : undefined}
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
-        shopifyId={mode === "edit" ? formData.shopify_id : undefined} // ← add this line
+        shopifyId={mode === "edit" ? formData.shopify_id : undefined}
       />
 
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">

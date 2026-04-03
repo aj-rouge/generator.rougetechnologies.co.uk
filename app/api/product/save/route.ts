@@ -9,12 +9,75 @@ import {
 import { executeQuery } from "../../../utils/d1/execute/executeQuery";
 
 // ----------------------------------------------------------------------
-// D1 Upsert Logic
+// Helper to format D1/SQLite errors into user‑friendly messages
+// ----------------------------------------------------------------------
+function formatDatabaseError(error: any): string {
+  const message = error?.message || String(error);
+
+  // Helper: convert "table.field" or just "field" into a user‑friendly label
+  const toUserFriendlyField = (field: string): string => {
+    // Remove table prefix if present (e.g., "products.sku" -> "sku")
+    const base = field.includes(".") ? field.split(".").pop()! : field;
+
+    // Common overrides (customize as needed)
+    const overrides: Record<string, string> = {
+      sku: "SKU",
+      ean: "EAN",
+      asin: "ASIN",
+      slug: "Slug",
+      baselinker_id: "Baselinker ID",
+      shopify_id: "Shopify ID",
+      group_key: "Group Key",
+      option_value: "Option Value",
+      category_slug: "Category Slug",
+    };
+
+    if (overrides[base]) return overrides[base];
+
+    // Fallback: capitalise and replace underscores with spaces
+    return base
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  // 1. Extract from D1 API error array
+  const d1Match = message.match(/D1 API error:\s*(\[.*\])/);
+  if (d1Match) {
+    try {
+      const parsed = JSON.parse(d1Match[1]);
+      if (Array.isArray(parsed) && parsed[0]?.message) {
+        const inner = parsed[0].message;
+        const uniqueMatch = inner.match(/UNIQUE constraint failed:\s*(\S+)/i);
+        if (uniqueMatch) {
+          const field = toUserFriendlyField(uniqueMatch[1]);
+          return `${field} already exists. Please use a different ${field.toLowerCase()}.`;
+        }
+        return inner.split(":")[0] || inner;
+      }
+    } catch (e) {
+      // fall through
+    }
+  }
+
+  // 2. Direct SQLite message
+  const uniqueMatch = message.match(/UNIQUE constraint failed:\s*(\S+)/i);
+  if (uniqueMatch) {
+    const field = toUserFriendlyField(uniqueMatch[1]);
+    return `${field} already exists. Please use a different ${field.toLowerCase()}.`;
+  }
+
+  // 3. Fallback
+  return message.split("\n")[0].replace(/^Error:\s*/, "");
+}
+
+// ----------------------------------------------------------------------
+// D1 Upsert Logic (unchanged except error handling)
 // ----------------------------------------------------------------------
 
 interface ProductData {
   id?: string;
-  slug: string; // format: "category/product-slug"
+  slug: string;
   title: string;
   sku?: string | null;
   ean?: string | null;
@@ -23,16 +86,16 @@ interface ProductData {
   shopify_id?: string | null;
   condition?: string | null;
   note?: string | null;
-  category: string; // extracted from slug
+  category: string;
   paragraphs?: string[];
   features?: Array<{ title: string; description: string }>;
-  images?: any[]; // will be replaced by finalizedImages
+  images?: any[];
   feedbacks?: Array<{ name: string; content: string; count?: number }>;
 }
 
 interface FinalizedImage {
-  url: string; // original source URL (may be temporary)
-  s3_path: string; // final CDN URL
+  url: string;
+  s3_path: string;
   alt_text: string;
 }
 
@@ -46,9 +109,9 @@ async function upsertProductData(
   finalizedImages: FinalizedImage[],
   isUpdate: boolean,
 ) {
-  const now = Math.floor(Date.now() / 1000); // Unix timestamp (seconds)
+  const now = Math.floor(Date.now() / 1000);
 
-  // ----- 1. Upsert the main product record -----
+  // Upsert product
   const productQuery = `
     INSERT INTO products (
       id, slug, title, sku, ean, asin,
@@ -71,7 +134,7 @@ async function upsertProductData(
 
   await executeQuery(productQuery, [
     productId,
-    data.slug.split("/").pop()!, // store only the product slug
+    data.slug.split("/").pop()!,
     data.title,
     data.sku || null,
     data.ean || null,
@@ -81,11 +144,11 @@ async function upsertProductData(
     data.category,
     data.condition || null,
     data.note || null,
-    isUpdate ? null : now, // keep original created_at on update
+    isUpdate ? null : now,
     now,
   ]);
 
-  // ----- 2. Replace paragraphs -----
+  // Replace paragraphs
   await executeQuery("DELETE FROM product_paragraphs WHERE product_id = ?", [
     productId,
   ]);
@@ -98,7 +161,7 @@ async function upsertProductData(
     }
   }
 
-  // ----- 3. Replace features -----
+  // Replace features
   await executeQuery("DELETE FROM product_features WHERE product_id = ?", [
     productId,
   ]);
@@ -112,15 +175,13 @@ async function upsertProductData(
     }
   }
 
-  // ----- 4. Replace images (using finalized data from the image service) -----
+  // Replace images
   await executeQuery("DELETE FROM product_images WHERE product_id = ?", [
     productId,
   ]);
   if (finalizedImages.length) {
     for (let i = 0; i < finalizedImages.length; i++) {
       const img = finalizedImages[i];
-      // Store the final CDN URL in `url`, and keep the original source in `s3_path` if needed
-      // (adjust according to your schema; here we store the final URL in `url` and the R2 key in `s3_path`)
       await executeQuery(
         `INSERT INTO product_images
          (product_id, image_order, url, s3_path, alt_text, created_at)
@@ -130,7 +191,7 @@ async function upsertProductData(
     }
   }
 
-  // ----- 5. Replace feedbacks -----
+  // Replace feedbacks
   await executeQuery("DELETE FROM product_feedbacks WHERE product_id = ?", [
     productId,
   ]);
@@ -155,8 +216,12 @@ export async function POST(req: Request) {
     const newData = await req.json();
     console.log("Incoming newData:", JSON.stringify(newData, null, 2));
 
-    // Clean up "null" strings
+    // Clean up "null" strings for all optional fields
     if (newData.ean === "null") newData.ean = null;
+    if (newData.asin === "null") newData.asin = null;
+    if (newData.sku === "null") newData.sku = null;
+    if (newData.baselinker_id === "null") newData.baselinker_id = null;
+    if (newData.shopify_id === "null") newData.shopify_id = null;
     if (newData.note === "null") newData.note = null;
 
     // Extract slugs
@@ -193,7 +258,7 @@ export async function POST(req: Request) {
     // 4. Upsert product and all child records into D1
     await upsertProductData(
       productId,
-      { ...newData, slug: productSlug }, // store only the product slug part
+      { ...newData, slug: productSlug },
       finalizedImages,
       !!existing,
     );
@@ -208,9 +273,13 @@ export async function POST(req: Request) {
       message: "Product synced successfully",
     });
   } catch (error: any) {
-    console.error("💥 Save Error:", error);
+    console.error("💥 Save Error (full details):", error);
+
+    // Convert the error into a clean, user‑friendly message
+    const userMessage = formatDatabaseError(error);
+
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: userMessage },
       { status: 500 },
     );
   }

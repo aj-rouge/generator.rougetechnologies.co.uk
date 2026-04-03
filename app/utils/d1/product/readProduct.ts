@@ -25,13 +25,14 @@ function parseJSON(value: any): any {
  * @returns Formatted product data ready for the edit form
  */
 export function transformD1ToFormData(product: any) {
-  // paragraphs is already an array of strings in correct order
+  // Helper to convert "null" string to empty string
+  const sanitize = (value: any): any => {
+    if (value === "null") return "";
+    return value;
+  };
+
   const paragraphs = product.paragraphs || [];
-
-  // features is already an array of {title, description}
   const features = product.features || [];
-
-  // images: add UI state fields needed by ImagesManager
   const images = (product.images || []).map((img: any) => ({
     url: img.url,
     s3Path: img.s3_path,
@@ -40,33 +41,26 @@ export function transformD1ToFormData(product: any) {
     needsUpload: false,
     uploadStatus: img.s3_path ? "completed" : "pending",
   }));
-
   const feedbacks = product.feedbacks || [];
-
   const cleanedNote = product.note === "null" ? null : product.note;
 
   return {
-    // Core product fields
     id: product.id,
     slug: `${product.category_slug}/${product.slug}`,
     title: product.title,
-    sku: product.sku || "",
-    asin: product.asin || "",
-    ean: product.ean || "",
-    baselinker_id: product.baselinker_id || "",
-    shopify_id: product.shopify_id || "",
+    sku: sanitize(product.sku || ""),
+    asin: sanitize(product.asin || ""),
+    ean: sanitize(product.ean || ""),
+    baselinker_id: sanitize(product.baselinker_id || ""),
+    shopify_id: sanitize(product.shopify_id || ""),
     condition: product.product_condition || "New",
     note: cleanedNote,
     created_at: product.created_at,
     updated_at: product.updated_at,
-
-    // Related data
     paragraphs,
     features,
     images,
     feedbacks,
-
-    // Category fields
     selectedCategory: product.category_slug,
   };
 }
