@@ -370,6 +370,8 @@ export default function ProductForm({
           selectedCategory={formData.selectedCategory}
           isSaving={isSaving}
           onAsinEanUpdate={handleAsinEanUpdate}
+          asin={formData.asin}
+          ean={formData.ean}
         />
         <FeedbackManager
           feedbacks={formData.feedbacks}

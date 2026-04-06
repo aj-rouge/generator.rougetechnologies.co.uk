@@ -17,6 +17,8 @@ export default function ImagesManager({
   selectedCategory = "",
   isSaving,
   onAsinEanUpdate,
+  asin = "",
+  ean = "",
 }) {
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -170,6 +172,8 @@ export default function ImagesManager({
             handleAddImages={handleAddImages}
             isImageDuplicate={isImageDuplicate}
             onAsinEanUpdate={onAsinEanUpdate}
+            initialAsin={asin}
+            initialEan={ean}
           />
 
           {images.length > 0 && (

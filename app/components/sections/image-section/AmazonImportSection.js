@@ -1,26 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { fetchAmazonProductImages } from "../../../utils/images/getImagesfromAmazon";
 
-/**
- * @param {Function} handleAddImages - Callback to parent: (urls: string[]) => void
- * @param {Function} isImageDuplicate - Check function from parent: (url: string) => boolean
- * @param {string} title - Product title for SEO
- * @param {string} selectedCategory - Category for SEO
- */
 export default function AmazonImportSection({
   handleAddImages,
   isImageDuplicate,
   onAsinEanUpdate,
+  initialAsin = "",
+  initialEan = "",
 }) {
-  // --- Internal State ---
   const [productId, setProductId] = useState("");
   const [amazonImageUrls, setAmazonImageUrls] = useState([]);
   const [validationResults, setValidationResults] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [searchInfo, setSearchInfo] = useState(null);
+
+  // Auto-fill the input field when component mounts or when initialAsin/initialEan change
+  useEffect(() => {
+    if (initialAsin) {
+      setProductId(initialAsin);
+    } else if (initialEan) {
+      setProductId(initialEan);
+    }
+  }, [initialAsin, initialEan]);
 
   const validateImages = async (urls) => {
     setIsValidating(true);
