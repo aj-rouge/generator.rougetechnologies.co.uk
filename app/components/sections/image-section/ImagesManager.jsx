@@ -1,10 +1,10 @@
+// ImagesManager.tsx
 "use client";
 
-import { useCallback, useState } from "react";
-import JSZip from "jszip";
-import { Download } from "lucide-react";
+import { useCallback } from "react";
 import SortableImageGrid from "./SortableImageGrid";
 import AmazonImportSection from "./AmazonImportSection";
+import DownloadButton from "./DownloadButton"; // Import the new component
 import {
   generateSeoAltText,
   generateSeoFileName,
@@ -20,8 +20,6 @@ export default function ImagesManager({
   asin = "",
   ean = "",
 }) {
-  const [isDownloading, setIsDownloading] = useState(false);
-
   // Helper to check for duplicates
   const isImageDuplicate = (url) => {
     if (!url) return false;
@@ -69,52 +67,6 @@ export default function ImagesManager({
     },
     [title, selectedCategory],
   );
-  // NEW: Download all uploaded images as ZIP
-  const downloadAllImages = async () => {
-    const uploadedImages = images.filter((img) => img.isUploaded && img.url);
-    if (uploadedImages.length === 0) {
-      alert("No uploaded images to download. Save the product first.");
-      return;
-    }
-
-    setIsDownloading(true);
-    try {
-      const response = await fetch("/api/images/download-zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrls: uploadedImages.map((img) => img.url),
-          productTitle: title,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Download failed");
-      }
-
-      // Trigger browser download
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = `${title || "product"}_images.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download error:", error);
-      alert(error.message);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Count uploaded images (ready for download)
-  const uploadedCount = images.filter(
-    (img) => img.isUploaded && img.url,
-  ).length;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -136,29 +88,12 @@ export default function ImagesManager({
           </p>
         </div>
 
-        {/* DOWNLOAD BUTTON - only enabled if there are uploaded images */}
-        <button
-          type="button"
-          onClick={downloadAllImages}
-          disabled={uploadedCount === 0 || isSaving || isDownloading}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-            uploadedCount === 0 || isSaving || isDownloading
-              ? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-              : "bg-green-600 hover:bg-green-700 text-white shadow-sm"
-          }`}
-        >
-          {isDownloading ? (
-            <>
-              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-              Zipping...
-            </>
-          ) : (
-            <>
-              <Download size={16} />
-              Download All Images ({uploadedCount})
-            </>
-          )}
-        </button>
+        <DownloadButton
+          images={images}
+          productTitle={title}
+          isSaving={isSaving}
+          onError={(error) => alert(error)}
+        />
       </div>
 
       {/* Rest of the component remains exactly the same */}
