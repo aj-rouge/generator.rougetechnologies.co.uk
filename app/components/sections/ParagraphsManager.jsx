@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Pencil, Trash2, X } from "lucide-react";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -11,7 +12,8 @@ export default function ParagraphsManager({
   const [localParagraphsError, setLocalParagraphsError] = useState("");
   const [keywordCounts, setKeywordCounts] = useState({});
   const [showKeywordStats, setShowKeywordStats] = useState(true);
-  // Add these functions inside ParagraphsManager
+  const [editingIndex, setEditingIndex] = useState(null);
+
   const validateParagraph = (text) => {
     if (text.length < 160) {
       return "Paragraph should include as much important detail as possible (minimum 160 characters recommended).";
@@ -19,12 +21,27 @@ export default function ParagraphsManager({
     return "";
   };
 
-  const addParagraph = () => {
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setNewParagraph("");
+    setLocalParagraphsError("");
+  };
+
+  const addOrUpdateParagraph = () => {
     const validationMsg = validateParagraph(newParagraph);
     if (newParagraph.trim() && !validationMsg.includes("required")) {
-      setParagraphs([...paragraphs, newParagraph]);
-      setNewParagraph("");
-      setLocalParagraphsError("");
+      if (editingIndex !== null) {
+        // Update existing paragraph
+        const updatedParagraphs = [...paragraphs];
+        updatedParagraphs[editingIndex] = newParagraph;
+        setParagraphs(updatedParagraphs);
+        cancelEdit();
+      } else {
+        // Add new paragraph
+        setParagraphs([...paragraphs, newParagraph]);
+        setNewParagraph("");
+        setLocalParagraphsError("");
+      }
     } else if (validationMsg) {
       setLocalParagraphsError(validationMsg);
     }
@@ -32,6 +49,17 @@ export default function ParagraphsManager({
 
   const removeParagraph = (index) => {
     setParagraphs(paragraphs.filter((_, i) => i !== index));
+    if (editingIndex === index) {
+      cancelEdit();
+    } else if (editingIndex !== null && editingIndex > index) {
+      setEditingIndex(editingIndex - 1);
+    }
+  };
+
+  const editParagraph = (index) => {
+    setNewParagraph(paragraphs[index]);
+    setEditingIndex(index);
+    setLocalParagraphsError("");
   };
 
   const handleNewParagraphChange = (e) => {
@@ -42,6 +70,7 @@ export default function ParagraphsManager({
       setLocalParagraphsError(validationMsg);
     }
   };
+
   // Calculate keyword occurrences whenever paragraphs change
   useEffect(() => {
     if (categoryKeywords.length > 0) {
@@ -52,7 +81,7 @@ export default function ParagraphsManager({
         const keywordLower = keyword.toLowerCase();
         const regex = new RegExp(
           `\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-          "g"
+          "g",
         );
         const matches = allText.match(regex);
         counts[keyword] = matches ? matches.length : 0;
@@ -70,7 +99,7 @@ export default function ParagraphsManager({
     Object.values(keywordCounts).some((count) => count === 0);
   const totalKeywordCount = Object.values(keywordCounts).reduce(
     (sum, count) => sum + count,
-    0
+    0,
   );
   const totalChars = paragraphs.reduce((sum, para) => sum + para.length, 0);
   const avgParaLength =
@@ -79,6 +108,7 @@ export default function ParagraphsManager({
   // Check if new paragraph meets minimum requirements
   const isTooShort = newParagraph.length > 0 && newParagraph.length < 160;
   const isGoodLength = newParagraph.length >= 160;
+  const canAddOrUpdate = newParagraph.trim().length >= 160;
 
   // Validation rules checker
   const checkValidationRules = () => {
@@ -140,68 +170,47 @@ export default function ParagraphsManager({
 
   const validationRules = checkValidationRules();
   const displayRules = validationRules.filter(
-    (rule) => rule.condition !== false
+    (rule) => rule.condition !== false,
   );
   const passedRules = displayRules.filter(
-    (rule) => rule.check() === true
+    (rule) => rule.check() === true,
   ).length;
   const totalRules = displayRules.length;
   const allRulesPass = passedRules === totalRules && totalRules > 0;
   const validationScore =
     totalRules > 0 ? Math.round((passedRules / totalRules) * 100) : 0;
 
-  // Get overall status
   const getOverallStatus = () => {
-    if (paragraphs.length === 0) {
-      return "✗ Add Paragraphs";
-    }
-    if (!categoryKeywords.length) {
-      return "⚠️ Select Category";
-    }
-    if (hasMissingKeywords) {
-      return "⚠️ Missing Keywords";
-    }
-    if (allRulesPass) {
-      return "✓ Description Complete";
-    }
+    if (paragraphs.length === 0) return "✗ Add Paragraphs";
+    if (!categoryKeywords.length) return "⚠️ Select Category";
+    if (hasMissingKeywords) return "⚠️ Missing Keywords";
+    if (allRulesPass) return "✓ Description Complete";
     return "⚠️ Needs Attention";
   };
 
-  // Get status badge color
   const getStatusBadgeColor = () => {
-    if (paragraphs.length === 0) {
+    if (paragraphs.length === 0)
       return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    }
-    if (!categoryKeywords.length) {
+    if (!categoryKeywords.length)
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (hasMissingKeywords) {
+    if (hasMissingKeywords)
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (allRulesPass) {
+    if (allRulesPass)
       return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    }
     return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
   };
 
-  // Get border color based on overall state
   const getBorderColor = () => {
-    if (paragraphs.length === 0) {
+    if (paragraphs.length === 0)
       return "border-red-400 dark:border-red-500 border-2";
-    }
-    if (!categoryKeywords.length) {
+    if (!categoryKeywords.length)
       return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (hasMissingKeywords) {
+    if (hasMissingKeywords)
       return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (allRulesPass) {
-      return "border-green-500 dark:border-green-500 border-2";
-    }
+    if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
     return "border-gray-300 dark:border-gray-600";
   };
 
-  // Get importance badge color
   const getImportanceColor = (importance) => {
     switch (importance) {
       case "critical":
@@ -213,14 +222,12 @@ export default function ParagraphsManager({
     }
   };
 
-  // Get validation status color
   const getValidationColor = (score) => {
     if (score === 100) return "text-green-600 dark:text-green-400";
     if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
   };
 
-  // Get header icon based on validation status
   const getHeaderIcon = () => {
     if (paragraphs.length === 0) return "❌";
     if (!categoryKeywords.length) return "⚠️";
@@ -229,14 +236,11 @@ export default function ParagraphsManager({
     return "⚠️";
   };
 
-  // Check if new paragraph meets minimum requirements
-  const canAddNewParagraph = newParagraph.trim().length >= 160;
-
   return (
     <div
       className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
     >
-      {/* Status banner at the top */}
+      {/* Status banner */}
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -272,7 +276,7 @@ export default function ParagraphsManager({
         </div>
       </div>
 
-      {/* Keyword Usage Statistics - Always show if we have a category */}
+      {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
         <div
           className={`mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border ${
@@ -298,7 +302,6 @@ export default function ParagraphsManager({
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                 Include each keyword at least once (ideally 2-3 times each):
               </p>
-
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                 {categoryKeywords.map((keyword, index) => {
                   const count = keywordCounts[keyword] || 0;
@@ -309,8 +312,8 @@ export default function ParagraphsManager({
                         count === 0
                           ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                           : count === 1
-                          ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                          : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
+                            ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                            : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
                       }`}
                     >
                       <div
@@ -324,8 +327,8 @@ export default function ParagraphsManager({
                           count === 0
                             ? "text-red-600 dark:text-red-400"
                             : count === 1
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-green-600 dark:text-green-400"
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-green-600 dark:text-green-400"
                         }`}
                       >
                         {count}
@@ -337,7 +340,6 @@ export default function ParagraphsManager({
                   );
                 })}
               </div>
-
               {hasMissingKeywords && (
                 <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800">
                   <p className="text-sm text-red-600 dark:text-red-400 flex items-center">
@@ -381,20 +383,24 @@ export default function ParagraphsManager({
                 ? categoryKeywords.reduce((acc, keyword) => {
                     const regex = new RegExp(
                       `\\b${keyword.toLowerCase()}\\b`,
-                      "gi"
+                      "gi",
                     );
                     const matches = para.match(regex);
                     return matches ? acc + matches.length : acc;
                   }, 0)
                 : 0;
 
+            const isEditingThis = editingIndex === index;
+
             return (
               <div
                 key={index}
                 className={`p-3 rounded border transition-all duration-300 ${
-                  para.length >= 160
-                    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                    : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                  isEditingThis
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
+                    : para.length >= 160
+                      ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                      : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
@@ -414,17 +420,31 @@ export default function ParagraphsManager({
                         {keywordMatches !== 1 ? "s" : ""}
                       </span>
                     )}
+                    {isEditingThis && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        (editing)
+                      </span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => removeParagraph(index)}
-                    className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 
-                             rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => editParagraph(index)}
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => removeParagraph(index)}
+                      className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
                 </div>
                 <p className="text-gray-700 dark:text-gray-300">{para}</p>
-                {para.length < 160 && (
+                {!isEditingThis && para.length < 160 && (
                   <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center">
                     ⚠️ Needs {160 - para.length} more characters (minimum 160)
                   </p>
@@ -435,11 +455,11 @@ export default function ParagraphsManager({
         )}
       </div>
 
-      {/* Add New Paragraph */}
+      {/* Add/Edit Paragraph Form */}
       <div className="mt-6">
         <div className="flex justify-between items-center mb-2">
           <label className="block text-black dark:text-gray-100 font-medium">
-            Add New Paragraph:
+            {editingIndex !== null ? "Edit Paragraph:" : "Add New Paragraph:"}
           </label>
           <div className="flex items-center gap-2">
             <span
@@ -447,8 +467,8 @@ export default function ParagraphsManager({
                 newParagraph.length === 0
                   ? "text-gray-500 dark:text-gray-400"
                   : newParagraph.length < 160
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-green-600 dark:text-green-400"
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-green-600 dark:text-green-400"
               }`}
             >
               {newParagraph.length}/160+ chars
@@ -461,7 +481,7 @@ export default function ParagraphsManager({
           </div>
         </div>
 
-        <div className="w-full flex flex-col md:flex-row gap-4">
+        <div className="w-full flex flex-col gap-4">
           <div className="w-full">
             <textarea
               value={newParagraph}
@@ -472,8 +492,8 @@ export default function ParagraphsManager({
                          newParagraph.length === 0
                            ? "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                            : newParagraph.length < 160
-                           ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
-                           : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
+                             ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
+                             : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
                        }`}
               placeholder={
                 categoryKeywords.length > 0
@@ -487,7 +507,7 @@ export default function ParagraphsManager({
               rows={3}
             />
 
-            {/* Length indicator bar - Similar to TitleInput */}
+            {/* Length indicator bar */}
             <div className="mt-4">
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                 <span>0</span>
@@ -496,8 +516,8 @@ export default function ParagraphsManager({
                     isGoodLength
                       ? "text-green-600 dark:text-green-400 font-medium"
                       : isTooShort && newParagraph.length > 0
-                      ? "text-red-600 dark:text-red-400 font-medium"
-                      : ""
+                        ? "text-red-600 dark:text-red-400 font-medium"
+                        : ""
                   }
                 >
                   160 (min)
@@ -512,15 +532,15 @@ export default function ParagraphsManager({
                     isTooShort
                       ? "bg-red-500"
                       : isGoodLength
-                      ? "bg-green-500"
-                      : newParagraph.length > 0
-                      ? "bg-blue-500"
-                      : "bg-transparent"
+                        ? "bg-green-500"
+                        : newParagraph.length > 0
+                          ? "bg-blue-500"
+                          : "bg-transparent"
                   }`}
                   style={{
                     width: `${Math.min(
                       100,
-                      (newParagraph.length / 500) * 100
+                      (newParagraph.length / 500) * 100,
                     )}%`,
                   }}
                 />
@@ -548,8 +568,8 @@ export default function ParagraphsManager({
                     isGoodLength
                       ? "text-green-600 dark:text-green-400 font-medium"
                       : newParagraph.length >= 300
-                      ? "text-green-600 dark:text-green-400"
-                      : ""
+                        ? "text-green-600 dark:text-green-400"
+                        : ""
                   }
                 >
                   {newParagraph.length >= 300 ? "Excellent!" : "Good length"}
@@ -571,17 +591,30 @@ export default function ParagraphsManager({
               </p>
             )}
           </div>
-          <button
-            onClick={addParagraph}
-            disabled={!canAddNewParagraph}
-            className={`w-full md:w-fit px-4 py-2 rounded transition-all duration-300 ${
-              canAddNewParagraph
-                ? "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white"
-                : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Add Paragraph
-          </button>
+
+          <div className="flex gap-3">
+            <button
+              onClick={addOrUpdateParagraph}
+              disabled={!canAddOrUpdate}
+              className={`flex-1 px-4 py-3 rounded-lg transition-all duration-300 ${
+                canAddOrUpdate
+                  ? "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white shadow-md"
+                  : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {editingIndex !== null ? "✓ Update Paragraph" : "+ Add Paragraph"}
+            </button>
+
+            {editingIndex !== null && (
+              <button
+                onClick={cancelEdit}
+                className="flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -597,7 +630,6 @@ export default function ParagraphsManager({
         <div className="space-y-2">
           {displayRules.map((rule) => {
             const result = rule.check();
-
             return (
               <div
                 key={rule.id}
@@ -619,7 +651,7 @@ export default function ParagraphsManager({
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                        rule.importance
+                        rule.importance,
                       )}`}
                     >
                       {rule.importance}
@@ -649,7 +681,7 @@ export default function ParagraphsManager({
                       ❌ Missing keywords:{" "}
                       {categoryKeywords
                         .filter(
-                          (k) => !keywordCounts[k] || keywordCounts[k] === 0
+                          (k) => !keywordCounts[k] || keywordCounts[k] === 0,
                         )
                         .join(", ")}
                     </div>
@@ -681,8 +713,8 @@ export default function ParagraphsManager({
                       allRulesPass
                         ? "bg-green-500"
                         : passedRules > 0
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
                     }`}
                     style={{ width: `${validationScore}%` }}
                   />
@@ -693,12 +725,12 @@ export default function ParagraphsManager({
                   {paragraphs.length === 0
                     ? "Add Paragraphs"
                     : !categoryKeywords.length
-                    ? "Select Category"
-                    : hasMissingKeywords
-                    ? "Add Keywords"
-                    : allRulesPass
-                    ? "Perfect!"
-                    : "Almost there!"}
+                      ? "Select Category"
+                      : hasMissingKeywords
+                        ? "Add Keywords"
+                        : allRulesPass
+                          ? "Perfect!"
+                          : "Almost there!"}
                 </span>
               </div>
             </div>
