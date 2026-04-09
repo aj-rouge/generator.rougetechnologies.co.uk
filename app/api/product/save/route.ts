@@ -1,3 +1,5 @@
+// app/api/product/save/route.ts
+
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { getProductById } from "../../../utils/d1/product/readProduct";
@@ -72,7 +74,7 @@ function formatDatabaseError(error: any): string {
 }
 
 // ----------------------------------------------------------------------
-// D1 Upsert Logic (unchanged except error handling)
+// D1 Upsert Logic
 // ----------------------------------------------------------------------
 
 interface ProductData {
@@ -91,6 +93,7 @@ interface ProductData {
   features?: Array<{ title: string; description: string }>;
   images?: any[];
   feedbacks?: Array<{ name: string; content: string; count?: number }>;
+  specifications?: Array<{ key: string; value: string }>; // 🆕 added
 }
 
 interface FinalizedImage {
@@ -175,7 +178,24 @@ async function upsertProductData(
     }
   }
 
-  // Replace images
+  // Replace specifications 🆕
+  await executeQuery(
+    "DELETE FROM product_specifications WHERE product_id = ?",
+    [productId],
+  );
+  if (data.specifications?.length) {
+    for (let i = 0; i < data.specifications.length; i++) {
+      const spec = data.specifications[i];
+      await executeQuery(
+        `INSERT INTO product_specifications 
+         (product_id, spec_order, key, value, created_at) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [productId, i + 1, spec.key, spec.value, now],
+      );
+    }
+  }
+
+  // Replace images (unchanged)
   await executeQuery("DELETE FROM product_images WHERE product_id = ?", [
     productId,
   ]);
@@ -273,9 +293,7 @@ export async function POST(req: Request) {
       message: "Product synced successfully",
     });
   } catch (error: any) {
-    console.error("💥 Save Error (full details):", error);
-
-    // Convert the error into a clean, user‑friendly message
+    console.error("💥 Save Error:", error);
     const userMessage = formatDatabaseError(error);
 
     return NextResponse.json(

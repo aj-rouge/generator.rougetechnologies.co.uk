@@ -20,6 +20,7 @@ import SKUManager from "./sections/SKUManager";
 import ProductIdentifiers from "./sections/ProductIdentifiers";
 import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
+import SpecificationsManager from "./sections/SpecificationsManager";
 
 // Helper to find a category by slug (recursive)
 const findCategoryBySlug = (categories, slug) => {
@@ -64,6 +65,7 @@ const INITIAL_FORM_STATE = {
   baselinker_id: "",
   shopify_id: "",
   ebayLink: "",
+  specifications: [],
 };
 
 export default function ProductForm({
@@ -122,6 +124,7 @@ export default function ProductForm({
           name: "",
           sections: [],
         },
+        specifications: initialData.specifications || [], // <-- new
       });
     }
   }, [initialData, mode]);
@@ -357,6 +360,11 @@ export default function ProductForm({
         <FeaturesManager
           features={formData.features}
           setFeatures={(val) => updateForm({ features: val })}
+          categoryKeywords={currentCategoryKeywords}
+        />
+        <SpecificationsManager
+          specifications={formData.specifications}
+          setSpecifications={(val) => updateForm({ specifications: val })}
           categoryKeywords={currentCategoryKeywords}
         />
         <NoteInput

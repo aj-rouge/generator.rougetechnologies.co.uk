@@ -94,6 +94,19 @@ CREATE TABLE IF NOT EXISTS products (
   FOREIGN KEY (category) REFERENCES categories(slug)
 );
 
+CREATE TABLE IF NOT EXISTS product_specifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id TEXT NOT NULL,
+  spec_order INTEGER NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  UNIQUE(product_id, spec_order)   -- enforce order uniqueness
+);
+
 -- =====================================================
 -- CRITICAL: Exact match indexes for identifiers
 -- Users will search by ASIN, EAN, SKU most frequently
@@ -103,7 +116,8 @@ CREATE INDEX IF NOT EXISTS idx_products_ean ON products(ean) WHERE ean IS NOT NU
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku) WHERE sku IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_baselinker_id ON products(baselinker_id) WHERE baselinker_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_shopify_id ON products(shopify_id) WHERE shopify_id IS NOT NULL;
-
+CREATE INDEX IF NOT EXISTS idx_product_specs_product_id ON product_specifications(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_specs_key ON product_specifications(key);
 -- For searches where user might paste any type of ID
 CREATE INDEX IF NOT EXISTS idx_products_all_ids ON products(asin, ean, sku, baselinker_id, shopify_id);
 
@@ -224,7 +238,14 @@ SELECT
       json_object('name', name, 'content', content, 'count', count)
     )
     FROM product_feedbacks WHERE product_id = p.id
-  ) AS feedbacks
+  ) AS feedbacks,
+  (
+    SELECT json_group_array(
+      json_array(key, value)
+      ORDER BY spec_order
+    )
+    FROM product_specifications WHERE product_id = p.id
+  ) AS specifications
 
 FROM products p;
 

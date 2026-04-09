@@ -1,9 +1,9 @@
+// utils/d1/product/readProduct.ts
+
 import { executeQuery } from "../execute/executeQuery";
 
 /**
  * Parses a JSON string into a JavaScript value.
- * If the input is not a string or cannot be parsed, returns the original value.
- * Used to convert JSON columns from the database into usable objects/arrays.
  */
 function parseJSON(value: any): any {
   if (!value) return null;
@@ -18,14 +18,17 @@ function parseJSON(value: any): any {
 }
 
 /**
+ * Generates a temporary unique ID for client‑side specification rows.
+ * This matches the format used in SpecificationsManager.
+ */
+function generateTempSpecId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Transforms a D1 product object into the format expected by the edit form.
- * This includes adding UI state fields and restructuring data as needed.
- *
- * @param product - The raw product object from the database
- * @returns Formatted product data ready for the edit form
  */
 export function transformD1ToFormData(product: any) {
-  // Helper to convert "null" string to empty string
   const sanitize = (value: any): any => {
     if (value === "null") return "";
     return value;
@@ -44,6 +47,14 @@ export function transformD1ToFormData(product: any) {
   const feedbacks = product.feedbacks || [];
   const cleanedNote = product.note === "null" ? null : product.note;
 
+  // 🆕 Parse and transform specifications
+  const rawSpecs = parseJSON(product.specifications) || []; // array of [key, value]
+  const specifications = rawSpecs.map((pair: [string, string]) => ({
+    id: generateTempSpecId(),
+    key: pair[0] || "",
+    value: pair[1] || "",
+  }));
+
   return {
     id: product.id,
     slug: `${product.category_slug}/${product.slug}`,
@@ -61,48 +72,11 @@ export function transformD1ToFormData(product: any) {
     features,
     images,
     feedbacks,
+    specifications, // 🆕 added
     selectedCategory: product.category_slug,
   };
 }
 
-/**
- * Retrieve a complete product by any unique identifier field.
- *
- * This function queries the `v_product_complete` view, which joins:
- *   - products (core product data)
- *   - categories (category details, keywords, eBay link)
- *   - category_content (SEO sections, as JSON)
- *   - product_paragraphs (as JSON array)
- *   - product_features (as JSON array)
- *   - product_images (as JSON array)
- *   - product_feedbacks (as JSON array)
- *   - conditions & condition_options (condition group with options)
- *
- * The view returns one row per product, with child records aggregated into JSON strings.
- * This function:
- *   1. Parses all JSON fields into JavaScript arrays/objects.
- *   2. Reconstructs the condition group object from flattened fields.
- *   3. Removes temporary raw JSON fields.
- *
- * @param field - The column name to search by. Must be a unique identifier:
- *                'id', 'slug', 'sku', 'ean', 'asin', 'baselinker_id', 'shopify_id'
- * @param value - The value to match (as string).
- * @param transform - Whether to transform the result to form format (default: false)
- * @returns The complete product object with all related data, or `null` if no product matches.
- *
- * @example
- * // Get product by SKU
- * const product = await getProductBySku('ABC-123');
- * console.log(product.title);              // "Awesome Gadget"
- * console.log(product.features);            // [{ title: "Fast", description: "..." }, ...]
- * console.log(product.images[0].url);       // "https://..."
- * console.log(product.condition_group);     // { group_key: "electronics", group_name: "Electronics", options: ["New", "Used", ...] }
- *
- * @example
- * // Get product by ASIN for edit form
- * const product = await getProductByAsin('B08N5WRWNW', { transformToForm: true });
- * // product now has UI state fields like images[0].isUploaded, etc.
- */
 export const getProductByField = async (
   field: string,
   value: string,
@@ -114,23 +88,22 @@ export const getProductByField = async (
 
   const product = results[0];
 
-  // Parse all JSON fields
+  // Parse all JSON fields (including the new specifications)
   product.seo_sections = parseJSON(product.seo_sections) || [];
   product.paragraphs = parseJSON(product.paragraphs) || [];
   product.features = parseJSON(product.features) || [];
   product.images = parseJSON(product.images) || [];
   product.feedbacks = parseJSON(product.feedbacks) || [];
+  product.specifications = parseJSON(product.specifications) || []; // 🆕
   product.category_keywords = parseJSON(product.category_keywords_json) || [];
   product.condition_options = parseJSON(product.condition_options) || [];
 
-  // Reconstruct condition group
   if (product.condition_group_key) {
     product.condition_group = {
       group_key: product.condition_group_key,
       group_name: product.condition_group_name,
       options: product.condition_options,
     };
-    // Optionally remove flattened fields
     delete product.condition_group_key;
     delete product.condition_group_name;
     delete product.condition_options;
