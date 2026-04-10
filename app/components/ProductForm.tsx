@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-
 import GenerateHTML from "./sections/GenerateHTML";
 import LivePreview from "./preview/LivePreview";
 import TitleInput from "./sections/TitleInput";
@@ -22,7 +21,7 @@ import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
 import SpecificationsManager from "./sections/SpecificationsManager";
 
-// Helper to find a category by slug (recursive)
+// Helper functions unchanged...
 const findCategoryBySlug = (categories, slug) => {
   for (const cat of categories) {
     if (cat.slug === slug) return cat;
@@ -74,7 +73,7 @@ export default function ProductForm({
   initialData = null,
   categoryContent = null,
 }) {
-  const router = useRouter(); // 👈
+  const router = useRouter();
   const { addNotification, updateNotification, removeNotification } =
     useNotification();
   const [formData, setFormData] = useState(() => {
@@ -124,7 +123,7 @@ export default function ProductForm({
           name: "",
           sections: [],
         },
-        specifications: initialData.specifications || [], // <-- new
+        specifications: initialData.specifications || [],
       });
     }
   }, [initialData, mode]);
@@ -136,17 +135,14 @@ export default function ProductForm({
     () => findCategoryBySlug(categories, formData.selectedCategory),
     [categories, formData.selectedCategory],
   );
-
   const currentCategoryKeywords = useMemo(
     () => selectedCategoryObj?.keywords || [],
     [selectedCategoryObj],
   );
-
   const categoryOptions = useMemo(
     () => buildCategoryOptions(categories),
     [categories],
   );
-
   const categoryName = useMemo(
     () => selectedCategoryObj?.name || formData.selectedCategory,
     [selectedCategoryObj, formData.selectedCategory],
@@ -166,7 +162,6 @@ export default function ProductForm({
   // For edit mode: detect changes compared to initialData
   const hasChanges = useMemo(() => {
     if (mode !== "edit" || !initialData) return false;
-
     const getNormalizedData = (data, isInitial = false) => ({
       title: data?.title || "",
       condition: data?.condition || "",
@@ -186,12 +181,10 @@ export default function ProductForm({
         altText: img.altText,
       })),
     });
-
     const current = getNormalizedData(formData);
     const original = getNormalizedData(initialData, true);
     const isDifferent = JSON.stringify(current) !== JSON.stringify(original);
     const hasPendingUploads = formData.images.some((i) => i.needsUpload);
-
     return isDifferent || hasPendingUploads;
   }, [formData, initialData, mode]);
 
@@ -229,7 +222,7 @@ export default function ProductForm({
         message: "Please fix validation errors",
         type: "error",
       });
-      return;
+      return; // early return = undefined
     }
 
     setIsSaving(true);
@@ -257,6 +250,8 @@ export default function ProductForm({
       const result = await response.json();
       if (!result.success) throw new Error(result.error);
 
+      console.log("✅ ProductForm: Save API returned ID:", result.id);
+
       if (result.updatedImages) {
         const syncedImages = result.updatedImages.map((img) => ({
           ...img,
@@ -273,15 +268,14 @@ export default function ProductForm({
         progress: 100,
       });
 
-      // Redirect only when creating a new product
       if (mode === "create") {
-        setTimeout(() => {
-          router.push(`/product/${result.id}`);
-        }, 500);
+        setTimeout(() => router.push(`/product/${result.id}`), 500);
       } else {
-        // For edit: auto‑dismiss the success toast
         setTimeout(() => removeNotification(toastId), 2000);
       }
+
+      // ✅ Explicitly return the product ID
+      return result.id;
     } catch (error) {
       console.error("❌ Save Error:", error);
       updateNotification(toastId, {
@@ -290,6 +284,7 @@ export default function ProductForm({
         progress: 0,
       });
       setTimeout(() => removeNotification(toastId), 4000);
+      throw error; // Re-throw so caller can handle
     } finally {
       setIsSaving(false);
     }
@@ -298,10 +293,9 @@ export default function ProductForm({
   useEffect(() => {
     if (mode === "edit") console.log("Edit formData:", formData);
   }, [formData, mode]);
-
-  // ---------------------------------------------------------------------
-  // 7. Render
-  // ---------------------------------------------------------------------
+  const handleBaselinkerCreated = (newBaselinkerId) => {
+    updateForm({ baselinker_id: newBaselinkerId });
+  };
   return (
     <div className="w-full min-h-screen">
       <ProductFormHeader
@@ -315,8 +309,8 @@ export default function ProductForm({
         uuid={mode === "edit" ? formData.id : undefined}
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
+        onBaselinkerCreated={handleBaselinkerCreated} // <-- new prop
       />
-
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector

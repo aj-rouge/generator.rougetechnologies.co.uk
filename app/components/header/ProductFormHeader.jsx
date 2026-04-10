@@ -6,6 +6,7 @@ import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
 import UpdateBaselinkerButton from "./UpdateBaselinkerButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
+import CreateBaselinkerButton from "./CreateBaselinkerButton";
 
 export default function ProductFormHeader({
   mode,
@@ -19,6 +20,7 @@ export default function ProductFormHeader({
   uuid,
   baselinkerId,
   shopifyId,
+  onBaselinkerCreated,
 }) {
   const isEdit = mode === "edit";
 
@@ -53,7 +55,7 @@ export default function ProductFormHeader({
             <DarkModeToggle />
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
-                {shopifyId !== "null" && (
+                {shopifyId && shopifyId !== "null" && (
                   <a
                     href={`https://admin.shopify.com/store/rouge-technologies/products/${shopifyId}`}
                     target="_blank"
@@ -66,7 +68,7 @@ export default function ProductFormHeader({
                     <ExternalLink className="w-3 h-3 opacity-70" />
                   </a>
                 )}
-                {baselinkerId && (
+                {baselinkerId && baselinkerId !== "null" && (
                   <a
                     href={`https://panel-g.baselinker.com/inventory_products#product:${baselinkerId}#tab:information`}
                     target="_blank"
@@ -82,7 +84,7 @@ export default function ProductFormHeader({
               </div>
             )}
             <div className="flex items-center gap-2">
-              {shopifyId && (
+              {shopifyId && shopifyId !== "null" && (
                 <UpdateShopifyButton
                   shopifyId={shopifyId}
                   productTitle={title}
@@ -91,13 +93,21 @@ export default function ProductFormHeader({
                   onSave={onSave}
                 />
               )}
-              {baselinkerId && (
+              {baselinkerId && baselinkerId !== "null" ? (
                 <UpdateBaselinkerButton
                   baselinkerId={baselinkerId}
                   productTitle={title}
                   disabled={isSaving}
                   uuid={uuid}
                   onSave={onSave}
+                />
+              ) : (
+                <CreateBaselinkerButton
+                  productTitle={title}
+                  disabled={isSaving}
+                  uuid={uuid}
+                  onSave={onSave}
+                  onBaselinkerCreated={onBaselinkerCreated}
                 />
               )}
             </div>
