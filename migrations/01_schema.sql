@@ -88,9 +88,14 @@ CREATE TABLE IF NOT EXISTS products (
   category TEXT NOT NULL,
   condition TEXT,
   note TEXT,
+  vat_rate INTEGER DEFAULT 20,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  
+  rrp DECIMAL(10,2),
+  weight DECIMAL(8,2),
+  quantity INTEGER DEFAULT 0,
+  price_brutto DECIMAL(10,2),
+  shipping_method TEXT,
   FOREIGN KEY (category) REFERENCES categories(slug)
 );
 
@@ -189,7 +194,6 @@ CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warning
 -- =====================================================
 -- VIEW for full product data (no category enrichment)
 -- =====================================================
-
 DROP VIEW IF EXISTS v_product_complete;
 CREATE VIEW v_product_complete AS
 SELECT 
@@ -204,6 +208,12 @@ SELECT
   p.category AS category_slug,
   p.condition AS product_condition,
   p.note,
+  p.vat_rate,
+  p.rrp,
+  p.weight,
+  p.quantity,
+  p.price_brutto,
+  p.shipping_method,
   p.created_at,
   p.updated_at,
   
@@ -239,6 +249,7 @@ SELECT
     )
     FROM product_feedbacks WHERE product_id = p.id
   ) AS feedbacks,
+  
   (
     SELECT json_group_array(
       json_array(key, value)

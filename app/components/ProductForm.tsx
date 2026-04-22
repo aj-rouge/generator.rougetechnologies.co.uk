@@ -20,6 +20,7 @@ import ProductIdentifiers from "./sections/ProductIdentifiers";
 import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
 import SpecificationsManager from "./sections/SpecificationsManager";
+import PricingAndLogistics from "./sections/PricingAndLogistics";
 
 // Helper functions unchanged...
 const findCategoryBySlug = (categories, slug) => {
@@ -65,6 +66,12 @@ const INITIAL_FORM_STATE = {
   shopify_id: "",
   ebayLink: "",
   specifications: [],
+  vat_rate: 0,
+  rrp: 0,
+  weight: 0,
+  quantity: 0,
+  price_brutto: 0,
+  shipping_method: "",
 };
 
 export default function ProductForm({
@@ -81,6 +88,12 @@ export default function ProductForm({
     if (initialData) {
       return {
         ...initialData,
+        vat_rate: initialData.vat_rate ?? 20,
+        rrp: initialData.rrp ?? "",
+        weight: initialData.weight ?? "",
+        quantity: initialData.quantity ?? 0,
+        price_brutto: initialData.price_brutto ?? "",
+        shipping_method: initialData.shipping_method ?? "",
         note: initialData.note === "null" ? null : initialData.note,
         images: (initialData.images || []).map((img) => ({
           url: img.url,
@@ -222,7 +235,7 @@ export default function ProductForm({
         message: "Please fix validation errors",
         type: "error",
       });
-      return; // early return = undefined
+      return;
     }
 
     setIsSaving(true);
@@ -237,14 +250,23 @@ export default function ProductForm({
       const productSlug = generateSeoSlug(formData.title);
       const slug = `${categorySlug}/${productSlug}`;
 
+      // ✅ Convert numeric fields
+      const payload = {
+        ...formData,
+        slug,
+        category: formData.selectedCategory,
+        price_brutto:
+          formData.price_brutto === "" ? 0 : Number(formData.price_brutto),
+        rrp: formData.rrp === "" ? 0 : Number(formData.rrp),
+        weight: formData.weight === "" ? 0 : Number(formData.weight),
+        quantity: Number(formData.quantity) || 0,
+        vat_rate: Number(formData.vat_rate) || 0,
+      };
+
       const response = await fetch("/api/product/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          slug,
-          category: formData.selectedCategory,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -346,6 +368,15 @@ export default function ProductForm({
             categories={categories}
           />
         </div>
+        <PricingAndLogistics
+          vat_rate={formData.vat_rate}
+          price_brutto={formData.price_brutto}
+          rrp={formData.rrp}
+          weight={formData.weight}
+          quantity={formData.quantity}
+          shipping_method={formData.shipping_method}
+          onUpdate={updateForm}
+        />
         <ParagraphsManager
           paragraphs={formData.paragraphs}
           setParagraphs={(val) => updateForm({ paragraphs: val })}

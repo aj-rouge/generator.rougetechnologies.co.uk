@@ -3,6 +3,27 @@
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 
+// ----- Helper functions for text cleaning -----
+const capitalizeFirstLetter = (str) => {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+const removeDoubleColon = (str) => {
+  if (!str) return str;
+  return str.replace(/:/g, "");
+};
+
+const ensureEndsWithPeriod = (str) => {
+  if (!str) return str;
+  const trimmed = str.trim();
+  if (trimmed.length === 0) return str;
+  const lastChar = trimmed.charAt(trimmed.length - 1);
+  if (".!?".includes(lastChar)) return trimmed;
+  return trimmed + ".";
+};
+
+// ----- Main component -----
 export default function FeaturesManager({
   features,
   setFeatures,
@@ -15,22 +36,44 @@ export default function FeaturesManager({
   const [keywordCounts, setKeywordCounts] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
 
-  // Reset edit mode and clear inputs
+  // Clean features on initial load (auto‑capitalize, remove ::, add period)
+  useEffect(() => {
+    const cleaned = features.map((f) => ({
+      title: capitalizeFirstLetter(removeDoubleColon(f.title?.trim() || "")),
+      description: ensureEndsWithPeriod(
+        capitalizeFirstLetter(removeDoubleColon(f.description?.trim() || "")),
+      ),
+    }));
+    // Only update if something actually changed
+    if (JSON.stringify(cleaned) !== JSON.stringify(features)) {
+      setFeatures(cleaned);
+    }
+  }, []); // run once on mount
+
+  // Cancel edit mode and clear inputs
   const cancelEdit = () => {
     setEditingIndex(null);
     setNewFeatureTitle("");
     setNewFeatureDesc("");
   };
 
-  // Add or update feature
+  // Add or update feature with automatic cleaning
   const addOrUpdateFeature = () => {
-    if (newFeatureTitle.trim() && newFeatureDesc.trim()) {
+    const rawTitle = newFeatureTitle.trim();
+    const rawDesc = newFeatureDesc.trim();
+
+    if (rawTitle && rawDesc) {
+      const cleanedTitle = capitalizeFirstLetter(removeDoubleColon(rawTitle));
+      const cleanedDesc = ensureEndsWithPeriod(
+        capitalizeFirstLetter(removeDoubleColon(rawDesc)),
+      );
+
       if (editingIndex !== null) {
         // Update existing feature
         const updatedFeatures = [...features];
         updatedFeatures[editingIndex] = {
-          title: newFeatureTitle,
-          description: newFeatureDesc,
+          title: cleanedTitle,
+          description: cleanedDesc,
         };
         setFeatures(updatedFeatures);
         cancelEdit();
@@ -39,8 +82,8 @@ export default function FeaturesManager({
         setFeatures([
           ...features,
           {
-            title: newFeatureTitle,
-            description: newFeatureDesc,
+            title: cleanedTitle,
+            description: cleanedDesc,
           },
         ]);
         setNewFeatureTitle("");

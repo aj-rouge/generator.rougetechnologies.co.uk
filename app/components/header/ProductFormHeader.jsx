@@ -7,6 +7,7 @@ import SaveButton from "./save-product/SaveButton";
 import UpdateBaselinkerButton from "./UpdateBaselinkerButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
 import CreateBaselinkerButton from "./CreateBaselinkerButton";
+import SyncBaselinkerButton from "./SyncBaselinkerButton";
 
 export default function ProductFormHeader({
   mode,
@@ -93,23 +94,14 @@ export default function ProductFormHeader({
                   onSave={onSave}
                 />
               )}
-              {baselinkerId && baselinkerId !== "null" ? (
-                <UpdateBaselinkerButton
-                  baselinkerId={baselinkerId}
-                  productTitle={title}
-                  disabled={isSaving}
-                  uuid={uuid}
-                  onSave={onSave}
-                />
-              ) : (
-                <CreateBaselinkerButton
-                  productTitle={title}
-                  disabled={isSaving}
-                  uuid={uuid}
-                  onSave={onSave}
-                  onBaselinkerCreated={onBaselinkerCreated}
-                />
-              )}
+              <SyncBaselinkerButton
+                productTitle={title}
+                disabled={isSaving}
+                uuid={uuid}
+                onSave={onSave}
+                onBaselinkerCreated={onBaselinkerCreated}
+                baselinkerId={baselinkerId}
+              />
             </div>
             <SaveButton
               onSave={onSave}

@@ -30,7 +30,7 @@ function generateTempSpecId(): string {
  */
 export function transformD1ToFormData(product: any) {
   const sanitize = (value: any): any => {
-    if (value === "null") return "";
+    if (value === "null" || value === null) return "";
     return value;
   };
 
@@ -47,13 +47,26 @@ export function transformD1ToFormData(product: any) {
   const feedbacks = product.feedbacks || [];
   const cleanedNote = product.note === "null" ? null : product.note;
 
-  // 🆕 Parse and transform specifications
-  const rawSpecs = parseJSON(product.specifications) || []; // array of [key, value]
+  // Parse specifications (stored as [[key, value], ...])
+  const rawSpecs = parseJSON(product.specifications) || [];
   const specifications = rawSpecs.map((pair: [string, string]) => ({
     id: generateTempSpecId(),
     key: pair[0] || "",
     value: pair[1] || "",
   }));
+
+  // Parse SEO sections (stored as JSON)
+  const seoSectionData = parseJSON(product.seo_sections) || {
+    name: "",
+    sections: [],
+  };
+
+  // Helper to parse numeric fields
+  const toNumber = (val: any, defaultValue = 0): number => {
+    if (val === null || val === undefined || val === "") return defaultValue;
+    const num = Number(val);
+    return isNaN(num) ? defaultValue : num;
+  };
 
   return {
     id: product.id,
@@ -72,8 +85,16 @@ export function transformD1ToFormData(product: any) {
     features,
     images,
     feedbacks,
-    specifications, // 🆕 added
+    specifications,
     selectedCategory: product.category_slug,
+    vat_rate: toNumber(product.vat_rate, 20),
+    price_brutto: toNumber(product.price_brutto, 0),
+    rrp: toNumber(product.rrp, 0),
+    weight: toNumber(product.weight, 0),
+    quantity: toNumber(product.quantity, 0),
+    shipping_method: product.shipping_method || "",
+    ebayLink: product.ebay_link || "",
+    seoSectionData,
   };
 }
 

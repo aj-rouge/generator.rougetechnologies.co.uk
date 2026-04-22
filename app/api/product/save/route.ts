@@ -74,7 +74,7 @@ function formatDatabaseError(error: any): string {
 }
 
 // ----------------------------------------------------------------------
-// D1 Upsert Logic
+// D1 Upsert Logic (updated with new fields)
 // ----------------------------------------------------------------------
 
 interface ProductData {
@@ -93,7 +93,13 @@ interface ProductData {
   features?: Array<{ title: string; description: string }>;
   images?: any[];
   feedbacks?: Array<{ name: string; content: string; count?: number }>;
-  specifications?: Array<{ key: string; value: string }>; // 🆕 added
+  specifications?: Array<{ key: string; value: string }>;
+  vat_rate?: number;
+  rrp?: number | null;
+  weight?: number | null;
+  quantity?: number;
+  price_brutto?: number | null;
+  shipping_method?: string | null;
 }
 
 interface FinalizedImage {
@@ -114,13 +120,15 @@ async function upsertProductData(
 ) {
   const now = Math.floor(Date.now() / 1000);
 
-  // Upsert product
+  // Upsert product with new columns
   const productQuery = `
     INSERT INTO products (
       id, slug, title, sku, ean, asin,
       baselinker_id, shopify_id, category,
-      condition, note, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      condition, note, 
+      vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       slug = excluded.slug,
       title = excluded.title,
@@ -132,12 +140,18 @@ async function upsertProductData(
       category = excluded.category,
       condition = excluded.condition,
       note = excluded.note,
+      vat_rate = excluded.vat_rate,
+      rrp = excluded.rrp,
+      weight = excluded.weight,
+      quantity = excluded.quantity,
+      price_brutto = excluded.price_brutto,
+      shipping_method = excluded.shipping_method,
       updated_at = excluded.updated_at
   `;
 
   await executeQuery(productQuery, [
     productId,
-    data.slug.split("/").pop()!,
+    data.slug,
     data.title,
     data.sku || null,
     data.ean || null,
@@ -147,6 +161,12 @@ async function upsertProductData(
     data.category,
     data.condition || null,
     data.note || null,
+    data.vat_rate ?? 20,
+    data.rrp ?? null,
+    data.weight ?? null,
+    data.quantity ?? 0,
+    data.price_brutto ?? null,
+    data.shipping_method ?? null,
     isUpdate ? null : now,
     now,
   ]);
@@ -178,7 +198,7 @@ async function upsertProductData(
     }
   }
 
-  // Replace specifications 🆕
+  // Replace specifications
   await executeQuery(
     "DELETE FROM product_specifications WHERE product_id = ?",
     [productId],
@@ -195,7 +215,7 @@ async function upsertProductData(
     }
   }
 
-  // Replace images (unchanged)
+  // Replace images
   await executeQuery("DELETE FROM product_images WHERE product_id = ?", [
     productId,
   ]);
@@ -232,7 +252,6 @@ async function upsertProductData(
 
 export async function POST(req: Request) {
   try {
-    // 1. Parse and normalise the incoming data
     const newData = await req.json();
     console.log("Incoming newData:", JSON.stringify(newData, null, 2));
 
@@ -243,13 +262,16 @@ export async function POST(req: Request) {
     if (newData.baselinker_id === "null") newData.baselinker_id = null;
     if (newData.shopify_id === "null") newData.shopify_id = null;
     if (newData.note === "null") newData.note = null;
+    if (newData.rrp === "null") newData.rrp = null;
+    if (newData.weight === "null") newData.weight = null;
+    if (newData.price_brutto === "null") newData.price_brutto = null;
+    if (newData.shipping_method === "null") newData.shipping_method = null;
 
-    // Extract slugs
+    // Extract slugs (the full slug is category/product-slug)
     const productSlug = newData.slug.split("/").pop();
     const categorySlug = newData.slug.split("/")[0];
     newData.category = categorySlug;
 
-    // Basic validation
     if (!newData.title || !newData.slug) {
       return NextResponse.json(
         { success: false, error: "Missing required fields: title, slug" },
@@ -257,13 +279,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Check for an existing product using the provided id
     const existing = await getProductById(newData.id, {
       transformToForm: true,
     });
     const productId = existing?.id || uuidv4();
 
-    // 3. Image orchestration (move old images to temp, process new ones)
     if (existing?.images) {
       await moveExistingToTemp(productSlug, existing.images);
     }
@@ -275,7 +295,7 @@ export async function POST(req: Request) {
       existing?.images || [],
     );
 
-    // 4. Upsert product and all child records into D1
+    // Pass the product slug (without category prefix) to upsert
     await upsertProductData(
       productId,
       { ...newData, slug: productSlug },
@@ -283,10 +303,8 @@ export async function POST(req: Request) {
       !!existing,
     );
 
-    // 5. Clean up any leftover images in R2
     await cleanupImagesFromR2(newData.category, productSlug, finalizedImages);
 
-    // 6. Return success
     return NextResponse.json({
       success: true,
       id: productId,
