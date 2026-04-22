@@ -84,20 +84,17 @@ export default function AmazonImportSection({
           source: "Currys",
           metadata: result.metadata,
         });
-        // Clear ASIN/EAN for Currys
-        if (onAsinEanUpdate) onAsinEanUpdate("", "");
       } else if (result.source === "ASIN" || result.source === "EAN") {
         setSearchInfo({
           input: cleanId,
           asin: result.asin,
           source: result.source,
         });
-        // Update ASIN/EAN in parent form
         if (onAsinEanUpdate) {
           if (result.source === "ASIN") {
-            onAsinEanUpdate(result.asin, "");
+            onAsinEanUpdate(result.asin, initialEan);
           } else if (result.source === "EAN") {
-            onAsinEanUpdate(result.asin, cleanId); // cleanId is the EAN
+            onAsinEanUpdate(result.asin, cleanId);
           }
         }
       }
