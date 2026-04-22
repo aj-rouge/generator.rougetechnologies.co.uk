@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       features, // includes specifications + RRP
       quantity: product.quantity || 0,
       price_brutto: product.price_brutto || 0,
-      tax_rate: product.vat_rate || 20,
+      tax_rate: product.vat_rate || 0,
       weight: product.weight || 0,
     };
 

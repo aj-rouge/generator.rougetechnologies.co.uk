@@ -2,7 +2,7 @@
 "use client";
 
 export default function PricingAndLogistics({
-  vat_rate = 20,
+  vat_rate = 0,
   price_brutto = "",
   rrp = "",
   weight = "",
@@ -68,8 +68,8 @@ export default function PricingAndLogistics({
               }
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             >
-              <option value={20}>20% (Standard)</option>
-              <option value={0}>0% (Zero‑rated)</option>
+              <option value={0}>0% (Standard)</option>
+              <option value={20}>20% </option>
             </select>
           </div>
 

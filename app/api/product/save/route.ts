@@ -161,7 +161,7 @@ async function upsertProductData(
     data.category,
     data.condition || null,
     data.note || null,
-    data.vat_rate ?? 20,
+    data.vat_rate ?? 0,
     data.rrp ?? null,
     data.weight ?? null,
     data.quantity ?? 0,

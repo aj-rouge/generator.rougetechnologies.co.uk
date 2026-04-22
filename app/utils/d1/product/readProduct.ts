@@ -87,7 +87,7 @@ export function transformD1ToFormData(product: any) {
     feedbacks,
     specifications,
     selectedCategory: product.category_slug,
-    vat_rate: toNumber(product.vat_rate, 20),
+    vat_rate: toNumber(product.vat_rate, 0),
     price_brutto: toNumber(product.price_brutto, 0),
     rrp: toNumber(product.rrp, 0),
     weight: toNumber(product.weight, 0),

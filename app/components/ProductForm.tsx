@@ -88,7 +88,7 @@ export default function ProductForm({
     if (initialData) {
       return {
         ...initialData,
-        vat_rate: initialData.vat_rate ?? 20,
+        vat_rate: initialData.vat_rate ?? 0,
         rrp: initialData.rrp ?? "",
         weight: initialData.weight ?? "",
         quantity: initialData.quantity ?? 0,
