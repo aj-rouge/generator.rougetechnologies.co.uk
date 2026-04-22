@@ -291,7 +291,7 @@ export default function ProductForm({
       });
 
       if (mode === "create") {
-        setTimeout(() => router.push(`/product/${result.id}`), 500);
+        setTimeout(() => router.push(`/products/${result.id}`), 500);
       } else {
         setTimeout(() => removeNotification(toastId), 2000);
       }
