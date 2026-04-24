@@ -317,6 +317,77 @@ export default function ProductForm({
   }, [formData, mode]);
   const handleBaselinkerCreated = (newBaselinkerId) => {
     updateForm({ baselinker_id: newBaselinkerId });
+  }; // Inside ProductForm component, above return statement
+  const handleEbayImport = (scrapedData) => {
+    const { product, itemSpecifics } = scrapedData;
+
+    // Parse price (remove currency symbols and convert to number)
+    let priceBrutto = 0;
+    if (product.price && product.price !== "N/A") {
+      const numericMatch = product.price.match(/[\d,]+\.?\d*/);
+      if (numericMatch) {
+        priceBrutto = parseFloat(numericMatch[0].replace(/,/g, ""));
+      }
+    }
+
+    // Map images to expected format
+    const importedImages = (product.allImages || []).map((url, idx) => ({
+      url,
+      altText: product.title || `Product image ${idx + 1}`,
+      s3Path: null,
+      isUploaded: false,
+      needsUpload: true,
+      uploadStatus: "pending",
+    }));
+
+    // ✅ FIX: Map item specifics to specifications with key/value + unique id
+    const specifications = itemSpecifics
+      ? Object.entries(itemSpecifics).map(([name, value]) => ({
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${name}`,
+          key: name,
+          value: typeof value === "string" ? value : JSON.stringify(value),
+        }))
+      : [];
+
+    // Split description into paragraphs
+    let paragraphs = [];
+    if (
+      product.description &&
+      product.description !== "No description available."
+    ) {
+      // Basic HTML stripping (for rich descriptions)
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = product.description;
+      const text = tempDiv.textContent || tempDiv.innerText;
+      paragraphs = text.split(/\r?\n/).filter((p) => p.trim().length > 0);
+      if (paragraphs.length === 0 && text.trim()) paragraphs = [text.trim()];
+    }
+
+    // Condition mapping (ensure it matches your ConditionSelector values)
+    let condition = product.condition !== "N/A" ? product.condition : "";
+    // Optionally normalise common eBay condition strings
+    const conditionMap = {
+      New: "New",
+      "Brand New": "New",
+      Used: "Used",
+      "Pre-owned": "Used",
+      Refurbished: "Refurbished",
+      "For parts or not working": "For parts",
+    };
+    if (conditionMap[condition]) condition = conditionMap[condition];
+
+    const updates = {
+      title: product.title !== "N/A" ? product.title : "",
+      condition: condition,
+      paragraphs: paragraphs,
+      features: [], // can be left empty or mapped from item specifics
+      specifications: specifications,
+      images: importedImages,
+      price_brutto: priceBrutto,
+      // optional: asin/ean could be derived from mpn but not directly available
+    };
+
+    updateForm(updates);
   };
   return (
     <div className="w-full min-h-screen">
@@ -328,10 +399,12 @@ export default function ProductForm({
         shouldShowSave={shouldShowSave}
         onSave={handleInternalSave}
         selectedCategory={formData.selectedCategory}
+        hasPendingUploads={formData.images.some((i) => i.needsUpload)}
         uuid={mode === "edit" ? formData.id : undefined}
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
-        onBaselinkerCreated={handleBaselinkerCreated} // <-- new prop
+        onBaselinkerCreated={handleBaselinkerCreated}
+        onEbayImport={handleEbayImport} // <--- new prop
       />
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
