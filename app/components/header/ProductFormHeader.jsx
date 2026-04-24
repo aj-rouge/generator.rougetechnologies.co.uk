@@ -128,7 +128,10 @@ export default function ProductFormHeader({
             <div></div>
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />
-              <EbayImportButton onEbayImport={onEbayImport} />
+              <EbayImportButton
+                onEbayImport={onEbayImport}
+                disabled={!selectedCategory}
+              />
               <SaveButton
                 onSave={onSave}
                 isSaving={isSaving}

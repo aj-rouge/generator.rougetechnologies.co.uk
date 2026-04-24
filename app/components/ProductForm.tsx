@@ -321,7 +321,7 @@ export default function ProductForm({
   const handleEbayImport = (scrapedData) => {
     const { product, itemSpecifics } = scrapedData;
 
-    // Parse price (remove currency symbols and convert to number)
+    // --- Price parsing ---
     let priceBrutto = 0;
     if (product.price && product.price !== "N/A") {
       const numericMatch = product.price.match(/[\d,]+\.?\d*/);
@@ -330,7 +330,7 @@ export default function ProductForm({
       }
     }
 
-    // Map images to expected format
+    // --- Images mapping ---
     const importedImages = (product.allImages || []).map((url, idx) => ({
       url,
       altText: product.title || `Product image ${idx + 1}`,
@@ -340,7 +340,7 @@ export default function ProductForm({
       uploadStatus: "pending",
     }));
 
-    // ✅ FIX: Map item specifics to specifications with key/value + unique id
+    // --- Specifications from item specifics ---
     const specifications = itemSpecifics
       ? Object.entries(itemSpecifics).map(([name, value]) => ({
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${name}`,
@@ -349,13 +349,12 @@ export default function ProductForm({
         }))
       : [];
 
-    // Split description into paragraphs
+    // --- Description paragraphs ---
     let paragraphs = [];
     if (
       product.description &&
       product.description !== "No description available."
     ) {
-      // Basic HTML stripping (for rich descriptions)
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = product.description;
       const text = tempDiv.textContent || tempDiv.innerText;
@@ -363,28 +362,60 @@ export default function ProductForm({
       if (paragraphs.length === 0 && text.trim()) paragraphs = [text.trim()];
     }
 
-    // Condition mapping (ensure it matches your ConditionSelector values)
-    let condition = product.condition !== "N/A" ? product.condition : "";
-    // Optionally normalise common eBay condition strings
-    const conditionMap = {
-      New: "New",
-      "Brand New": "New",
-      Used: "Used",
-      "Pre-owned": "Used",
-      Refurbished: "Refurbished",
-      "For parts or not working": "For parts",
-    };
-    if (conditionMap[condition]) condition = conditionMap[condition];
+    // --- Condition mapping using the selected category ---
+    let condition = "";
+    const rawCondition = product.condition !== "N/A" ? product.condition : "";
 
+    if (rawCondition && selectedCategoryObj) {
+      // Get the condition group options for this category
+      const conditionOptions =
+        selectedCategoryObj.condition_group?.options || [];
+
+      // Normalize eBay condition string: replace en dash, em dash, etc.
+      const normalized = rawCondition
+        .replace(/–/g, "-") // en dash to hyphen
+        .replace(/—/g, "-") // em dash to hyphen
+        .trim();
+
+      // Try to find an exact match (case‑insensitive)
+      let matched = conditionOptions.find(
+        (opt) => opt.toLowerCase() === normalized.toLowerCase(),
+      );
+
+      // If no exact match, try partial match (e.g. "Opened - never used" contains "opened")
+      if (!matched) {
+        matched = conditionOptions.find(
+          (opt) =>
+            normalized.toLowerCase().includes(opt.toLowerCase()) ||
+            opt.toLowerCase().includes(normalized.toLowerCase()),
+        );
+      }
+
+      condition = matched || conditionOptions[0] || "";
+    }
+
+    // Fallback to simple map if category not yet selected (shouldn't happen because button is disabled)
+    if (!condition && rawCondition) {
+      const fallbackMap = {
+        New: "New",
+        "Brand New": "New",
+        Used: "Used",
+        "Pre-owned": "Used",
+        Refurbished: "Refurbished",
+        "For parts or not working": "For parts",
+      };
+      condition = fallbackMap[rawCondition] || "";
+    }
+
+    // --- Apply updates ---
     const updates = {
       title: product.title !== "N/A" ? product.title : "",
-      condition: condition,
-      paragraphs: paragraphs,
-      features: [], // can be left empty or mapped from item specifics
-      specifications: specifications,
+      condition,
+      paragraphs,
+      features: [],
+      specifications,
       images: importedImages,
       price_brutto: priceBrutto,
-      // optional: asin/ean could be derived from mpn but not directly available
     };
 
     updateForm(updates);

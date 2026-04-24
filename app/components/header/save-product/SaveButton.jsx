@@ -10,7 +10,6 @@ export default function SaveButton({
   shouldShowSave,
   mode,
   productTitle,
-  hasPendingUploads = false,
 }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'success', 'error'
@@ -25,7 +24,7 @@ export default function SaveButton({
   });
 
   const handleSaveClick = () => {
-    if (isSaving || !isFormValid || hasPendingUploads) return;
+    if (isSaving || !isFormValid) return;
 
     // For create mode, show confirmation modal
     if (mode === "create") {
@@ -73,9 +72,9 @@ export default function SaveButton({
       >
         <button
           onClick={handleSaveClick}
-          disabled={isSaving || !isFormValid || hasPendingUploads}
+          disabled={isSaving || !isFormValid}
           className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-all ${
-            isSaving || !isFormValid || hasPendingUploads
+            isSaving || !isFormValid
               ? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg active:scale-95"
           }`}

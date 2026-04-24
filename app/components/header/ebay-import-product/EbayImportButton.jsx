@@ -1,4 +1,4 @@
-// app/components/EbayImportButton.jsx
+// app/components/ebay-import-product/EbayImportButton.jsx
 "use client";
 
 import { useState } from "react";
@@ -6,9 +6,9 @@ import { Upload } from "lucide-react";
 import EbayImportModal from "./EbayImportModal";
 import { scrapeEbayProduct } from "../../../actions/scrape";
 
-export default function EbayImportButton({ onEbayImport }) {
+export default function EbayImportButton({ onEbayImport, disabled = false }) {
   const [showModal, setShowModal] = useState(false);
-  const [importStatus, setImportStatus] = useState(null); // 'loading', 'success', 'error'
+  const [importStatus, setImportStatus] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleImport = async (url) => {
@@ -19,9 +19,7 @@ export default function EbayImportButton({ onEbayImport }) {
       const result = await scrapeEbayProduct(url);
       if (result.success) {
         setImportStatus("success");
-        // Pass the scraped data to the parent form
         onEbayImport(result.data);
-        // Close modal after a short delay to show success state
         setTimeout(() => {
           setShowModal(false);
           setImportStatus(null);
@@ -31,7 +29,6 @@ export default function EbayImportButton({ onEbayImport }) {
         setErrorMessage(result.error || "Failed to scrape eBay product");
       }
     } catch (err) {
-      console.error("Import error:", err);
       setImportStatus("error");
       setErrorMessage("An unexpected error occurred");
     }
@@ -48,8 +45,15 @@ export default function EbayImportButton({ onEbayImport }) {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors"
-        title="Import product data from eBay"
+        disabled={disabled}
+        className={`px-3 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+          disabled
+            ? "bg-gray-400 dark:bg-gray-700 cursor-not-allowed text-gray-200"
+            : "bg-purple-600 hover:bg-purple-700 text-white"
+        }`}
+        title={
+          disabled ? "Select a category first" : "Import product data from eBay"
+        }
       >
         <Upload className="w-4 h-4" />
         <span className="hidden sm:inline">Import from eBay</span>
