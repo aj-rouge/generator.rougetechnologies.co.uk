@@ -1,6 +1,8 @@
 // app/components/forms/sections/PricingAndLogistics.jsx
 "use client";
 
+const MAX_VAT_RATE = 30; // Configurable cap for VAT/tax rate (%)
+
 export default function PricingAndLogistics({
   vat_rate = 0,
   price_brutto = "",
@@ -42,6 +44,15 @@ export default function PricingAndLogistics({
     onUpdate({ [field]: value });
   };
 
+  // VAT-specific change handler with capping
+  const handleVatChange = (e) => {
+    let raw = e.target.value;
+    let num = raw === "" ? 0 : parseFloat(raw);
+    if (isNaN(num)) num = 0;
+    const capped = Math.min(MAX_VAT_RATE, Math.max(0, num));
+    handleInputChange("vat_rate", capped);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
       {/* Pricing Card */}
@@ -61,16 +72,20 @@ export default function PricingAndLogistics({
             <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
               VAT Rate (%)
             </label>
-            <select
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max={MAX_VAT_RATE}
               value={vat_rate}
-              onChange={(e) =>
-                handleInputChange("vat_rate", parseInt(e.target.value))
-              }
+              onChange={handleVatChange}
+              onBlur={handleVatChange} // Ensure capping on blur as well
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-            >
-              <option value={0}>0% (Standard)</option>
-              <option value={20}>20% </option>
-            </select>
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Tax rate between 0% and {MAX_VAT_RATE}% (e.g., 20 for standard UK
+              VAT)
+            </p>
           </div>
 
           <div>
