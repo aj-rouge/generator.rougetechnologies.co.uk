@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
+import AIAutofillButton from "../AIAutofillButton";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -44,11 +45,10 @@ export default function FeaturesManager({
         capitalizeFirstLetter(removeDoubleColon(f.description?.trim() || "")),
       ),
     }));
-    // Only update if something actually changed
     if (JSON.stringify(cleaned) !== JSON.stringify(features)) {
       setFeatures(cleaned);
     }
-  }, []); // run once on mount
+  }, []);
 
   // Cancel edit mode and clear inputs
   const cancelEdit = () => {
@@ -69,7 +69,6 @@ export default function FeaturesManager({
       );
 
       if (editingIndex !== null) {
-        // Update existing feature
         const updatedFeatures = [...features];
         updatedFeatures[editingIndex] = {
           title: cleanedTitle,
@@ -78,7 +77,6 @@ export default function FeaturesManager({
         setFeatures(updatedFeatures);
         cancelEdit();
       } else {
-        // Add new feature
         setFeatures([
           ...features,
           {
@@ -95,11 +93,9 @@ export default function FeaturesManager({
 
   const removeFeature = (index) => {
     setFeatures(features.filter((_, i) => i !== index));
-    // If we're editing the removed feature, cancel edit mode
     if (editingIndex === index) {
       cancelEdit();
     } else if (editingIndex !== null && editingIndex > index) {
-      // Adjust editing index if a feature before it was removed
       setEditingIndex(editingIndex - 1);
     }
     validateFeatures();
@@ -113,9 +109,9 @@ export default function FeaturesManager({
   };
 
   const validateFeatures = () => {
-    if (features.length < 5) {
+    if (features.length < 1) {
       setLocalFeaturesError(
-        `Minimum 5 features required. Currently have ${features.length}`,
+        `Minimum 1 feature required. Currently have ${features.length}`,
       );
       return false;
     }
@@ -150,9 +146,9 @@ export default function FeaturesManager({
 
   // Update local error based on features count
   useEffect(() => {
-    if (features.length < 5) {
+    if (features.length < 1) {
       setLocalFeaturesError(
-        `Minimum 5 features required. Currently have ${features.length}`,
+        `Minimum 1 feature required. Currently have ${features.length}`,
       );
     } else {
       setLocalFeaturesError("");
@@ -168,14 +164,14 @@ export default function FeaturesManager({
     0,
   );
 
-  // Validation rules checker
+  // Validation rules checker – minimum features changed to 1
   const checkValidationRules = () => {
     const rules = [
       {
         id: 1,
         name: "Minimum Features",
-        description: "At least 5 features required",
-        check: () => features.length >= 5,
+        description: "At least 1 feature required",
+        check: () => features.length >= 1,
         importance: "critical",
       },
       {
@@ -185,7 +181,7 @@ export default function FeaturesManager({
         check: () =>
           features.length === 0
             ? false
-            : features.every((f) => f.title.trim().length > 0),
+            : features.every((f) => f.title?.trim().length > 0),
         importance: "critical",
         condition: features.length > 0,
       },
@@ -196,7 +192,7 @@ export default function FeaturesManager({
         check: () =>
           features.length === 0
             ? false
-            : features.every((f) => f.description.trim().length > 0),
+            : features.every((f) => f.description?.trim().length > 0),
         importance: "critical",
         condition: features.length > 0,
       },
@@ -227,14 +223,14 @@ export default function FeaturesManager({
         name: "Feature Variety",
         description: "Features should cover different aspects",
         check: () => {
-          if (features.length < 5) return false;
+          if (features.length < 2) return true; // Not applicable for single feature
           const uniqueStarts = new Set(
             features.map((f) => f.title.split(" ")[0].toLowerCase()),
           );
-          return uniqueStarts.size >= 4;
+          return uniqueStarts.size >= Math.min(2, features.length);
         },
         importance: "medium",
-        condition: features.length >= 5,
+        condition: features.length >= 2,
       },
     ];
 
@@ -255,7 +251,7 @@ export default function FeaturesManager({
 
   const getOverallStatus = () => {
     if (features.length === 0) return "✗ Add Features";
-    if (features.length < 5) return `⚠️ ${features.length}/5`;
+    if (features.length < 1) return `⚠️ ${features.length}/1`;
     if (!categoryKeywords.length) return "⚠️ Select Category";
     if (hasMissingKeywords) return "⚠️ Missing Keywords";
     if (allRulesPass) return "✓ Features Complete";
@@ -265,7 +261,7 @@ export default function FeaturesManager({
   const getStatusBadgeColor = () => {
     if (features.length === 0)
       return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (features.length < 5)
+    if (features.length < 1)
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
     if (!categoryKeywords.length)
       return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
@@ -279,7 +275,7 @@ export default function FeaturesManager({
   const getBorderColor = () => {
     if (features.length === 0)
       return "border-red-400 dark:border-red-500 border-2";
-    if (features.length < 5)
+    if (features.length < 1)
       return "border-yellow-400 dark:border-yellow-500 border-2";
     if (!categoryKeywords.length)
       return "border-yellow-400 dark:border-yellow-500 border-2";
@@ -308,7 +304,7 @@ export default function FeaturesManager({
 
   const getHeaderIcon = () => {
     if (features.length === 0) return "❌";
-    if (features.length < 5) return "⚠️";
+    if (features.length < 1) return "⚠️";
     if (!categoryKeywords.length) return "⚠️";
     if (hasMissingKeywords) return "⚠️";
     if (allRulesPass) return "✅";
@@ -328,6 +324,15 @@ export default function FeaturesManager({
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
             Product Features
           </h3>
+          <AIAutofillButton
+            section="features"
+            categoryKeywords={categoryKeywords}
+            existingData={{ features }}
+            onUpdate={(data) => setFeatures(data.features)}
+            disabled={!categoryKeywords.length}
+            buttonText="✨ AI Features"
+            size="sm"
+          />
           <div className="flex items-center gap-3">
             <span
               className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}
@@ -344,7 +349,7 @@ export default function FeaturesManager({
         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap gap-4">
           <span>
             Features:{" "}
-            <span className="font-medium">{features.length}/5 min</span>
+            <span className="font-medium">{features.length}/1 min</span>
           </span>
           {categoryKeywords.length > 0 && (
             <span>
@@ -355,7 +360,7 @@ export default function FeaturesManager({
         </div>
       </div>
 
-      {/* Keyword Usage Statistics */}
+      {/* Keyword Usage Statistics (unchanged) */}
       {categoryKeywords.length > 0 && (
         <div
           className={`mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border ${
@@ -521,7 +526,7 @@ export default function FeaturesManager({
             {editingIndex !== null ? "Edit Feature:" : "Add New Feature:"}
           </label>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {features.length}/5 minimum
+            {features.length}/1 minimum
           </span>
         </div>
 
@@ -631,7 +636,7 @@ export default function FeaturesManager({
                   </p>
                   {!result && rule.id === 1 && (
                     <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Need {5 - features.length} more features
+                      ❌ Need at least 1 feature
                     </div>
                   )}
                   {!result && rule.id === 2 && features.length > 0 && (
@@ -659,7 +664,7 @@ export default function FeaturesManager({
                         .join(", ")}
                     </div>
                   )}
-                  {!result && rule.id === 6 && features.length >= 5 && (
+                  {!result && rule.id === 6 && features.length >= 2 && (
                     <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
                       ⚠️ Try to vary feature titles
                     </div>
@@ -697,8 +702,8 @@ export default function FeaturesManager({
                 >
                   {features.length === 0
                     ? "Add Features"
-                    : features.length < 5
-                      ? `${features.length}/5 Features`
+                    : features.length < 1
+                      ? `${features.length}/1 Features`
                       : !categoryKeywords.length
                         ? "Select Category"
                         : hasMissingKeywords

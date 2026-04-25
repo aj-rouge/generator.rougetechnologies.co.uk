@@ -5,6 +5,7 @@ import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
+import AIAutofillButton from "../AIAutofillButton";
 
 const formatSnippet = (text) => {
   if (!text) return "";
@@ -243,18 +244,29 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           <label className="text-black dark:text-gray-100 font-medium">
             Product SKU:
           </label>
-          <button
-            type="button"
-            onClick={handleGenerateSku}
-            disabled={!title || !condition}
-            className={`text-sm px-3 py-1 rounded transition-colors ${
-              !title || !condition
-                ? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
-          >
-            ⚡ Generate from Title
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateSku}
+              disabled={!title || !condition}
+              className={`text-sm px-3 py-1 rounded transition-colors ${
+                !title || !condition
+                  ? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+            >
+              ⚡ Generate from Title
+            </button>
+            <AIAutofillButton
+              section="sku"
+              categoryKeywords={[]}
+              existingData={{ title, condition }}
+              onUpdate={(newSku) => onSkuChange(newSku)}
+              disabled={!title || !condition}
+              buttonText="✨ AI SKU"
+              size="sm"
+            />
+          </div>
         </div>
 
         <input

@@ -114,7 +114,59 @@ export default function ProductForm({
     }
     return INITIAL_FORM_STATE;
   });
+  const [isFullAutofilling, setIsFullAutofilling] = useState(false);
+  const handleFullAutofill = async () => {
+    if (!formData.selectedCategory) {
+      addNotification({ message: "Select a category first", type: "error" });
+      return;
+    }
+    setIsFullAutofilling(true);
+    const toastId = addNotification({
+      message: "AI generating full product...",
+      type: "info",
+    });
 
+    try {
+      const response = await fetch("/api/autofill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          section: "full",
+          categoryKeywords: currentCategoryKeywords,
+          existingData: {
+            title: formData.title,
+            paragraphs: formData.paragraphs,
+            features: formData.features,
+            specifications: formData.specifications,
+            condition: formData.condition,
+            note: formData.note,
+          },
+        }),
+      });
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+
+      updateForm({
+        title: result.title || formData.title,
+        paragraphs: result.paragraphs || formData.paragraphs,
+        features: result.features || formData.features,
+        specifications: result.specifications || formData.specifications,
+        condition: result.condition || formData.condition,
+        note: result.note !== undefined ? result.note : formData.note,
+      });
+
+      updateNotification(toastId, {
+        message: "Full product generated!",
+        type: "success",
+        progress: 100,
+      });
+      setTimeout(() => removeNotification(toastId), 2000);
+    } catch (err) {
+      updateNotification(toastId, { message: err.message, type: "error" });
+    } finally {
+      setIsFullAutofilling(false);
+    }
+  };
   // If initialData changes (e.g., navigation), update form
   useEffect(() => {
     if (mode === "edit" && initialData) {
@@ -435,7 +487,9 @@ export default function ProductForm({
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
         onBaselinkerCreated={handleBaselinkerCreated}
-        onEbayImport={handleEbayImport} // <--- new prop
+        onEbayImport={handleEbayImport}
+        onFullAutofill={handleFullAutofill}
+        isFullAutofilling={isFullAutofilling}
       />
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
