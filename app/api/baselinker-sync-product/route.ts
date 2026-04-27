@@ -37,15 +37,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // Determine Baselinker category ID
-    const category = await getCategoryDetails(product.selectedCategory);
-    let baselinkerCategoryId = category?.baselinker_category_id;
-    if (!baselinkerCategoryId) {
-      console.warn(
-        `Category "${product.selectedCategory}" has no baselinker_category_id. Using default: ${DEFAULT_BASELINKER_CATEGORY_ID}`,
-      );
-      baselinkerCategoryId = DEFAULT_BASELINKER_CATEGORY_ID;
-    }
+    // Determine if this is an update (product already exists in Baselinker)
+    const isUpdate = product.baselinker_id && product.baselinker_id !== "null";
 
     // Generate HTML description (from paragraphs & product_features)
     const htmlDescription = await generateProductHTML(productId);
@@ -75,24 +68,16 @@ export async function POST(req: Request) {
       });
     }
 
-    // Determine if this is an update (product already exists in Baselinker)
-    const isUpdate = product.baselinker_id && product.baselinker_id !== "null";
-
     // Build the base payload (always included fields)
     const payload: any = {
       storage_id: process.env.BASELINKER_STORAGE_ID || "bl_1",
       name: product.title,
       description: htmlDescription,
-      category_id: baselinkerCategoryId.toString(),
       images,
       features,
-      price_brutto:
-        typeof product.price_brutto === "number"
-          ? product.price_brutto
-          : parseFloat(product.price_brutto) || 0,
     };
 
-    // Optional fields that can be updated safely
+    // Optional identifiers (safe to update)
     if (product.sku) payload.sku = String(product.sku);
     if (product.ean) payload.ean = String(product.ean);
     if (product.asin) payload.asin = String(product.asin);
@@ -100,9 +85,26 @@ export async function POST(req: Request) {
       payload.product_id = String(product.baselinker_id);
     }
 
-    // 🚫 For updates: DO NOT send weight, tax_rate, quantity.
-    // ✅ For new products: send all inventory/weight/VAT data.
+    // --- Fields that are ONLY sent for NEW products ---
     if (!isUpdate) {
+      // Category
+      const category = await getCategoryDetails(product.selectedCategory);
+      let baselinkerCategoryId = category?.baselinker_category_id;
+      if (!baselinkerCategoryId) {
+        console.warn(
+          `Category "${product.selectedCategory}" has no baselinker_category_id. Using default: ${DEFAULT_BASELINKER_CATEGORY_ID}`,
+        );
+        baselinkerCategoryId = DEFAULT_BASELINKER_CATEGORY_ID;
+      }
+      payload.category_id = baselinkerCategoryId.toString();
+
+      // Price
+      payload.price_brutto =
+        typeof product.price_brutto === "number"
+          ? product.price_brutto
+          : parseFloat(product.price_brutto) || 0;
+
+      // Quantity, tax rate, weight
       payload.quantity =
         typeof product.quantity === "number"
           ? product.quantity
@@ -155,7 +157,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: isUpdate
-        ? "Product fully updated in Baselinker (excluding stock, VAT, weight)"
+        ? "Product updated (category, price, stock, VAT, weight unchanged in Baselinker)"
         : "Product created in Baselinker",
       baselinker_product_id: result.product_id,
       warnings: result.warnings || {},
