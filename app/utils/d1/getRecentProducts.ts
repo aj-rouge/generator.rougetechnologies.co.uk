@@ -31,6 +31,7 @@ const parseProductJson = (product: any) => {
 export const getRecentProducts = async (
   options: {
     limit?: number;
+    offset?: number;
     order?: "DESC" | "ASC";
     category?: string;
     sortBy?: "created_at" | "updated_at";
@@ -38,6 +39,7 @@ export const getRecentProducts = async (
 ) => {
   const {
     limit = 10,
+    offset = 0,
     order = "DESC",
     category,
     sortBy = "updated_at",
@@ -51,8 +53,8 @@ export const getRecentProducts = async (
     params.push(category);
   }
 
-  query += ` ORDER BY ${sortBy} ${order} LIMIT ?`;
-  params.push(limit);
+  query += ` ORDER BY ${sortBy} ${order} LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
 
   const results = await executeQuery(query, params);
   return (results || []).map(parseProductJson);
