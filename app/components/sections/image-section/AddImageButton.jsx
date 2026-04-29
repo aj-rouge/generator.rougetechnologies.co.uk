@@ -14,7 +14,7 @@ export default function AddImageButton({
       isUploading: false,
       isUploaded: false,
       uploadStatus: "pending",
-      needsUpload: null,
+      needsUpload: true,
     });
 
     setImages((prev) => {

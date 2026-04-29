@@ -24,9 +24,11 @@ export default function ImageFormFields({
 
   // New handler for URL pasting that triggers SEO generation
   const handleUrlChange = (newUrl) => {
-    const updates = { url: newUrl };
-
-    // Auto-generate SEO fields if context is available
+    const updates = {
+      url: newUrl,
+      needsUpload: true,
+      isUploaded: false,
+    };
     if (newUrl && productTitle && category) {
       updates.s3Path = generateSeoFileName(category, productTitle, index + 1);
       updates.altText = generateSeoAltText(productTitle, index + 1);
