@@ -191,15 +191,28 @@ export default function PricingAndLogistics({
             <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
               Shipping Method
             </label>
-            <input
-              type="text"
+            <select
               value={shipping_method}
               onChange={(e) =>
                 handleInputChange("shipping_method", e.target.value)
               }
-              placeholder="e.g. Royal Mail 48"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-            />
+            >
+              <option value="">-- Select a shipping method --</option>
+              <option value="RM Tracked 48 (Letters)">
+                RM Tracked 48 (Letters)
+              </option>
+              <option value="RM Tracked 48 (Parcels)">
+                RM Tracked 48 (Parcels)
+              </option>
+              <option value="RM Tracked 24 (Letters)">
+                RM Tracked 24 (Letters)
+              </option>
+              <option value="RM Tracked 24 (Parcels)">
+                RM Tracked 24 (Parcels)
+              </option>
+              <option value="RM Special Delivery">RM Special Delivery</option>
+            </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Carrier and service level
             </p>
