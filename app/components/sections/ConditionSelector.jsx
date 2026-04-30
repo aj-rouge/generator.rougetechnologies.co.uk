@@ -27,10 +27,6 @@ export default function ConditionSelector({
   selectedCategory,
   categories,
 }) {
-console.log("ConditionSelector props:", {
-  condition,
-  selectedCategory,
-});
 
   const [conditionOptions, setConditionOptions] = useState([]);
   const [conditionGroup, setConditionGroup] = useState(null);
@@ -281,7 +277,7 @@ console.log("ConditionSelector props:", {
           >
             <p className={`text-sm ${VALIDATION_COLORS.text.warning}`}>
               ⚠️ <strong>Select a category first:</strong> Condition options
-              vary by product category. Please select a category above to see
+              vary by product category. Please select a category to see
               eBay-specific condition options.{" "}
               <a
                 href="https://www.ebay.co.uk/help/selling/listings/creating-managing-listings/item-conditions-category?id=4765"

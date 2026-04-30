@@ -66,11 +66,11 @@ const INITIAL_FORM_STATE = {
   shopify_id: "",
   ebayLink: "",
   specifications: [],
-  vat_rate: 0,
-  rrp: 0,
-  weight: 0,
-  quantity: 0,
-  price_brutto: 0,
+  vat_rate: "",
+  rrp: "",
+  weight: "",
+  quantity: "",
+  price_brutto: "",
   shipping_method: "",
 };
 
@@ -290,6 +290,57 @@ export default function ProductForm({
       return;
     }
 
+    const MAX_VAT_RATE = 30;
+    const vatRaw = formData.vat_rate;
+    const vatNumber = vatRaw === "" ? null : Number(vatRaw);
+    if (
+      vatNumber === null ||
+      isNaN(vatNumber) ||
+      vatNumber < 0 ||
+      vatNumber > MAX_VAT_RATE
+    ) {
+      addNotification({
+        message: `VAT Rate must be a number between 0 and ${MAX_VAT_RATE}`,
+        type: "error",
+      });
+      return;
+    }
+
+    const priceRaw = formData.price_brutto;
+    const priceNumber = priceRaw === "" ? null : Number(priceRaw);
+    if (priceNumber === null || isNaN(priceNumber) || priceNumber <= 0) {
+      addNotification({
+        message: "Price must be greater than 0",
+        type: "error",
+      });
+      return;
+    }
+
+    const weightRaw = formData.weight;
+    const weightNumber = weightRaw === "" ? null : Number(weightRaw);
+    if (weightNumber === null || isNaN(weightNumber) || weightNumber <= 0) {
+      addNotification({
+        message: "Weight must be greater than 0",
+        type: "error",
+      });
+      return;
+    }
+
+    const quantityRaw = formData.quantity;
+    const quantityNumber = quantityRaw === "" ? null : Number(quantityRaw);
+    if (
+      quantityNumber === null ||
+      isNaN(quantityNumber) ||
+      quantityNumber <= 0 ||
+      !Number.isInteger(quantityNumber)
+    ) {
+      addNotification({
+        message: "Stock Quantity must be a positive integer greater than 0",
+        type: "error",
+      });
+      return;
+    }
+
     setIsSaving(true);
     const toastId = addNotification({
       message: "Synchronizing R2 Storage Slots...",
@@ -302,17 +353,16 @@ export default function ProductForm({
       const productSlug = generateSeoSlug(formData.title);
       const slug = `${categorySlug}/${productSlug}`;
 
-      // ✅ Convert numeric fields
+      // Convert validated fields to numbers for the API
       const payload = {
         ...formData,
         slug,
         category: formData.selectedCategory,
-        price_brutto:
-          formData.price_brutto === "" ? 0 : Number(formData.price_brutto),
-        rrp: formData.rrp === "" ? 0 : Number(formData.rrp),
-        weight: formData.weight === "" ? 0 : Number(formData.weight),
-        quantity: Number(formData.quantity) || 0,
-        vat_rate: Number(formData.vat_rate) || 0,
+        vat_rate: vatNumber,
+        price_brutto: priceNumber,
+        weight: weightNumber,
+        quantity: quantityNumber,
+        rrp: formData.rrp === "" ? null : Number(formData.rrp),
       };
 
       const response = await fetch("/api/product/save", {
@@ -492,6 +542,15 @@ export default function ProductForm({
         isFullAutofilling={isFullAutofilling}
       />
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
+        <PricingAndLogistics
+          vat_rate={formData.vat_rate}
+          price_brutto={formData.price_brutto}
+          rrp={formData.rrp}
+          weight={formData.weight}
+          quantity={formData.quantity}
+          shipping_method={formData.shipping_method}
+          onUpdate={updateForm}
+        />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector
             selectedCategory={formData.selectedCategory}
@@ -499,10 +558,11 @@ export default function ProductForm({
             options={categoryOptions}
             keywords={currentCategoryKeywords}
           />
-          <TitleInput
-            title={formData.title}
-            setTitle={(val) => updateForm({ title: val })}
-            categoryKeywords={currentCategoryKeywords}
+          <ConditionSelector
+            condition={formData.condition}
+            setCondition={(val) => updateForm({ condition: val })}
+            selectedCategory={formData.selectedCategory}
+            categories={categories}
           />
         </div>
         <ProductIdentifiers
@@ -519,22 +579,12 @@ export default function ProductForm({
             condition={formData.condition}
             onSkuChange={(val) => updateForm({ sku: val })}
           />
-          <ConditionSelector
-            condition={formData.condition}
-            setCondition={(val) => updateForm({ condition: val })}
-            selectedCategory={formData.selectedCategory}
-            categories={categories}
+          <TitleInput
+            title={formData.title}
+            setTitle={(val) => updateForm({ title: val })}
+            categoryKeywords={currentCategoryKeywords}
           />
         </div>
-        <PricingAndLogistics
-          vat_rate={formData.vat_rate}
-          price_brutto={formData.price_brutto}
-          rrp={formData.rrp}
-          weight={formData.weight}
-          quantity={formData.quantity}
-          shipping_method={formData.shipping_method}
-          onUpdate={updateForm}
-        />
         <ParagraphsManager
           paragraphs={formData.paragraphs}
           setParagraphs={(val) => updateForm({ paragraphs: val })}

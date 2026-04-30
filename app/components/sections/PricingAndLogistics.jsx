@@ -44,13 +44,50 @@ export default function PricingAndLogistics({
     onUpdate({ [field]: value });
   };
 
-  // VAT-specific change handler with capping
+  // VAT-specific change handler with capping and empty support
   const handleVatChange = (e) => {
     let raw = e.target.value;
-    let num = raw === "" ? 0 : parseFloat(raw);
-    if (isNaN(num)) num = 0;
+    if (raw === "") {
+      handleInputChange("vat_rate", "");
+      return;
+    }
+    let num = parseFloat(raw);
+    if (isNaN(num)) {
+      handleInputChange("vat_rate", "");
+      return;
+    }
     const capped = Math.min(MAX_VAT_RATE, Math.max(0, num));
     handleInputChange("vat_rate", capped);
+  };
+
+  // Generic numeric handler for fields that should allow empty string
+  const handleNumericChange = (field, e) => {
+    const raw = e.target.value;
+    if (raw === "") {
+      handleInputChange(field, "");
+      return;
+    }
+    const num = parseFloat(raw);
+    if (isNaN(num)) {
+      handleInputChange(field, "");
+      return;
+    }
+    handleInputChange(field, num);
+  };
+
+  // Special handler for quantity (integer)
+  const handleQuantityChange = (e) => {
+    const raw = e.target.value;
+    if (raw === "") {
+      handleInputChange("quantity", "");
+      return;
+    }
+    const intVal = parseInt(raw, 10);
+    if (isNaN(intVal)) {
+      handleInputChange("quantity", "");
+      return;
+    }
+    handleInputChange("quantity", intVal);
   };
 
   return (
@@ -76,10 +113,11 @@ export default function PricingAndLogistics({
               type="number"
               step="0.1"
               min="0"
+              placeholder="20"
               max={MAX_VAT_RATE}
-              value={vat_rate}
+              value={vat_rate === "" ? "" : vat_rate}
               onChange={handleVatChange}
-              onBlur={handleVatChange} // Ensure capping on blur as well
+              onBlur={handleVatChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -95,13 +133,8 @@ export default function PricingAndLogistics({
             <input
               type="number"
               step="0.01"
-              value={price_brutto}
-              onChange={(e) =>
-                handleInputChange(
-                  "price_brutto",
-                  e.target.value === "" ? 0 : parseFloat(e.target.value),
-                )
-              }
+              value={price_brutto === "" ? "" : price_brutto}
+              onChange={(e) => handleNumericChange("price_brutto", e)}
               placeholder="0.00"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             />
@@ -117,13 +150,8 @@ export default function PricingAndLogistics({
             <input
               type="number"
               step="0.01"
-              value={rrp}
-              onChange={(e) =>
-                handleInputChange(
-                  "rrp",
-                  e.target.value === "" ? 0 : parseFloat(e.target.value),
-                )
-              }
+              value={rrp === "" ? "" : rrp}
+              onChange={(e) => handleNumericChange("rrp", e)}
               placeholder="0.00"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             />
@@ -154,13 +182,8 @@ export default function PricingAndLogistics({
             <input
               type="number"
               step="0.01"
-              value={weight}
-              onChange={(e) =>
-                handleInputChange(
-                  "weight",
-                  e.target.value === "" ? 0 : parseFloat(e.target.value),
-                )
-              }
+              value={weight === "" ? "" : weight}
+              onChange={(e) => handleNumericChange("weight", e)}
               placeholder="0.00"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             />
@@ -175,10 +198,8 @@ export default function PricingAndLogistics({
             </label>
             <input
               type="number"
-              value={quantity}
-              onChange={(e) =>
-                handleInputChange("quantity", parseInt(e.target.value) || 0)
-              }
+              value={quantity === "" ? "" : quantity}
+              onChange={handleQuantityChange}
               placeholder="0"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
             />
