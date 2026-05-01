@@ -1,8 +1,8 @@
 import localFont from "next/font/local";
 import "../globals.css";
 import { ThemeProvider } from "next-themes";
-import DotGridBackground from "../components/DotGridBackgroundProps";
 import { NotificationProvider } from "../context/NotificationContext";
+import DotGridBackground from "../components/DotGridBackground";
 
 const geistSans = localFont({
   src: "../fonts/GeistVF.woff",

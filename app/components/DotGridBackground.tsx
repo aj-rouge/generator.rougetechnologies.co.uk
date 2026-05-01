@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-interface DotGridBackgroundProps {
+interface DotGridBackground {
   dotSpacing?: number;
   dotRadius?: number;
   highlightRadius?: number;
@@ -13,7 +13,7 @@ export default function DotGridBackground({
   dotSpacing = 19.7, // tighter grid
   dotRadius = 1.9, // slightly smaller to match density
   highlightRadius = 90,
-}: DotGridBackgroundProps) {
+}: DotGridBackground) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePos = useRef<{ x: number; y: number }>({ x: -9999, y: -9999 });
   const smoothMouse = useRef<{ x: number; y: number }>({ x: -9999, y: -9999 });
