@@ -98,7 +98,7 @@ export default function ImagesManager({
 
       {/* Rest of the component remains exactly the same */}
       {!title || !selectedCategory ? (
-        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg">
+        <div className="p-4 rounded-lg border border-gray-200 bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
           Set Title and Category First
         </div>
       ) : (

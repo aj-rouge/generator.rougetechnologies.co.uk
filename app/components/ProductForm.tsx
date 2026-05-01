@@ -221,13 +221,6 @@ export default function ProductForm({
     });
   };
 
-  // ---------------------------------------------------------------------
-  // 6. Save handler (common for both modes)
-  // ---------------------------------------------------------------------
-  const handleAsinEanUpdate = (asin = "", ean = "") => {
-    updateForm({ asin, ean });
-  };
-
   const handleInternalSave = async () => {
     if (!isFormValid) {
       addNotification({
@@ -360,13 +353,7 @@ export default function ProductForm({
       setIsSaving(false);
     }
   };
-
-  useEffect(() => {
-    if (mode === "edit") console.log("Edit formData:", formData);
-  }, [formData, mode]);
-  const handleBaselinkerCreated = (newBaselinkerId) => {
-    updateForm({ baselinker_id: newBaselinkerId });
-  }; // Inside ProductForm component, above return statement
+  
   const handleEbayImport = (scrapedData) => {
     const { product, itemSpecifics } = scrapedData;
 
@@ -469,6 +456,7 @@ export default function ProductForm({
 
     updateForm(updates);
   };
+
   return (
     <div className="w-full min-h-screen">
       <ProductFormHeader
@@ -483,7 +471,7 @@ export default function ProductForm({
         uuid={mode === "edit" ? formData.id : undefined}
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
-        onBaselinkerCreated={handleBaselinkerCreated}
+        onBaselinkerCreated={(id) => updateForm({ baselinker_id: id })}
         onEbayImport={handleEbayImport}
       />
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
@@ -555,7 +543,7 @@ export default function ProductForm({
           title={formData.title}
           selectedCategory={formData.selectedCategory}
           isSaving={isSaving}
-          onAsinEanUpdate={handleAsinEanUpdate}
+          onAsinEanUpdate={(asin, ean) => updateForm({ asin, ean })}
           asin={formData.asin}
           ean={formData.ean}
         />
