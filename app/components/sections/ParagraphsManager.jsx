@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
-import AIAutofillButton from "../AIAutofillButton";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -245,15 +244,6 @@ export default function ParagraphsManager({
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Detailed Description</h3>
-          <AIAutofillButton
-            section="paragraphs"
-            categoryKeywords={categoryKeywords}
-            existingData={{ paragraphs }}
-            onUpdate={(data) => setParagraphs(data.paragraphs)}
-            disabled={!categoryKeywords.length}
-            buttonText="✨ AI Paragraphs"
-            size="sm"
-          />
           <div className="flex items-center gap-3">
             <span
               className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}

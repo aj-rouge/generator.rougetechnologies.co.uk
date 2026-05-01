@@ -4,7 +4,6 @@ import { Home, ExternalLink, ShoppingBag, Package } from "lucide-react";
 import { DarkModeToggle } from "./DarkModeToggle";
 import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
-import UpdateBaselinkerButton from "./UpdateBaselinkerButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
 import EbayImportButton from "./ebay-import-product/EbayImportButton";
@@ -23,8 +22,6 @@ export default function ProductFormHeader({
   shopifyId,
   onBaselinkerCreated,
   onEbayImport,
-  onFullAutofill,
-  isFullAutofilling,
 }) {
   const isEdit = mode === "edit";
 
@@ -107,13 +104,6 @@ export default function ProductFormHeader({
                 baselinkerId={baselinkerId}
               />
             </div>
-            <button
-              onClick={onFullAutofill}
-              disabled={isFullAutofilling || !selectedCategory}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2"
-            >
-              {isFullAutofilling ? "✨ Generating..." : "✨ AI Autofill All"}
-            </button>
             <SaveButton
               onSave={onSave}
               isSaving={isSaving}
@@ -141,13 +131,6 @@ export default function ProductFormHeader({
                 onEbayImport={onEbayImport}
                 disabled={!selectedCategory}
               />
-              <button
-                onClick={onFullAutofill}
-                disabled={isFullAutofilling || !selectedCategory}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center gap-2"
-              >
-                {isFullAutofilling ? "✨ Generating..." : "✨ AI Autofill All"}
-              </button>
               <SaveButton
                 onSave={onSave}
                 isSaving={isSaving}

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
-import AIAutofillButton from "../AIAutofillButton";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -324,15 +323,7 @@ export default function FeaturesManager({
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
             Product Features
           </h3>
-          <AIAutofillButton
-            section="features"
-            categoryKeywords={categoryKeywords}
-            existingData={{ features }}
-            onUpdate={(data) => setFeatures(data.features)}
-            disabled={!categoryKeywords.length}
-            buttonText="✨ AI Features"
-            size="sm"
-          />
+
           <div className="flex items-center gap-3">
             <span
               className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}

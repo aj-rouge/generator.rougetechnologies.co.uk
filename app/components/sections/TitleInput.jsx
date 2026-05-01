@@ -6,7 +6,6 @@ import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 import { LengthIndicatorBar } from "./LengthIndicatorBar";
-import AIAutofillButton from "../AIAutofillButton";
 
 const TITLE_CONFIG = {
   MIN_LENGTH: 50,
@@ -165,16 +164,6 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
           <label className="block text-black dark:text-gray-100 font-medium">
             Enter your title:
           </label>
-          <AIAutofillButton
-            section="title"
-            categoryKeywords={categoryKeywords}
-            existingData={{ title }}
-            onUpdate={(data) => setTitle(data.title)}
-            disabled={!hasCategory}
-            buttonText="✨ AI Title"
-            size="sm"
-          />
-
           <div className="flex items-center gap-2">
             {hasCategory && keywordAnalysis && (
               <span

@@ -5,7 +5,6 @@ import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
-import AIAutofillButton from "../AIAutofillButton";
 
 const formatSnippet = (text) => {
   if (!text) return "";
@@ -257,15 +256,6 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
             >
               ⚡ Generate from Title
             </button>
-            <AIAutofillButton
-              section="sku"
-              categoryKeywords={[]}
-              existingData={{ title, condition }}
-              onUpdate={(newSku) => onSkuChange(newSku)}
-              disabled={!title || !condition}
-              buttonText="✨ AI SKU"
-              size="sm"
-            />
           </div>
         </div>
 

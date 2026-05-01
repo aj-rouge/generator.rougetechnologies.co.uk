@@ -8,8 +8,6 @@ export default function ProductGallery({ images, title }) {
       <div className="rouge-technologies-gallery__row">
         <div className="rouge-technologies-gallery__full">
           <div className="rouge-technologies-gallery__wrapper">
-            {/* 1. RADIO BUTTONS & MAIN IMAGES */}
-            {/* These MUST stay as direct siblings for the CSS ~ selector to work */}
             <div className="rouge-technologies-gallery__display-area">
               {sortedImages.map((image, index) => {
                 const imageSrc = image.s3Url || image.url || "placeholder-url";

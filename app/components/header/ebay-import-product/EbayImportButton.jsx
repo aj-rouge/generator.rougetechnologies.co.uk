@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Upload } from "lucide-react";
 import EbayImportModal from "./EbayImportModal";
-import { scrapeEbayProduct } from "../../../actions/scrape";
+import { scrapeEbayProduct } from "../../../actions/ebay-scrape";
 
 export default function EbayImportButton({ onEbayImport, disabled = false }) {
   const [showModal, setShowModal] = useState(false);
