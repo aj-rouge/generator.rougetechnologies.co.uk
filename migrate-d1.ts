@@ -15,9 +15,7 @@ dotenv.config();
 // ------------------------------------------------------------------
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const D1_API_TOKEN = process.env.CLOUDFLARE_D1_API_TOKEN;
-const KV_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
-const KV_NAMESPACE = process.env.KV_NAMESPACE;
 
 // Migrations folder
 const MIGRATIONS_FOLDER = "./migrations";
@@ -191,135 +189,6 @@ async function getMigrationFilesInOrder() {
     console.error("❌ Error reading migrations folder:", error.message);
     return [];
   }
-}
-
-// ------------------------------------------------------------------
-// KV Cleanup Functions
-// ------------------------------------------------------------------
-async function listAllKVKeys() {
-  if (!KV_NAMESPACE || !KV_API_TOKEN) return [];
-
-  let allKeys = [];
-  let cursor = null;
-  let page = 1;
-
-  try {
-    do {
-      let url = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE}/keys?per_page=1000`;
-      if (cursor) {
-        url += `&cursor=${encodeURIComponent(cursor)}`;
-      }
-
-      process.stdout.write(`   📋 Fetching KV keys page ${page}... `);
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${KV_API_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        console.log("❌");
-        return [];
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        console.log("❌");
-        return [];
-      }
-
-      if (data.result && Array.isArray(data.result)) {
-        const pageKeys = data.result.map((item) => item.name);
-        allKeys = allKeys.concat(pageKeys);
-        console.log(`found ${pageKeys.length} keys (total: ${allKeys.length})`);
-      } else {
-        console.log(`found 0 keys`);
-      }
-
-      cursor = data.result_info?.cursor || null;
-      page++;
-    } while (cursor);
-
-    return allKeys;
-  } catch (error) {
-    console.error("\n❌ Failed to list KV keys:", error.message);
-    return [];
-  }
-}
-
-async function deleteKVKey(key) {
-  if (!KV_NAMESPACE || !KV_API_TOKEN) return false;
-
-  try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/storage/kv/namespaces/${KV_NAMESPACE}/values/${encodeURIComponent(key)}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${KV_API_TOKEN}`,
-        },
-      },
-    );
-    return response.ok;
-  } catch (error) {
-    return false;
-  }
-}
-
-async function deleteAllKVData() {
-  if (!KV_NAMESPACE || !KV_API_TOKEN) {
-    console.log("   ⚠️ KV not configured - skipping");
-    return { success: false, skipped: true };
-  }
-
-  console.log("\n🗑️  Starting KV data cleanup...");
-  const keys = await listAllKVKeys();
-
-  if (keys.length === 0) {
-    console.log("   ℹ️ No KV keys to delete");
-    return { success: true, deletedCount: 0 };
-  }
-
-  console.log(`   📊 Total keys found: ${keys.length}`);
-
-  const confirmKV = await askConfirmation(
-    `   ⚠️  This will delete ${keys.length} KV keys. Continue? (y/N) `,
-  );
-
-  if (!confirmKV) {
-    console.log("   ⛔ KV cleanup skipped by user");
-    return { success: false, skipped: true };
-  }
-
-  console.log(`   🧹 Deleting ${keys.length} KV keys...`);
-
-  let successCount = 0;
-  let failCount = 0;
-
-  for (let i = 0; i < keys.length; i++) {
-    const deleted = await deleteKVKey(keys[i]);
-    if (deleted) {
-      successCount++;
-    } else {
-      failCount++;
-    }
-
-    if ((i + 1) % 10 === 0 || i === keys.length - 1) {
-      process.stdout.write(
-        `      Progress: ${i + 1}/${keys.length} (${Math.round(((i + 1) / keys.length) * 100)}%)\r`,
-      );
-    }
-  }
-
-  console.log(`\n   ✅ Deleted ${successCount} keys successfully`);
-  if (failCount > 0) {
-    console.log(`   ⚠️ Failed to delete ${failCount} keys`);
-  }
-
-  return { success: true, deletedCount: successCount, failedCount: failCount };
 }
 
 // ------------------------------------------------------------------
@@ -502,7 +371,7 @@ function splitSql(sql) {
 // Main execution
 // ------------------------------------------------------------------
 async function main() {
-  console.log("🚀 Starting Database, KV, and R2 Refresh...");
+  console.log("🚀 Starting Database, and R2 Refresh...");
   console.log(`Target DB: ${DATABASE_ID}`);
   console.log(`Migrations folder: ${MIGRATIONS_FOLDER}`);
   console.log("");
@@ -519,7 +388,7 @@ async function main() {
 
   // Confirm wipe
   const confirmed = await askConfirmation(
-    "\n⚠️  WARNING: This will DELETE ALL EXISTING DATA, TABLES, KV DATA, AND MOST R2 OBJECTS. Are you sure? (y/N) ",
+    "\n⚠️  WARNING: This will DELETE ALL EXISTING DATA, TABLES, AND MOST R2 OBJECTS. Are you sure? (y/N) ",
   );
   if (!confirmed) {
     console.log("❌ Operation cancelled.");
@@ -530,12 +399,7 @@ async function main() {
   if (R2_BUCKET_NAME && R2_ACCESS_KEY_ID) {
     await deleteAllR2Data();
   }
-
-  // KV Cleanup
-  if (KV_NAMESPACE && KV_API_TOKEN) {
-    await deleteAllKVData();
-  }
-
+  
   // Get all migration files in order
   const migrationFiles = await getMigrationFilesInOrder();
 
@@ -578,7 +442,7 @@ async function main() {
   }
 
   console.log("\n==========================================");
-  console.log("🎉 DATABASE, KV, AND R2 SETUP SUCCESSFULLY COMPLETED!");
+  console.log("🎉 DATABASE AND R2 SETUP SUCCESSFULLY COMPLETED!");
   console.log("==========================================\n");
 }
 
