@@ -8,7 +8,7 @@ import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 
 // Helper to find a category by slug (recursive)
-const findCategoryBySlug = (categories, slug) => {
+export const findCategoryBySlug = (categories, slug) => {
   if (!categories || !slug) return null;
 
   for (const cat of categories) {

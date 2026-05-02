@@ -5,7 +5,9 @@ import { useState, useEffect, useMemo } from "react";
 import GenerateHTML from "./sections/GenerateHTML";
 import LivePreview from "./preview/LivePreview";
 import TitleInput from "./sections/TitleInput";
-import ConditionSelector from "./sections/ConditionSelector";
+import ConditionSelector, {
+  findCategoryBySlug,
+} from "./sections/ConditionSelector";
 import ParagraphsManager from "./sections/ParagraphsManager";
 import FeaturesManager from "./sections/FeaturesManager";
 import NoteInput from "./sections/NoteInput";
@@ -21,33 +23,6 @@ import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
 import SpecificationsManager from "./sections/SpecificationsManager";
 import PricingAndLogistics from "./sections/PricingAndLogistics";
-
-// Helper functions unchanged...
-const findCategoryBySlug = (categories, slug) => {
-  for (const cat of categories) {
-    if (cat.slug === slug) return cat;
-    if (cat.children) {
-      const found = findCategoryBySlug(cat.children, slug);
-      if (found) return found;
-    }
-  }
-  return null;
-};
-
-// Flatten category tree into options for the select dropdown
-const buildCategoryOptions = (categories) => {
-  let options = [];
-  categories.forEach((cat) => {
-    options.push({ value: cat.slug, label: cat.name });
-    if (cat.children && cat.children.length > 0) {
-      cat.children.forEach((child, idx, arr) => {
-        const prefix = idx === arr.length - 1 ? "└ " : "├ ";
-        options.push({ value: child.slug, label: `${prefix} ${child.name}` });
-      });
-    }
-  });
-  return options;
-};
 
 const INITIAL_FORM_STATE = {
   sku: "",
@@ -151,10 +126,21 @@ export default function ProductForm({
     () => selectedCategoryObj?.keywords || [],
     [selectedCategoryObj],
   );
-  const categoryOptions = useMemo(
-    () => buildCategoryOptions(categories),
-    [categories],
-  );
+
+  const categoryOptions = useMemo(() => {
+    let options = [];
+    categories.forEach((cat) => {
+      options.push({ value: cat.slug, label: cat.name });
+      if (cat.children && cat.children.length > 0) {
+        cat.children.forEach((child, idx, arr) => {
+          const prefix = idx === arr.length - 1 ? "└ " : "├ ";
+          options.push({ value: child.slug, label: `${prefix} ${child.name}` });
+        });
+      }
+    });
+    return options;
+  }, [categories]);
+
   const categoryName = useMemo(
     () => selectedCategoryObj?.name || formData.selectedCategory,
     [selectedCategoryObj, formData.selectedCategory],
