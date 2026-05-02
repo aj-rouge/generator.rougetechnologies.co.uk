@@ -22,7 +22,8 @@ import ProductIdentifiers from "./sections/ProductIdentifiers";
 import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
 import SpecificationsManager from "./sections/SpecificationsManager";
-import PricingAndLogistics from "./sections/PricingAndLogistics";
+import LogisticsSection from "./sections/LogisticsSection";
+import PricingSection from "./sections/PricingSection";
 
 const INITIAL_FORM_STATE = {
   sku: "",
@@ -122,6 +123,7 @@ export default function ProductForm({
     () => findCategoryBySlug(categories, formData.selectedCategory),
     [categories, formData.selectedCategory],
   );
+
   const currentCategoryKeywords = useMemo(
     () => selectedCategoryObj?.keywords || [],
     [selectedCategoryObj],
@@ -339,7 +341,7 @@ export default function ProductForm({
       setIsSaving(false);
     }
   };
-  
+
   const handleEbayImport = (scrapedData) => {
     const { product, itemSpecifics } = scrapedData;
 
@@ -461,15 +463,20 @@ export default function ProductForm({
         onEbayImport={handleEbayImport}
       />
       <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
-        <PricingAndLogistics
-          vat_rate={formData.vat_rate}
-          price_brutto={formData.price_brutto}
-          rrp={formData.rrp}
-          weight={formData.weight}
-          quantity={formData.quantity}
-          shipping_method={formData.shipping_method}
-          onUpdate={updateForm}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <PricingSection
+            vat_rate={formData.vat_rate}
+            price_brutto={formData.price_brutto}
+            rrp={formData.rrp}
+            onUpdate={updateForm}
+          />
+          <LogisticsSection
+            weight={formData.weight}
+            quantity={formData.quantity}
+            shipping_method={formData.shipping_method}
+            onUpdate={updateForm}
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector
             selectedCategory={formData.selectedCategory}

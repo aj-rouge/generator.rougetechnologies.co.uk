@@ -1,0 +1,131 @@
+// app/components/forms/sections/PricingSection.jsx
+"use client";
+
+const MAX_VAT_RATE = 30;
+
+export default function PricingSection({
+  vat_rate = 0,
+  price_brutto = "",
+  rrp = "",
+  onUpdate,
+}) {
+  const isFilled = (value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim() !== "";
+    if (typeof value === "number") return !isNaN(value);
+    return true;
+  };
+
+  const fields = [vat_rate, price_brutto, rrp];
+  const filledCount = fields.filter(isFilled).length;
+  const total = fields.length;
+
+  const getBorderColor = (filled, total) => {
+    if (filled === 0) return "border-red-300 dark:border-red-600";
+    if (filled === total) return "border-green-300 dark:border-green-600";
+    return "border-yellow-300 dark:border-yellow-600";
+  };
+
+  const handleVatChange = (e) => {
+    let raw = e.target.value;
+    if (raw === "") {
+      onUpdate({ vat_rate: "" });
+      return;
+    }
+    let num = parseFloat(raw);
+    if (isNaN(num)) {
+      onUpdate({ vat_rate: "" });
+      return;
+    }
+    const capped = Math.min(MAX_VAT_RATE, Math.max(0, num));
+    onUpdate({ vat_rate: capped });
+  };
+
+  const handleNumericChange = (field, e) => {
+    const raw = e.target.value;
+    if (raw === "") {
+      onUpdate({ [field]: "" });
+      return;
+    }
+    const num = parseFloat(raw);
+    if (isNaN(num)) {
+      onUpdate({ [field]: "" });
+      return;
+    }
+    onUpdate({ [field]: num });
+  };
+
+  return (
+    <div
+      className={`bg-white dark:bg-gray-800 p-4 rounded-lg border-2 ${getBorderColor(
+        filledCount,
+        total
+      )}`}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <label className="block text-black dark:text-gray-100 font-medium">
+          Pricing
+        </label>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {filledCount}/{total} filled
+        </span>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
+            VAT Rate (%)
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="20"
+            max={MAX_VAT_RATE}
+            value={vat_rate === "" ? "" : vat_rate}
+            onChange={handleVatChange}
+            onBlur={handleVatChange}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Tax rate between 0% and {MAX_VAT_RATE}% (e.g., 20 for standard UK
+            VAT)
+          </p>
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
+            Price (Gross, £)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={price_brutto === "" ? "" : price_brutto}
+            onChange={(e) => handleNumericChange("price_brutto", e)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Gross selling price including VAT
+          </p>
+        </div>
+
+        <div>
+          <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
+            RRP (£)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={rrp === "" ? "" : rrp}
+            onChange={(e) => handleNumericChange("rrp", e)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Recommended retail price (optional)
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
