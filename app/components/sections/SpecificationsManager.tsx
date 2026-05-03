@@ -7,27 +7,17 @@ import {
 } from "../../utils/ui/validationColors";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { ValidationWrapper } from "./ValidationWrapper";
-import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
+import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
 
-/**
- * Generate a truly unique ID using crypto.randomUUID()
- * Falls back to a timestamp-based ID if crypto is unavailable
- */
 const generateUniqueId = (): string => {
   try {
-    // Use crypto.randomUUID() for true uniqueness – eliminates all key collisions
     return crypto.randomUUID();
   } catch {
-    // Fallback for older browsers or non‑secure contexts
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 };
 
-/**
- * Sanitize a specification object to ensure it has valid key/value strings
- * This prevents `undefined` or `null` from reaching the validation logic
- */
 const sanitizeSpec = (spec: any): any => ({
   id: spec?.id && typeof spec.id === "string" ? spec.id : generateUniqueId(),
   key: spec?.key ?? "",
@@ -196,145 +186,154 @@ export default function SpecificationsManager({
       validationScore={validationScore}
       borderColor={borderColorClass}
     >
-      <StatusHeader
+      <CollapsibleStatusHeader
         title="Item Specifics"
         status={getOverallStatus()}
+        statusColor={getStatusColor()}
         rulesPassed={passedRules}
         totalRules={totalRules}
-        subtitle="Add details about product"
-        statusColor={getStatusColor()}
-      />
+        subtitle={
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            <span>
+              Specifications:{" "}
+              <span className="font-medium">{specifications.length}</span>
+            </span>
+          </div>
+        }
+        collapsible
+        chevronPosition="right"
+      >
+        <div className="space-y-4">
+          {/* Table header */}
+          <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+            <div className="col-span-5">Specification</div>
+            <div className="col-span-5">Value</div>
+            <div className="col-span-2 text-right">Actions</div>
+          </div>
 
-      <div className="space-y-4">
-        {/* Table header */}
-        <div className="hidden md:grid grid-cols-12 gap-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-          <div className="col-span-5">Specification</div>
-          <div className="col-span-5">Value</div>
-          <div className="col-span-2 text-right">Actions</div>
+          {/* List of specifications */}
+          {specifications.map((spec, idx) => (
+            <div
+              key={
+                spec?.id && typeof spec.id === "string"
+                  ? spec.id
+                  : `spec-${idx}-${Date.now()}`
+              }
+              className={`grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 rounded-lg border ${
+                editingId === spec?.id
+                  ? "border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                  : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+              }`}
+            >
+              {editingId === spec?.id ? (
+                <>
+                  <div className="md:col-span-5">
+                    <input
+                      type="text"
+                      value={tempKey}
+                      onChange={(e) => setTempKey(e.target.value)}
+                      placeholder="e.g., Processor, Screen Size, Brand"
+                      className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="md:col-span-5">
+                    <input
+                      type="text"
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      placeholder="e.g., Intel Core i7, 15.6 inch, Apple"
+                      className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </div>
+                  <div className="md:col-span-2 flex justify-end gap-2">
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-md hover:bg-gray-400 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="md:col-span-5 font-medium text-gray-800 dark:text-gray-200 break-words">
+                    {spec?.key || "—"}
+                  </div>
+                  <div className="md:col-span-5 text-gray-600 dark:text-gray-400 break-words">
+                    {spec?.value || "—"}
+                  </div>
+                  <div className="md:col-span-2 flex justify-end gap-2">
+                    <button
+                      onClick={() => handleEdit(spec)}
+                      className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(spec.id)}
+                      className="text-red-600 dark:text-red-400 hover:underline text-sm"
+                    >
+                      Delete
+                    </button>
+                    <div className="flex gap-1">
+                      {idx > 0 && (
+                        <button
+                          onClick={() => handleMove(idx, "up")}
+                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                      )}
+                      {idx < specifications.length - 1 && (
+                        <button
+                          onClick={() => handleMove(idx, "down")}
+                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* Add button */}
+          <button
+            onClick={handleAddSpec}
+            className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors"
+          >
+            + Add specification
+          </button>
         </div>
 
-        {/* List of specifications – each top‑level div now has a guaranteed unique key */}
-        {specifications.map((spec, idx) => (
-          <div
-            key={
-              spec?.id && typeof spec.id === "string"
-                ? spec.id
-                : `spec-${idx}-${Date.now()}`
-            }
-            className={`grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 rounded-lg border ${
-              editingId === spec?.id
-                ? "border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20"
-                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-            }`}
-          >
-            {editingId === spec?.id ? (
-              <>
-                <div className="md:col-span-5">
-                  <input
-                    type="text"
-                    value={tempKey}
-                    onChange={(e) => setTempKey(e.target.value)}
-                    placeholder="e.g., Processor, Screen Size, Brand"
-                    className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    autoFocus
-                  />
-                </div>
-                <div className="md:col-span-5">
-                  <input
-                    type="text"
-                    value={tempValue}
-                    onChange={(e) => setTempValue(e.target.value)}
-                    placeholder="e.g., Intel Core i7, 15.6 inch, Apple"
-                    className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                  />
-                </div>
-                <div className="md:col-span-2 flex justify-end gap-2">
-                  <button
-                    onClick={handleSaveEdit}
-                    className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded-md hover:bg-gray-400 text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="md:col-span-5 font-medium text-gray-800 dark:text-gray-200 break-words">
-                  {spec?.key || "—"}
-                </div>
-                <div className="md:col-span-5 text-gray-600 dark:text-gray-400 break-words">
-                  {spec?.value || "—"}
-                </div>
-                <div className="md:col-span-2 flex justify-end gap-2">
-                  <button
-                    onClick={() => handleEdit(spec)}
-                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(spec.id)}
-                    className="text-red-600 dark:text-red-400 hover:underline text-sm"
-                  >
-                    Delete
-                  </button>
-                  <div className="flex gap-1">
-                    {idx > 0 && (
-                      <button
-                        onClick={() => handleMove(idx, "up")}
-                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                        title="Move up"
-                      >
-                        ↑
-                      </button>
-                    )}
-                    {idx < specifications.length - 1 && (
-                      <button
-                        onClick={() => handleMove(idx, "down")}
-                        className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                        title="Move down"
-                      >
-                        ↓
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-
-        {/* Add button */}
-        <button
-          onClick={handleAddSpec}
-          className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors"
-        >
-          + Add specification
-        </button>
-      </div>
-
-      <ValidationRules
-        rules={displayRules}
-        headerIcon={getHeaderIcon()}
-        headerText="Specifications Requirements"
-        validationScore={validationScore}
-        allRulesPass={allRulesPass}
-        passedRules={passedRules}
-        totalRules={totalRules}
-        overallStatusMessage={
-          specifications.length === 0
-            ? "Add at least one spec"
-            : allRulesPass
-              ? "Perfect!"
-              : "Needs work"
-        }
-      />
+        <ValidationRules
+          rules={displayRules}
+          headerIcon={getHeaderIcon()}
+          headerText="Specifications Requirements"
+          validationScore={validationScore}
+          allRulesPass={allRulesPass}
+          passedRules={passedRules}
+          totalRules={totalRules}
+          overallStatusMessage={
+            specifications.length === 0
+              ? "Add at least one spec"
+              : allRulesPass
+                ? "Perfect!"
+                : "Needs work"
+          }
+        />
+      </CollapsibleStatusHeader>
     </ValidationWrapper>
   );
 }

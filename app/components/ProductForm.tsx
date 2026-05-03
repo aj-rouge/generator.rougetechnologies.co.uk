@@ -462,7 +462,7 @@ export default function ProductForm({
         onBaselinkerCreated={(id) => updateForm({ baselinker_id: id })}
         onEbayImport={handleEbayImport}
       />
-      <div className="flex flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
+      <div className="flex pb-4 flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <PricingSection
             vat_rate={formData.vat_rate}
@@ -550,18 +550,43 @@ export default function ProductForm({
           categoryContent={categoryContent}
           ebayLink={formData.ebayLink}
         />
-        <div className="w-full px-5 xl:px-[48px]">
-          <h3 className="text-2xl text-center uppercase font-bold text-black dark:text-white">
-            Live Preview:
-          </h3>
-          <LivePreview
-            {...formData}
-            categoryName={`${categoryName} at Rouge Technologies`}
-            seoSectionData={categories}
-            categoryContent={categoryContent}
-            ebayLink={formData.ebayLink}
-          />
-        </div>
+        <>
+          {formData.selectedCategory &&
+          formData.title?.trim() &&
+          formData.condition &&
+          formData.images?.length > 0 &&
+          formData.features?.length > 0 ? (
+            <div className="w-full px-5 xl:px-[48px]">
+              <h3 className="text-2xl text-center uppercase font-bold text-black dark:text-white">
+                Live Preview:
+              </h3>
+              <LivePreview
+                {...formData}
+                categoryName={`${categoryName} at Rouge Technologies`}
+                seoSectionData={categories}
+                categoryContent={categoryContent}
+                ebayLink={formData.ebayLink}
+              />
+            </div>
+          ) : (
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4  border border-gray-300 dark:border-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
+                ⚠️ Live preview will appear once you have:
+              </p>
+              <ul className="mt-3 text-sm text-gray-500 dark:text-gray-400 list-disc list-inside">
+                {!formData.selectedCategory && <li>Selected a category</li>}
+                {!formData.title?.trim() && <li>Entered a product title</li>}
+                {!formData.condition && <li>Selected a condition</li>}
+                {formData.images?.length === 0 && (
+                  <li>Added at least one image</li>
+                )}
+                {formData.features?.length === 0 && (
+                  <li>Added at least one feature</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </>
       </div>
     </div>
   );
