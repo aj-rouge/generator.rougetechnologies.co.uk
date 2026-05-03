@@ -396,14 +396,6 @@ export default function FeaturesManager({
                   );
                 })}
               </div>
-              {hasMissingKeywords && (
-                <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800">
-                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center">
-                    ⚠️ Missing keywords! Try to include each keyword at least
-                    once in your features.
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
             <div className="flex justify-between items-center">
