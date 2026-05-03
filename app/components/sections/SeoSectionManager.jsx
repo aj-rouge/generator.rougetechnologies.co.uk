@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Check, AlertTriangle, Download, Trash2, Plus, X } from "lucide-react";
 import { CATEGORY_SECTIONS } from "../../data/categories";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { ValidationRules } from "./ValidationRules";
 // Helper function to convert sections to plain text for keyword counting
 export function sectionsToText(sections) {
   if (!sections || !Array.isArray(sections)) return "";
@@ -21,6 +22,7 @@ export function sectionsToText(sections) {
     })
     .join(" ");
 }
+
 export default function SeoSectionManager({
   selectedCategory,
   categoryKeywords = [],
@@ -323,34 +325,31 @@ export default function SeoSectionManager({
   const validationScore =
     totalRules > 0 ? Math.round((passedRules / totalRules) * 100) : 0;
 
-  // Get overall status
+  // Get overall status (clean version for overallStatusMessage prop)
   const getOverallStatus = () => {
-    if (!selectedCategory) {
-      return "⚠️ Select Category";
-    }
-    if (totalParagraphs === 0) {
-      return "✗ Add Content";
-    }
-    if (totalParagraphs < 3) {
-      return `⚠️ ${totalParagraphs}/3 Paragraphs`;
-    }
-    if (totalChars < 800) {
-      return "⚠️ More Content Needed";
-    }
-    if (hasMissingKeywords) {
-      return "⚠️ Missing Keywords";
-    }
-    if (allRulesPass) {
-      return "✓ SEO Complete";
-    }
-    return "⚠️ Needs Attention";
+    if (!selectedCategory) return "Select Category";
+    if (totalParagraphs === 0) return "Add Content";
+    if (totalParagraphs < 3) return `${totalParagraphs}/3 Paragraphs`;
+    if (totalChars < 800) return `${totalChars}/800 Chars`;
+    if (hasMissingKeywords) return "Add Keywords";
+    if (allRulesPass) return "Perfect!";
+    return "Almost there!";
   };
 
-  // Get status badge color
+  // Get header icon (used for ValidationRules headerIcon prop)
+  const getHeaderIcon = () => {
+    if (!selectedCategory) return "⚠️";
+    if (totalParagraphs === 0) return "❌";
+    if (totalParagraphs < 3) return "⚠️";
+    if (totalChars < 800) return "⚠️";
+    if (hasMissingKeywords) return "⚠️";
+    if (allRulesPass) return "✅";
+    return "⚠️";
+  };
+
+  // Get status badge color (unchanged, for the top banner)
   const badgeColor = getStatusBadgeColorFromState({
-    // Red only when category IS selected and there are zero paragraphs
     hasCriticalError: !!selectedCategory && totalParagraphs === 0,
-    // Yellow in all other “not yet perfect” cases
     hasWarning:
       !selectedCategory ||
       (totalParagraphs > 0 &&
@@ -382,38 +381,6 @@ export default function SeoSectionManager({
       return "border-green-500 dark:border-green-500 border-2";
     }
     return "border-gray-300 dark:border-gray-600";
-  };
-
-  // Get importance badge color
-  const getImportanceColor = (importance) => {
-    switch (importance) {
-      case "critical":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      case "low":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
-  // Get validation status color
-  const getValidationColor = (score) => {
-    if (score === 100) return "text-green-600 dark:text-green-400";
-    if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
-  // Get header icon based on validation status
-  const getHeaderIcon = () => {
-    if (!selectedCategory) return "⚠️";
-    if (totalParagraphs === 0) return "❌";
-    if (totalParagraphs < 3) return "⚠️";
-    if (totalChars < 800) return "⚠️";
-    if (hasMissingKeywords) return "⚠️";
-    if (allRulesPass) return "✅";
-    return "⚠️";
   };
 
   // Handle new paragraph change
@@ -1132,152 +1099,17 @@ export default function SeoSectionManager({
         )}
       </div>
 
-      {/* Validation Rules Section */}
-      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-medium text-lg text-gray-800 dark:text-gray-100">
-            <span className="mr-2">{getHeaderIcon()}</span>
-            SEO Content Requirements:
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {displayRules.map((rule) => {
-            const result = rule.check();
-
-            return (
-              <div
-                key={rule.id}
-                className="flex items-start gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <div className="mt-1">
-                  {result ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      ✓
-                    </span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400">✗</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
-                      {rule.name}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                        rule.importance,
-                      )}`}
-                    >
-                      {rule.importance}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {rule.description}
-                  </p>
-
-                  {!result && rule.id === 1 && selectedCategory && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Category name should follow template: &quot;
-                      {selectedCategory} from Rouge Technologies&quot;
-                    </div>
-                  )}
-                  {!result && rule.id === 2 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Need {3 - totalParagraphs} more paragraphs
-                    </div>
-                  )}
-                  {!result && rule.id === 3 && totalParagraphs > 0 && (
-                    <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                      ⚠️ Some paragraphs are too short (min 200 chars each)
-                    </div>
-                  )}
-                  {!result && rule.id === 4 && totalChars > 0 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Need {800 - totalChars} more characters total
-                    </div>
-                  )}
-                  {!result &&
-                    rule.id === 5 &&
-                    selectedCategory &&
-                    categoryKeywords.length > 0 && (
-                      <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                        ❌ Missing keywords:{" "}
-                        {categoryKeywords
-                          .filter(
-                            (k) => !keywordCounts[k] || keywordCounts[k] === 0,
-                          )
-                          .join(", ")}
-                      </div>
-                    )}
-                  {!result &&
-                    rule.id === 6 &&
-                    selectedCategory &&
-                    totalChars > 0 && (
-                      <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                        ⚠️ Mention &quot;Rouge Technologies&quot; at least 2-3
-                        times (currently{" "}
-                        {keywordCounts["Rouge Technologies"] || 0})
-                      </div>
-                    )}
-                  {!result &&
-                    rule.id === 7 &&
-                    selectedCategory &&
-                    categoryKeywords.length > 0 && (
-                      <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                        ⚠️ Try to use each keyword 2-3 times for better SEO
-                      </div>
-                    )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {totalRules > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Overall Progress:
-                <span className={`ml-2 ${getValidationColor(validationScore)}`}>
-                  {validationScore}%
-                </span>
-              </span>
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      allRulesPass
-                        ? "bg-green-500"
-                        : passedRules > 0
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                    }`}
-                    style={{ width: `${validationScore}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-sm ${getValidationColor(validationScore)}`}
-                >
-                  {!selectedCategory
-                    ? "Select Category"
-                    : totalParagraphs === 0
-                      ? "Add Content"
-                      : totalParagraphs < 3
-                        ? `${totalParagraphs}/3 Paragraphs`
-                        : totalChars < 800
-                          ? `${totalChars}/800 Chars`
-                          : hasMissingKeywords
-                            ? "Add Keywords"
-                            : allRulesPass
-                              ? "Perfect!"
-                              : "Almost there!"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
+      <ValidationRules
+        rules={displayRules}
+        headerIcon={getHeaderIcon()}
+        headerText="SEO Content Requirements:"
+        validationScore={validationScore}
+        allRulesPass={allRulesPass}
+        passedRules={passedRules}
+        totalRules={totalRules}
+        overallStatusMessage={getOverallStatus()}
+      />
     </div>
   );
 }
