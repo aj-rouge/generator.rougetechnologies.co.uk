@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { ValidationRules } from "./ValidationRules";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -182,11 +183,11 @@ export default function ParagraphsManager({
     totalRules > 0 ? Math.round((passedRules / totalRules) * 100) : 0;
 
   const getOverallStatus = () => {
-    if (paragraphs.length === 0) return "✗ Add Paragraphs";
-    if (!categoryKeywords.length) return "⚠️ Select Category";
-    if (hasMissingKeywords) return "⚠️ Missing Keywords";
-    if (allRulesPass) return "✓ Description Complete";
-    return "⚠️ Needs Attention";
+    if (paragraphs.length === 0) return "Add Paragraphs";
+    if (!categoryKeywords.length) return "Select Category";
+    if (hasMissingKeywords) return "Add Keywords";
+    if (allRulesPass) return "Perfect!";
+    return "Almost there!";
   };
 
   const badgeColor = getStatusBadgeColorFromState({
@@ -208,23 +209,7 @@ export default function ParagraphsManager({
     return "border-gray-300 dark:border-gray-600";
   };
 
-  const getImportanceColor = (importance) => {
-    switch (importance) {
-      case "critical":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
-  const getValidationColor = (score) => {
-    if (score === 100) return "text-green-600 dark:text-green-400";
-    if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
+  // Header icon logic (used only for the ValidationRules component)
   const getHeaderIcon = () => {
     if (paragraphs.length === 0) return "❌";
     if (!categoryKeywords.length) return "⚠️";
@@ -605,125 +590,17 @@ export default function ParagraphsManager({
         </div>
       </div>
 
-      {/* Validation Rules Section */}
-      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-medium text-lg text-gray-800 dark:text-gray-100">
-            <span className="mr-2">{getHeaderIcon()}</span>
-            Description Requirements:
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {displayRules.map((rule) => {
-            const result = rule.check();
-            return (
-              <div
-                key={rule.id}
-                className="flex items-start gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <div className="mt-1">
-                  {result ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      ✓
-                    </span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400">✗</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
-                      {rule.name}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                        rule.importance,
-                      )}`}
-                    >
-                      {rule.importance}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {rule.description}
-                  </p>
-                  {!result && rule.id === 1 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Add at least one paragraph above
-                    </div>
-                  )}
-                  {!result && rule.id === 2 && paragraphs.length > 0 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Some paragraphs are too short. Each must be at least
-                      160 characters.
-                    </div>
-                  )}
-                  {!result && rule.id === 3 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Select a category from the dropdown above
-                    </div>
-                  )}
-                  {!result && rule.id === 4 && categoryKeywords.length > 0 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Missing keywords:{" "}
-                      {categoryKeywords
-                        .filter(
-                          (k) => !keywordCounts[k] || keywordCounts[k] === 0,
-                        )
-                        .join(", ")}
-                    </div>
-                  )}
-                  {!result && rule.id === 5 && categoryKeywords.length > 0 && (
-                    <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                      ⚠️ Try to use each keyword 2-3 times for better SEO
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {totalRules > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Overall Progress:
-                <span className={`ml-2 ${getValidationColor(validationScore)}`}>
-                  {validationScore}%
-                </span>
-              </span>
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      allRulesPass
-                        ? "bg-green-500"
-                        : passedRules > 0
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                    }`}
-                    style={{ width: `${validationScore}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-sm ${getValidationColor(validationScore)}`}
-                >
-                  {paragraphs.length === 0
-                    ? "Add Paragraphs"
-                    : !categoryKeywords.length
-                      ? "Select Category"
-                      : hasMissingKeywords
-                        ? "Add Keywords"
-                        : allRulesPass
-                          ? "Perfect!"
-                          : "Almost there!"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
+      <ValidationRules
+        rules={displayRules}
+        headerIcon={getHeaderIcon()}
+        headerText="Description Requirements:"
+        validationScore={validationScore}
+        allRulesPass={allRulesPass}
+        passedRules={passedRules}
+        totalRules={totalRules}
+        overallStatusMessage={getOverallStatus()}
+      />
     </div>
   );
 }
