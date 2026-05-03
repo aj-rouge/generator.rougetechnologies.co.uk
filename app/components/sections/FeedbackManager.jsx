@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { DEFAULT_FEEDBACKS } from "../../data/feedbacks";
 import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 
 export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,11 +46,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
     } else {
       setLocalFeedbackError("Please fill in all fields");
     }
-  };
-
-  // Remove a feedback item
-  const removeFeedback = (index) => {
-    setFeedbacks(feedbacks.filter((_, i) => i !== index));
   };
 
   // Clear all feedbacks
@@ -141,15 +137,11 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
     return "⚠️ Needs Attention";
   };
 
-  const getStatusBadgeColor = () => {
-    if (feedbacks.length === 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (feedbacks.length < 4)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (allRulesPass)
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-  };
+  const badgeColor = getStatusBadgeColorFromState({
+    hasCriticalError: feedbacks.length === 0,
+    hasWarning: feedbacks.length > 0 && (feedbacks.length < 4 || !allRulesPass),
+    isComplete: allRulesPass,
+  });
 
   const getBorderColor = () => {
     if (feedbacks.length === 0)
@@ -225,7 +217,7 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
       <CollapsibleStatusHeader
         title="Customer Feedback"
         status={getOverallStatus()}
-        statusColor={getStatusBadgeColor()}
+        statusColor={badgeColor}
         rulesPassed={passedRules}
         totalRules={totalRules}
         subtitle={subtitle}
@@ -263,7 +255,9 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
                       )}
                     </div>
                     <button
-                      onClick={() => removeFeedback(index)}
+                      onClick={() =>
+                        setFeedbacks(feedbacks.filter((_, i) => i !== index))
+                      }
                       className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
                     >
                       Remove

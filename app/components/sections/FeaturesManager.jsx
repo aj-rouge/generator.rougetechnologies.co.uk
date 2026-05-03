@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -257,19 +258,12 @@ export default function FeaturesManager({
     return "⚠️ Needs Attention";
   };
 
-  const getStatusBadgeColor = () => {
-    if (features.length === 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (features.length < 1)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (!categoryKeywords.length)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (hasMissingKeywords)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (allRulesPass)
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-  };
+  const badgeColor = getStatusBadgeColorFromState({
+    hasCriticalError: features.length === 0,
+    hasWarning: !categoryKeywords.length || hasMissingKeywords,
+
+    isComplete: allRulesPass,
+  });
 
   const getBorderColor = () => {
     if (features.length === 0)
@@ -326,7 +320,7 @@ export default function FeaturesManager({
 
           <div className="flex items-center gap-3">
             <span
-              className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}
+              className={`text-sm font-medium px-3 py-1 rounded-full ${badgeColor}`}
             >
               {getOverallStatus()}
             </span>

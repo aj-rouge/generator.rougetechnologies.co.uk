@@ -8,7 +8,6 @@ import {
   VALIDATION_COLORS,
   getBorderColorFromScore,
 } from "../../utils/ui/validationColors";
-import { getStatusBadgeColor } from "../../utils/ui/statusHelpers";
 import { useEffect, useState } from "react";
 
 interface CategoryOption {
@@ -84,9 +83,6 @@ export default function CategorySelector({
     selectedCategory && selectedValueExists
       ? `Keywords: ${keywords.length} available`
       : null;
-
-  const statusColor = getStatusBadgeColor(overallStatus);
-
   return (
     <ValidationWrapper
       validationScore={validationScore}
@@ -95,7 +91,8 @@ export default function CategorySelector({
       <StatusHeader
         title="Product Category"
         status={overallStatus}
-        statusColor={statusColor}
+        hasCriticalError={!selectedCategory || !selectedValueExists}
+        isComplete={allRulesPass}
         rulesPassed={passedRules}
         totalRules={totalRules}
         subtitle={subtitle}

@@ -1,19 +1,24 @@
 // components/StatusHeader.jsx
 "use client";
 
-import { getStatusBadgeColor } from "../../utils/ui/statusHelpers";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 
 export function StatusHeader({
   title,
   status,
-  statusColor, // Optional - can be provided or auto-generated
   rulesPassed = 0,
   totalRules = 0,
   subtitle = null,
-  severity = "auto", // "success", "warning", "error", "info", "auto"
+  // New flags instead of statusColor
+  hasCriticalError = false,
+  hasWarning = false,
+  isComplete = false,
 }) {
-  // Auto-generate color if not provided
-  const badgeColor = statusColor || getStatusBadgeColor(status, { severity });
+  const badgeColor = getStatusBadgeColorFromState({
+    hasCriticalError,
+    hasWarning,
+    isComplete,
+  });
 
   return (
     <div className="mb-4">

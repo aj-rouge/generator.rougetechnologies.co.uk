@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -188,17 +189,13 @@ export default function ParagraphsManager({
     return "⚠️ Needs Attention";
   };
 
-  const getStatusBadgeColor = () => {
-    if (paragraphs.length === 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (!categoryKeywords.length)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (hasMissingKeywords)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (allRulesPass)
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-  };
+  const badgeColor = getStatusBadgeColorFromState({
+    hasCriticalError: paragraphs.length === 0,
+    hasWarning:
+      paragraphs.length > 0 &&
+      (!categoryKeywords.length || hasMissingKeywords || !allRulesPass),
+    isComplete: allRulesPass,
+  });
 
   const getBorderColor = () => {
     if (paragraphs.length === 0)
@@ -246,7 +243,7 @@ export default function ParagraphsManager({
           <h3 className="text-lg font-semibold">Detailed Description</h3>
           <div className="flex items-center gap-3">
             <span
-              className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}
+              className={`text-sm font-medium px-3 py-1 rounded-full ${badgeColor}`}
             >
               {getOverallStatus()}
             </span>

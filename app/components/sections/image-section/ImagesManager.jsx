@@ -11,6 +11,7 @@ import {
   generateSeoFileName,
 } from "../../../utils/images/seoGenerator";
 import { calculateValidationScore } from "../../../utils/ui/validationHelpers";
+import { getStatusBadgeColorFromState } from "../../../utils/ui/statusHelpers";
 
 export default function ImagesManager({
   images,
@@ -121,17 +122,11 @@ export default function ImagesManager({
     return `✓ ${images.length} Image${images.length !== 1 ? "s" : ""}`;
   };
 
-  const getStatusBadgeColor = () => {
-    if (!hasPrerequisites)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (images.length === 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (pendingUploads > 0)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (allRulesPass)
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-  };
+  const badgeColor = getStatusBadgeColorFromState({
+    hasCriticalError: hasPrerequisites && images.length === 0,
+    hasWarning: !hasPrerequisites || pendingUploads > 0,
+    isComplete: allRulesPass,
+  });
 
   const getBorderColor = () => {
     if (!hasPrerequisites)
@@ -173,7 +168,7 @@ export default function ImagesManager({
               Image Manager
             </h3>
             <span
-              className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}
+              className={`text-sm font-medium px-3 py-1 rounded-full ${badgeColor}`}
             >
               {getOverallStatus()}
             </span>

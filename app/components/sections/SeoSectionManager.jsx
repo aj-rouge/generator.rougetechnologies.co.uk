@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Check, AlertTriangle, Download, Trash2, Plus, X } from "lucide-react";
 import { CATEGORY_SECTIONS } from "../../data/categories";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 // Helper function to convert sections to plain text for keyword counting
 export function sectionsToText(sections) {
   if (!sections || !Array.isArray(sections)) return "";
@@ -50,7 +51,7 @@ export default function SeoSectionManager({
   // Get total paragraphs count
   const totalParagraphs = sections.reduce(
     (total, section) => total + (section.paragraphs?.length || 0),
-    0
+    0,
   );
 
   // Get all paragraphs as flat array
@@ -61,7 +62,7 @@ export default function SeoSectionManager({
   const avgParaLength =
     totalParagraphs > 0 ? Math.round(totalChars / totalParagraphs) : 0;
   const shortParagraphs = allParagraphs.filter(
-    (para) => para.length < 200
+    (para) => para.length < 200,
   ).length;
   const hasShortParagraphs = shortParagraphs > 0;
 
@@ -75,7 +76,7 @@ export default function SeoSectionManager({
         const keywordLower = keyword.toLowerCase();
         const regex = new RegExp(
           `\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-          "gi"
+          "gi",
         );
         const matches = allText.match(regex);
         counts[keyword] = matches ? matches.length : 0;
@@ -121,7 +122,7 @@ export default function SeoSectionManager({
         setLocalCategoryError(
           `Add at least ${
             3 - (totalParagraphs + 1)
-          } more paragraphs for comprehensive coverage`
+          } more paragraphs for comprehensive coverage`,
         );
       } else {
         setLocalCategoryError("");
@@ -210,7 +211,7 @@ export default function SeoSectionManager({
     selectedCategory &&
     categoryKeywords.length > 0 &&
     categoryKeywords.some(
-      (keyword) => !keywordCounts[keyword] || keywordCounts[keyword] === 0
+      (keyword) => !keywordCounts[keyword] || keywordCounts[keyword] === 0,
     );
 
   const hasMissingBrand =
@@ -219,7 +220,7 @@ export default function SeoSectionManager({
 
   const totalKeywordCount = Object.values(keywordCounts).reduce(
     (sum, count) => sum + count,
-    0
+    0,
   );
 
   // Validation rules checker
@@ -295,7 +296,7 @@ export default function SeoSectionManager({
         check: () => {
           if (!selectedCategory || categoryKeywords.length === 0) return false;
           const categoryKeyCounts = categoryKeywords.map(
-            (k) => keywordCounts[k] || 0
+            (k) => keywordCounts[k] || 0,
           );
           const avgCount =
             categoryKeyCounts.reduce((a, b) => a + b, 0) /
@@ -312,10 +313,10 @@ export default function SeoSectionManager({
 
   const validationRules = checkValidationRules();
   const displayRules = validationRules.filter(
-    (rule) => rule.condition !== false
+    (rule) => rule.condition !== false,
   );
   const passedRules = displayRules.filter(
-    (rule) => rule.check() === true
+    (rule) => rule.check() === true,
   ).length;
   const totalRules = displayRules.length;
   const allRulesPass = passedRules === totalRules && totalRules > 0;
@@ -346,27 +347,19 @@ export default function SeoSectionManager({
   };
 
   // Get status badge color
-  const getStatusBadgeColor = () => {
-    if (!selectedCategory) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (totalParagraphs === 0) {
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    }
-    if (totalParagraphs < 3) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (totalChars < 800) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (hasMissingKeywords) {
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    }
-    if (allRulesPass) {
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    }
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-  };
+  const badgeColor = getStatusBadgeColorFromState({
+    // Red only when category IS selected and there are zero paragraphs
+    hasCriticalError: !!selectedCategory && totalParagraphs === 0,
+    // Yellow in all other “not yet perfect” cases
+    hasWarning:
+      !selectedCategory ||
+      (totalParagraphs > 0 &&
+        (totalParagraphs < 3 ||
+          totalChars < 800 ||
+          hasMissingKeywords ||
+          !allRulesPass)),
+    isComplete: allRulesPass,
+  });
 
   // Get border color based on overall state
   const getBorderColor = () => {
@@ -430,7 +423,7 @@ export default function SeoSectionManager({
 
     if (value.length > 0 && value.length < 200) {
       setLocalCategoryError(
-        "Paragraph should be at least 200 characters for good SEO value"
+        "Paragraph should be at least 200 characters for good SEO value",
       );
     } else {
       setLocalCategoryError("");
@@ -468,7 +461,7 @@ export default function SeoSectionManager({
 
       return (
         section.paragraphs?.every(
-          (para, paraIndex) => para === defaultSection.paragraphs[paraIndex]
+          (para, paraIndex) => para === defaultSection.paragraphs[paraIndex],
         ) || false
       );
     });
@@ -492,7 +485,7 @@ export default function SeoSectionManager({
               </span>
             )}
             <span
-              className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusBadgeColor()}`}
+              className={`text-sm font-medium px-3 py-1 rounded-full ${badgeColor}`}
             >
               {getOverallStatus()}
             </span>
@@ -588,8 +581,8 @@ export default function SeoSectionManager({
               categoryName === `${selectedCategory} from Rouge Technologies`
                 ? "text-green-600 dark:text-green-400"
                 : !selectedCategory
-                ? "text-yellow-600 dark:text-yellow-400"
-                : "text-red-600 dark:text-red-400"
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : "text-red-600 dark:text-red-400"
             }`}
           >
             {categoryName.length}/100 chars
@@ -608,8 +601,8 @@ export default function SeoSectionManager({
                          `${selectedCategory} from Rouge Technologies`
                          ? "border-green-300 dark:border-green-500 bg-green-50 dark:bg-green-900/20"
                          : !selectedCategory
-                         ? "border-yellow-300 dark:border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
-                         : "border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-900/20"
+                           ? "border-yellow-300 dark:border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+                           : "border-red-300 dark:border-red-500 bg-red-50 dark:bg-red-900/20"
                      }`}
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
@@ -692,8 +685,8 @@ export default function SeoSectionManager({
                     keywordCounts["Rouge Technologies"] === 0
                       ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                       : keywordCounts["Rouge Technologies"] === 1
-                      ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                      : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
+                        ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                        : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
                   }`}
                 >
                   <div
@@ -708,8 +701,8 @@ export default function SeoSectionManager({
                       keywordCounts["Rouge Technologies"] === 0
                         ? "text-red-600 dark:text-red-400"
                         : keywordCounts["Rouge Technologies"] === 1
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-green-600 dark:text-green-400"
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-green-600 dark:text-green-400"
                     }`}
                   >
                     {keywordCounts["Rouge Technologies"] || 0}
@@ -719,8 +712,8 @@ export default function SeoSectionManager({
                     keywordCounts["Rouge Technologies"] === 0
                       ? "Missing"
                       : keywordCounts["Rouge Technologies"] === 1
-                      ? "Low"
-                      : "Good"}
+                        ? "Low"
+                        : "Good"}
                   </div>
                 </div>
 
@@ -733,8 +726,8 @@ export default function SeoSectionManager({
                         count === 0
                           ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                           : count === 1
-                          ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                          : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
+                            ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                            : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
                       }`}
                     >
                       <div
@@ -748,8 +741,8 @@ export default function SeoSectionManager({
                           count === 0
                             ? "text-red-600 dark:text-red-400"
                             : count === 1
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-green-600 dark:text-green-400"
+                              ? "text-yellow-600 dark:text-yellow-400"
+                              : "text-green-600 dark:text-green-400"
                         }`}
                       >
                         {count}
@@ -779,7 +772,7 @@ export default function SeoSectionManager({
                   <span className="text-red-600 dark:text-red-400">
                     {
                       Object.values(keywordCounts).filter((c, i, arr) =>
-                        i === arr.length - 1 ? c < 2 : c === 0
+                        i === arr.length - 1 ? c < 2 : c === 0,
                       ).length
                     }{" "}
                     keywords missing/insufficient
@@ -856,15 +849,15 @@ export default function SeoSectionManager({
                         (acc, keyword) => {
                           const regex = new RegExp(
                             `\\b${keyword.toLowerCase()}\\b`,
-                            "gi"
+                            "gi",
                           );
                           const matches = paragraph.match(regex);
                           return matches ? acc + matches.length : acc;
                         },
-                        0
+                        0,
                       );
                       const hasRouge = /\brouge technologies\b/gi.test(
-                        paragraph
+                        paragraph,
                       );
 
                       return (
@@ -984,8 +977,8 @@ export default function SeoSectionManager({
               newCategoryParagraph.length >= 200
                 ? "text-green-600 dark:text-green-400"
                 : newCategoryParagraph.length === 0
-                ? "text-gray-500 dark:text-gray-400"
-                : "text-yellow-600 dark:text-yellow-400"
+                  ? "text-gray-500 dark:text-gray-400"
+                  : "text-yellow-600 dark:text-yellow-400"
             }`}
           >
             {newCategoryParagraph.length}/200 chars
@@ -1010,10 +1003,10 @@ export default function SeoSectionManager({
               !selectedCategory
                 ? "Select a category above to start writing SEO content..."
                 : sections.length === 0
-                ? "Add a section first, then write paragraphs here..."
-                : `Write a detailed SEO paragraph... Include keywords: ${categoryKeywords
-                    .slice(0, 2)
-                    .join(", ")}...`
+                  ? "Add a section first, then write paragraphs here..."
+                  : `Write a detailed SEO paragraph... Include keywords: ${categoryKeywords
+                      .slice(0, 2)
+                      .join(", ")}...`
             }
             rows={4}
             disabled={!selectedCategory || sections.length === 0}
@@ -1028,8 +1021,8 @@ export default function SeoSectionManager({
                   isGoodLength
                     ? "text-green-600 dark:text-green-400 font-medium"
                     : isTooShort && newCategoryParagraph.length > 0
-                    ? "text-red-600 dark:text-red-400 font-medium"
-                    : ""
+                      ? "text-red-600 dark:text-red-400 font-medium"
+                      : ""
                 }
               >
                 200 (min)
@@ -1050,17 +1043,17 @@ export default function SeoSectionManager({
                   isTooShort
                     ? "bg-red-500"
                     : isGoodLength && !isRecommendedLength
-                    ? "bg-green-500"
-                    : isRecommendedLength
-                    ? "bg-blue-500"
-                    : newCategoryParagraph.length > 0
-                    ? "bg-blue-500"
-                    : "bg-transparent"
+                      ? "bg-green-500"
+                      : isRecommendedLength
+                        ? "bg-blue-500"
+                        : newCategoryParagraph.length > 0
+                          ? "bg-blue-500"
+                          : "bg-transparent"
                 }`}
                 style={{
                   width: `${Math.min(
                     100,
-                    (newCategoryParagraph.length / 500) * 100
+                    (newCategoryParagraph.length / 500) * 100,
                   )}%`,
                 }}
               />
@@ -1086,8 +1079,8 @@ export default function SeoSectionManager({
                   isGoodLength && !isRecommendedLength
                     ? "text-green-600 dark:text-green-400 font-medium"
                     : isRecommendedLength
-                    ? "text-blue-600 dark:text-blue-400 font-medium"
-                    : ""
+                      ? "text-blue-600 dark:text-blue-400 font-medium"
+                      : ""
                 }
               >
                 {isRecommendedLength ? "Excellent!" : "Good length"}
@@ -1121,10 +1114,10 @@ export default function SeoSectionManager({
               {!selectedCategory
                 ? "Select Category First"
                 : sections.length === 0
-                ? "Add Section First"
-                : canAddNewParagraph
-                ? "+ Add Paragraph"
-                : "Need 200+ characters"}
+                  ? "Add Section First"
+                  : canAddNewParagraph
+                    ? "+ Add Paragraph"
+                    : "Need 200+ characters"}
             </button>
           </div>
         </div>
@@ -1173,7 +1166,7 @@ export default function SeoSectionManager({
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                        rule.importance
+                        rule.importance,
                       )}`}
                     >
                       {rule.importance}
@@ -1212,7 +1205,7 @@ export default function SeoSectionManager({
                         ❌ Missing keywords:{" "}
                         {categoryKeywords
                           .filter(
-                            (k) => !keywordCounts[k] || keywordCounts[k] === 0
+                            (k) => !keywordCounts[k] || keywordCounts[k] === 0,
                           )
                           .join(", ")}
                       </div>
@@ -1222,8 +1215,9 @@ export default function SeoSectionManager({
                     selectedCategory &&
                     totalChars > 0 && (
                       <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                        ⚠️ Mention &quot;Rouge Technologies&quot; at least 2-3 times
-                        (currently {keywordCounts["Rouge Technologies"] || 0})
+                        ⚠️ Mention &quot;Rouge Technologies&quot; at least 2-3
+                        times (currently{" "}
+                        {keywordCounts["Rouge Technologies"] || 0})
                       </div>
                     )}
                   {!result &&
@@ -1256,8 +1250,8 @@ export default function SeoSectionManager({
                       allRulesPass
                         ? "bg-green-500"
                         : passedRules > 0
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
                     }`}
                     style={{ width: `${validationScore}%` }}
                   />
@@ -1268,16 +1262,16 @@ export default function SeoSectionManager({
                   {!selectedCategory
                     ? "Select Category"
                     : totalParagraphs === 0
-                    ? "Add Content"
-                    : totalParagraphs < 3
-                    ? `${totalParagraphs}/3 Paragraphs`
-                    : totalChars < 800
-                    ? `${totalChars}/800 Chars`
-                    : hasMissingKeywords
-                    ? "Add Keywords"
-                    : allRulesPass
-                    ? "Perfect!"
-                    : "Almost there!"}
+                      ? "Add Content"
+                      : totalParagraphs < 3
+                        ? `${totalParagraphs}/3 Paragraphs`
+                        : totalChars < 800
+                          ? `${totalChars}/800 Chars`
+                          : hasMissingKeywords
+                            ? "Add Keywords"
+                            : allRulesPass
+                              ? "Perfect!"
+                              : "Almost there!"}
                 </span>
               </div>
             </div>
