@@ -338,14 +338,6 @@ export default function ParagraphsManager({
                   );
                 })}
               </div>
-              {hasMissingKeywords && (
-                <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded border border-red-200 dark:border-red-800">
-                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center">
-                    ⚠️ Missing keywords! Add at least one occurrence of each
-                    keyword above.
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
             <div className="flex justify-between items-center">
