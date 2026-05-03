@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 import { ValidationRules } from "./ValidationRules";
+import { ValidationWrapper } from "./ValidationWrapper";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -33,12 +34,10 @@ export default function FeaturesManager({
 }) {
   const [newFeatureTitle, setNewFeatureTitle] = useState("");
   const [newFeatureDesc, setNewFeatureDesc] = useState("");
-  const [localFeaturesError, setLocalFeaturesError] = useState("");
   const [showKeywordStats, setShowKeywordStats] = useState(true);
   const [keywordCounts, setKeywordCounts] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
 
-  // Clean features on initial load (auto‑capitalize, remove ::, add period)
   useEffect(() => {
     const cleaned = features.map((f) => ({
       title: capitalizeFirstLetter(removeDoubleColon(f.title?.trim() || "")),
@@ -51,14 +50,12 @@ export default function FeaturesManager({
     }
   }, []);
 
-  // Cancel edit mode and clear inputs
   const cancelEdit = () => {
     setEditingIndex(null);
     setNewFeatureTitle("");
     setNewFeatureDesc("");
   };
 
-  // Add or update feature with automatic cleaning
   const addOrUpdateFeature = () => {
     const rawTitle = newFeatureTitle.trim();
     const rawDesc = newFeatureDesc.trim();
@@ -88,7 +85,6 @@ export default function FeaturesManager({
         setNewFeatureTitle("");
         setNewFeatureDesc("");
       }
-      validateFeatures();
     }
   };
 
@@ -99,7 +95,6 @@ export default function FeaturesManager({
     } else if (editingIndex !== null && editingIndex > index) {
       setEditingIndex(editingIndex - 1);
     }
-    validateFeatures();
   };
 
   const editFeature = (index) => {
@@ -107,17 +102,6 @@ export default function FeaturesManager({
     setNewFeatureTitle(feature.title);
     setNewFeatureDesc(feature.description);
     setEditingIndex(index);
-  };
-
-  const validateFeatures = () => {
-    if (features.length < 1) {
-      setLocalFeaturesError(
-        `Minimum 1 feature required. Currently have ${features.length}`,
-      );
-      return false;
-    }
-    setLocalFeaturesError("");
-    return true;
   };
 
   // Calculate keyword occurrences whenever features change
@@ -145,18 +129,6 @@ export default function FeaturesManager({
     }
   }, [features, categoryKeywords]);
 
-  // Update local error based on features count
-  useEffect(() => {
-    if (features.length < 1) {
-      setLocalFeaturesError(
-        `Minimum 1 feature required. Currently have ${features.length}`,
-      );
-    } else {
-      setLocalFeaturesError("");
-    }
-  }, [features.length]);
-
-  // Check if at least one keyword is missing
   const hasMissingKeywords =
     categoryKeywords.length > 0 &&
     Object.values(keywordCounts).some((count) => count === 0);
@@ -165,7 +137,6 @@ export default function FeaturesManager({
     0,
   );
 
-  // Validation rules checker – minimum features changed to 1
   const checkValidationRules = () => {
     const rules = [
       {
@@ -224,7 +195,7 @@ export default function FeaturesManager({
         name: "Feature Variety",
         description: "Features should cover different aspects",
         check: () => {
-          if (features.length < 2) return true; // Not applicable for single feature
+          if (features.length < 2) return true;
           const uniqueStarts = new Set(
             features.map((f) => f.title.split(" ")[0].toLowerCase()),
           );
@@ -259,7 +230,6 @@ export default function FeaturesManager({
     return "Almost there!";
   };
 
-  // Header icon logic (used only for the ValidationRules component)
   const getHeaderIcon = () => {
     if (features.length === 0) return "❌";
     if (features.length < 1) return "⚠️";
@@ -275,26 +245,12 @@ export default function FeaturesManager({
     isComplete: allRulesPass,
   });
 
-  const getBorderColor = () => {
-    if (features.length === 0)
-      return "border-red-400 dark:border-red-500 border-2";
-    if (features.length < 1)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (!categoryKeywords.length)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (hasMissingKeywords)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
-    return "border-gray-300 dark:border-gray-600";
-  };
 
   const canAddOrUpdate =
     newFeatureTitle.trim().length > 0 && newFeatureDesc.trim().length > 0;
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
-    >
+    <ValidationWrapper validationScore={validationScore}>
       {/* Status banner */}
       <div className="mb-4">
         <div className="flex items-center justify-between">
@@ -543,17 +499,8 @@ export default function FeaturesManager({
             )}
           </div>
         </div>
-
-        {localFeaturesError && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-            <p className="text-sm text-red-700 dark:text-red-300">
-              ⚠️ {localFeaturesError}
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}
@@ -564,6 +511,6 @@ export default function FeaturesManager({
         totalRules={totalRules}
         overallStatusMessage={getOverallStatus()}
       />
-    </div>
+    </ValidationWrapper>
   );
 }
