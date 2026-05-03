@@ -363,23 +363,6 @@ export default function ConditionSelector({
                 )}
               </div>
             )}
-
-            {/* Condition Description */}
-            {condition && conditionGroup && validationState?.isValid && (
-              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                <span className="font-medium">eBay Definition:</span> From
-                eBay&apos;s official condition guidelines for{" "}
-                {conditionGroupValue} items.{" "}
-                <a
-                  href="https://www.ebay.co.uk/help/selling/listings/creating-managing-listings/item-conditions-category?id=4765"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 underline"
-                >
-                  Learn More
-                </a>
-              </div>
-            )}
           </>
         )}
       </div>
