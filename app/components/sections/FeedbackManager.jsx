@@ -4,14 +4,6 @@ import { useState, useEffect } from "react";
 import { DEFAULT_FEEDBACKS } from "../../data/feedbacks";
 import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
 
-// ============================================================
-// Reusable CollapsibleStatusHeader (inline for completeness)
-// ============================================================
-
-
-// ============================================================
-// FeedbackManager component
-// ============================================================
 export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   const [isOpen, setIsOpen] = useState(false);
   const [newFeedbackName, setNewFeedbackName] = useState("");
