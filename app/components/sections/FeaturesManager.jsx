@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { ValidationRules } from "./ValidationRules";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -250,18 +251,27 @@ export default function FeaturesManager({
     totalRules > 0 ? Math.round((passedRules / totalRules) * 100) : 0;
 
   const getOverallStatus = () => {
-    if (features.length === 0) return "✗ Add Features";
-    if (features.length < 1) return `⚠️ ${features.length}/1`;
-    if (!categoryKeywords.length) return "⚠️ Select Category";
-    if (hasMissingKeywords) return "⚠️ Missing Keywords";
-    if (allRulesPass) return "✓ Features Complete";
-    return "⚠️ Needs Attention";
+    if (features.length === 0) return "Add Features";
+    if (features.length < 1) return `${features.length}/1 Features`;
+    if (!categoryKeywords.length) return "Select Category";
+    if (hasMissingKeywords) return "Add Keywords";
+    if (allRulesPass) return "Perfect!";
+    return "Almost there!";
+  };
+
+  // Header icon logic (used only for the ValidationRules component)
+  const getHeaderIcon = () => {
+    if (features.length === 0) return "❌";
+    if (features.length < 1) return "⚠️";
+    if (!categoryKeywords.length) return "⚠️";
+    if (hasMissingKeywords) return "⚠️";
+    if (allRulesPass) return "✅";
+    return "⚠️";
   };
 
   const badgeColor = getStatusBadgeColorFromState({
     hasCriticalError: features.length === 0,
     hasWarning: !categoryKeywords.length || hasMissingKeywords,
-
     isComplete: allRulesPass,
   });
 
@@ -276,32 +286,6 @@ export default function FeaturesManager({
       return "border-yellow-400 dark:border-yellow-500 border-2";
     if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
     return "border-gray-300 dark:border-gray-600";
-  };
-
-  const getImportanceColor = (importance) => {
-    switch (importance) {
-      case "critical":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
-  const getValidationColor = (score) => {
-    if (score === 100) return "text-green-600 dark:text-green-400";
-    if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
-  const getHeaderIcon = () => {
-    if (features.length === 0) return "❌";
-    if (features.length < 1) return "⚠️";
-    if (!categoryKeywords.length) return "⚠️";
-    if (hasMissingKeywords) return "⚠️";
-    if (allRulesPass) return "✅";
-    return "⚠️";
   };
 
   const canAddOrUpdate =
@@ -345,7 +329,7 @@ export default function FeaturesManager({
         </div>
       </div>
 
-      {/* Keyword Usage Statistics (unchanged) */}
+      {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
         <div
           className={`mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border ${
@@ -569,131 +553,17 @@ export default function FeaturesManager({
         )}
       </div>
 
-      {/* Validation Rules Section */}
-      <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-medium text-lg text-gray-800 dark:text-gray-100">
-            <span className="mr-2">{getHeaderIcon()}</span>
-            Feature Requirements:
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {displayRules.map((rule) => {
-            const result = rule.check();
-            return (
-              <div
-                key={rule.id}
-                className="flex items-start gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <div className="mt-1">
-                  {result ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      ✓
-                    </span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400">✗</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
-                      {rule.name}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                        rule.importance,
-                      )}`}
-                    >
-                      {rule.importance}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    {rule.description}
-                  </p>
-                  {!result && rule.id === 1 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Need at least 1 feature
-                    </div>
-                  )}
-                  {!result && rule.id === 2 && features.length > 0 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ All features must have a title
-                    </div>
-                  )}
-                  {!result && rule.id === 3 && features.length > 0 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ All features must have a description
-                    </div>
-                  )}
-                  {!result && rule.id === 4 && (
-                    <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      ❌ Select a category from the dropdown above
-                    </div>
-                  )}
-                  {!result && rule.id === 5 && categoryKeywords.length > 0 && (
-                    <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                      ⚠️ Missing keywords:{" "}
-                      {categoryKeywords
-                        .filter(
-                          (k) => !keywordCounts[k] || keywordCounts[k] === 0,
-                        )
-                        .join(", ")}
-                    </div>
-                  )}
-                  {!result && rule.id === 6 && features.length >= 2 && (
-                    <div className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                      ⚠️ Try to vary feature titles
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {totalRules > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Overall Progress:
-                <span className={`ml-2 ${getValidationColor(validationScore)}`}>
-                  {validationScore}%
-                </span>
-              </span>
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      allRulesPass
-                        ? "bg-green-500"
-                        : passedRules > 0
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                    }`}
-                    style={{ width: `${validationScore}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-sm ${getValidationColor(validationScore)}`}
-                >
-                  {features.length === 0
-                    ? "Add Features"
-                    : features.length < 1
-                      ? `${features.length}/1 Features`
-                      : !categoryKeywords.length
-                        ? "Select Category"
-                        : hasMissingKeywords
-                          ? "Add Keywords"
-                          : allRulesPass
-                            ? "Perfect!"
-                            : "Almost there!"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
+      <ValidationRules
+        rules={displayRules}
+        headerIcon={getHeaderIcon()}
+        headerText="Feature Requirements:"
+        validationScore={validationScore}
+        allRulesPass={allRulesPass}
+        passedRules={passedRules}
+        totalRules={totalRules}
+        overallStatusMessage={getOverallStatus()}
+      />
     </div>
   );
 }
