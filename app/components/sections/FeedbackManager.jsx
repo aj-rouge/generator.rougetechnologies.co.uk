@@ -5,6 +5,7 @@ import { DEFAULT_FEEDBACKS } from "../../data/feedbacks";
 import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 import { ValidationRules } from "./ValidationRules";
+import { ValidationWrapper } from "./ValidationWrapper";
 
 export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,7 +14,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   const [newFeedbackContent, setNewFeedbackContent] = useState("");
   const [localFeedbackError, setLocalFeedbackError] = useState("");
 
-  // Set default feedbacks on first render ONLY
   useEffect(() => {
     if (feedbacks.length === 0) {
       setFeedbacks(DEFAULT_FEEDBACKS);
@@ -22,13 +22,11 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Set default feedbacks
   const setDefaultFeedbacks = () => {
     setFeedbacks(DEFAULT_FEEDBACKS);
     setLocalFeedbackError("");
   };
 
-  // Add a new feedback item
   const addFeedback = () => {
     if (newFeedbackName.trim() && newFeedbackContent.trim()) {
       const feedbackCount = parseInt(newFeedbackCount) || 1;
@@ -49,13 +47,11 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
     }
   };
 
-  // Clear all feedbacks
   const clearAllFeedbacks = () => {
     setFeedbacks([]);
     setLocalFeedbackError("");
   };
 
-  // Validation rules
   const checkValidationRules = () => {
     const rules = [
       {
@@ -144,16 +140,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
     isComplete: allRulesPass,
   });
 
-  const getBorderColor = () => {
-    if (feedbacks.length === 0)
-      return "border-red-400 dark:border-red-500 border-2";
-    if (feedbacks.length < 4)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
-    return "border-gray-300 dark:border-gray-600";
-  };
-
-  // Header icon logic (used only for the ValidationRules component)
   const getHeaderIcon = () => {
     if (feedbacks.length === 0) return "❌";
     if (feedbacks.length < 4) return "⚠️";
@@ -178,7 +164,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   const canAddNewFeedback =
     newFeedbackName.trim().length > 0 && newFeedbackContent.trim().length > 0;
 
-  // Build subtitle for collapsed header
   const subtitle = stats ? (
     <div className="flex flex-wrap gap-4">
       <span>
@@ -196,9 +181,7 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
   ) : null;
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
-    >
+    <ValidationWrapper validationScore={validationScore}>
       <CollapsibleStatusHeader
         title="Customer Feedback"
         status={getOverallStatus()}
@@ -211,7 +194,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
         onToggle={setIsOpen}
         chevronPosition="right"
       >
-        {/* Dropdown content – same as before */}
         <div className="space-y-3 my-4 max-h-96 overflow-y-auto">
           {feedbacks.length > 0 ? (
             feedbacks.map((feedback, index) => {
@@ -277,7 +259,7 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
 
         {/* Add new feedback form */}
         <div className="mt-6">
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between mb-2">
             <label className="block text-black dark:text-gray-100 font-medium">
               Add New Feedback:
             </label>
@@ -485,11 +467,10 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
           )}
         </div>
 
-        {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
         <ValidationRules
           rules={displayRules}
           headerIcon={getHeaderIcon()}
-          headerText="Feedback Requirements:"
+          headerText="Feedback Requirements"
           validationScore={validationScore}
           allRulesPass={allRulesPass}
           passedRules={passedRules}
@@ -497,6 +478,6 @@ export default function FeedbackManager({ feedbacks, setFeedbacks }) {
           overallStatusMessage={getOverallStatus()}
         />
       </CollapsibleStatusHeader>
-    </div>
+    </ValidationWrapper>
   );
 }
