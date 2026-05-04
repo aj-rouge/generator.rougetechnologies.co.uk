@@ -18,8 +18,9 @@ export const getValidationColor = (score) => {
 };
 
 export const calculateValidationScore = (displayRules) => {
-  const passedRules = displayRules.filter((rule) => rule.check() === true)
-    .length;
+  const passedRules = displayRules.filter(
+    (rule) => rule.check() === true,
+  ).length;
   const totalRules = displayRules.length;
   const allRulesPass = passedRules === totalRules && totalRules > 0;
   const validationScore =
