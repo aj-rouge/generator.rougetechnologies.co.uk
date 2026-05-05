@@ -18,12 +18,13 @@ import { DEFAULT_FEEDBACKS } from "../data/feedbacks";
 import ProductFormHeader from "./header/ProductFormHeader";
 import { generateSeoSlug } from "../utils/images/seoGenerator";
 import SKUManager from "./sections/SKUManager";
-import ProductIdentifiers from "./sections/ProductIdentifiers";
 import { useNotification } from "../context/NotificationContext";
 import { useRouter } from "next/navigation";
 import SpecificationsManager from "./sections/SpecificationsManager";
 import LogisticsSection from "./sections/LogisticsSection";
 import PricingSection from "./sections/PricingSection";
+import ProductIdentifiersSection from "./sections/ProductIdentifiersSection";
+import ExternalPlatformIdsSection from "./sections/ExternalPlatformIdsSection";
 
 const INITIAL_FORM_STATE = {
   sku: "",
@@ -491,13 +492,18 @@ export default function ProductForm({
             categories={categories}
           />
         </div>
-        <ProductIdentifiers
-          asin={formData.asin}
-          ean={formData.ean}
-          baselinker_id={formData.baselinker_id}
-          shopify_id={formData.shopify_id}
-          onUpdate={updateForm}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <ProductIdentifiersSection
+            asin={formData.asin}
+            ean={formData.ean}
+            onUpdate={updateForm}
+          />
+          <ExternalPlatformIdsSection
+            baselinker_id={formData.baselinker_id}
+            shopify_id={formData.shopify_id}
+            onUpdate={updateForm}
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <SKUManager
             sku={formData.sku}
