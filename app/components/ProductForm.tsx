@@ -477,8 +477,6 @@ export default function ProductForm({
             shipping_method={formData.shipping_method}
             onUpdate={updateForm}
           />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <CategorySelector
             selectedCategory={formData.selectedCategory}
             setSelectedCategory={(val) => updateForm({ selectedCategory: val })}
@@ -491,8 +489,6 @@ export default function ProductForm({
             selectedCategory={formData.selectedCategory}
             categories={categories}
           />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <ProductIdentifiersSection
             asin={formData.asin}
             ean={formData.ean}
@@ -503,8 +499,6 @@ export default function ProductForm({
             shopify_id={formData.shopify_id}
             onUpdate={updateForm}
           />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           <SKUManager
             sku={formData.sku}
             title={formData.title}
