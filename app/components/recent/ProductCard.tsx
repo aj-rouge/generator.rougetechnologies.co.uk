@@ -126,13 +126,15 @@ export const ProductCard = ({
                   variant="blue"
                 />
               )}
-              {product.shopify_id !== "null" && (
-                <CopyBadge
-                  label="SH"
-                  value={product.shopify_id}
-                  variant="green"
-                />
-              )}
+              {product.shopify_id &&
+                product.shopify_id !== "null" &&
+                product.shopify_id !== "NULL" && (
+                  <CopyBadge
+                    label="SH"
+                    value={product.shopify_id}
+                    variant="green"
+                  />
+                )}
               {product.id !== "null" && (
                 <CopyBadge
                   label="ID"
