@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
-import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { ValidationWrapper } from "./ValidationWrapper";
+import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
+import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -33,13 +35,11 @@ export default function ParagraphsManager({
     const validationMsg = validateParagraph(newParagraph);
     if (newParagraph.trim() && !validationMsg.includes("required")) {
       if (editingIndex !== null) {
-        // Update existing paragraph
         const updatedParagraphs = [...paragraphs];
         updatedParagraphs[editingIndex] = newParagraph;
         setParagraphs(updatedParagraphs);
         cancelEdit();
       } else {
-        // Add new paragraph
         setParagraphs([...paragraphs, newParagraph]);
         setNewParagraph("");
         setLocalParagraphsError("");
@@ -73,12 +73,10 @@ export default function ParagraphsManager({
     }
   };
 
-  // Calculate keyword occurrences whenever paragraphs change
   useEffect(() => {
     if (categoryKeywords.length > 0) {
       const allText = paragraphs.join(" ").toLowerCase();
       const counts = {};
-
       categoryKeywords.forEach((keyword) => {
         const keywordLower = keyword.toLowerCase();
         const regex = new RegExp(
@@ -88,14 +86,12 @@ export default function ParagraphsManager({
         const matches = allText.match(regex);
         counts[keyword] = matches ? matches.length : 0;
       });
-
       setKeywordCounts(counts);
     } else {
       setKeywordCounts({});
     }
   }, [paragraphs, categoryKeywords]);
 
-  // Check if at least one keyword is missing
   const hasMissingKeywords =
     categoryKeywords.length > 0 &&
     Object.values(keywordCounts).some((count) => count === 0);
@@ -107,12 +103,10 @@ export default function ParagraphsManager({
   const avgParaLength =
     paragraphs.length > 0 ? Math.round(totalChars / paragraphs.length) : 0;
 
-  // Check if new paragraph meets minimum requirements
   const isTooShort = newParagraph.length > 0 && newParagraph.length < 160;
   const isGoodLength = newParagraph.length >= 160;
   const canAddOrUpdate = newParagraph.trim().length >= 160;
 
-  // Validation rules checker
   const checkValidationRules = () => {
     const rules = [
       {
@@ -160,7 +154,7 @@ export default function ParagraphsManager({
           const allCounts = Object.values(keywordCounts);
           const avgCount =
             allCounts.reduce((a, b) => a + b, 0) / allCounts.length;
-          return avgCount >= 1.5; // Average of 1.5+ counts per keyword
+          return avgCount >= 1.5;
         },
         importance: "medium",
         condition: categoryKeywords.length > 0,
@@ -174,13 +168,8 @@ export default function ParagraphsManager({
   const displayRules = validationRules.filter(
     (rule) => rule.condition !== false,
   );
-  const passedRules = displayRules.filter(
-    (rule) => rule.check() === true,
-  ).length;
-  const totalRules = displayRules.length;
-  const allRulesPass = passedRules === totalRules && totalRules > 0;
-  const validationScore =
-    totalRules > 0 ? Math.round((passedRules / totalRules) * 100) : 0;
+  const { passedRules, totalRules, allRulesPass, validationScore } =
+    calculateValidationScore(displayRules);
 
   const getOverallStatus = () => {
     if (paragraphs.length === 0) return "Add Paragraphs";
@@ -190,26 +179,6 @@ export default function ParagraphsManager({
     return "Almost there!";
   };
 
-  const badgeColor = getStatusBadgeColorFromState({
-    hasCriticalError: paragraphs.length === 0,
-    hasWarning:
-      paragraphs.length > 0 &&
-      (!categoryKeywords.length || hasMissingKeywords || !allRulesPass),
-    isComplete: allRulesPass,
-  });
-
-  const getBorderColor = () => {
-    if (paragraphs.length === 0)
-      return "border-red-400 dark:border-red-500 border-2";
-    if (!categoryKeywords.length)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (hasMissingKeywords)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
-    return "border-gray-300 dark:border-gray-600";
-  };
-
-  // Header icon logic (used only for the ValidationRules component)
   const getHeaderIcon = () => {
     if (paragraphs.length === 0) return "❌";
     if (!categoryKeywords.length) return "⚠️";
@@ -218,43 +187,30 @@ export default function ParagraphsManager({
     return "⚠️";
   };
 
+  const hasCriticalError = paragraphs.length === 0;
+  const hasWarning =
+    paragraphs.length > 0 &&
+    (!categoryKeywords.length || hasMissingKeywords || !allRulesPass);
+
+  const subtitleStats = `Paragraphs: ${paragraphs.length}, Keywords: ${totalKeywordCount} total, Avg length: ${avgParaLength} chars`;
+
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
+    <ValidationWrapper
+      validationScore={validationScore}
+      hasCriticalError={hasCriticalError}
+      hasWarning={hasWarning}
+      isComplete={allRulesPass}
     >
-      {/* Status banner */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Detailed Description</h3>
-          <div className="flex items-center gap-3">
-            <span
-              className={`text-sm font-medium px-3 py-1 rounded-full ${badgeColor}`}
-            >
-              {getOverallStatus()}
-            </span>
-            {displayRules.length > 0 && (
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {passedRules}/{totalRules} rules
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap gap-4">
-          <span>
-            Paragraphs: <span className="font-medium">{paragraphs.length}</span>
-          </span>
-          {categoryKeywords.length > 0 && (
-            <span>
-              Keywords:{" "}
-              <span className="font-medium">{totalKeywordCount} total</span>
-            </span>
-          )}
-          <span>
-            Avg length:{" "}
-            <span className="font-medium">{avgParaLength} chars</span>
-          </span>
-        </div>
-      </div>
+      <StatusHeader
+        title="Detailed Paragraphs"
+        status={getOverallStatus()}
+        hasCriticalError={hasCriticalError}
+        hasWarning={hasWarning}
+        isComplete={allRulesPass}
+        rulesPassed={passedRules}
+        totalRules={totalRules}
+        subtitle={subtitleStats}
+      />
 
       {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
@@ -590,7 +546,6 @@ export default function ParagraphsManager({
         </div>
       </div>
 
-      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}
@@ -601,6 +556,6 @@ export default function ParagraphsManager({
         totalRules={totalRules}
         overallStatusMessage={getOverallStatus()}
       />
-    </div>
+    </ValidationWrapper>
   );
 }

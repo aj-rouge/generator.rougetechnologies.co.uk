@@ -12,6 +12,8 @@ import {
 } from "../../../utils/images/seoGenerator";
 import { calculateValidationScore } from "../../../utils/ui/validationHelpers";
 import { getStatusBadgeColorFromState } from "../../../utils/ui/statusHelpers";
+import { ValidationWrapper } from "../ValidationWrapper";
+import { ValidationRules } from "../ValidationRules";
 
 export default function ImagesManager({
   images,
@@ -26,7 +28,6 @@ export default function ImagesManager({
   const [isOpen, setIsOpen] = useState(false);
   const hasAutoExpanded = useRef(false);
 
-  // Auto-expand once when prerequisites are met
   useEffect(() => {
     if (title && selectedCategory && !hasAutoExpanded.current) {
       setIsOpen(true);
@@ -82,7 +83,6 @@ export default function ImagesManager({
     (img) => img.needsUpload && !img.isUploaded,
   ).length;
 
-  // Validation rules (same as before)
   const validationRules = [
     {
       id: 1,
@@ -128,22 +128,9 @@ export default function ImagesManager({
     isComplete: allRulesPass,
   });
 
-  const getBorderColor = () => {
-    if (!hasPrerequisites)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (images.length === 0)
-      return "border-red-400 dark:border-red-500 border-2";
-    if (pendingUploads > 0)
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    if (allRulesPass) return "border-green-500 dark:border-green-500 border-2";
-    return "border-gray-300 dark:border-gray-600";
-  };
-
-  const getValidationColor = (score) => {
-    if (score === 100) return "text-green-600 dark:text-green-400";
-    if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
+  // New flags for ValidationWrapper
+  const hasCriticalError = hasPrerequisites && images.length === 0;
+  const hasWarning = !hasPrerequisites || pendingUploads > 0;
 
   const getHeaderIcon = () => {
     if (!hasPrerequisites) return "⚠️";
@@ -154,10 +141,12 @@ export default function ImagesManager({
   };
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
+    <ValidationWrapper
+      validationScore={validationScore}
+      hasCriticalError={hasCriticalError}
+      hasWarning={hasWarning}
+      isComplete={allRulesPass}
     >
-      {/* Header button - always visible, clickable */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full text-left focus:outline-none"
@@ -185,7 +174,6 @@ export default function ImagesManager({
           />
         </div>
 
-        {/* Compact stats row - always visible */}
         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex flex-wrap gap-4">
           <span>
             Images: <span className="font-medium">{images.length}</span>
@@ -198,7 +186,6 @@ export default function ImagesManager({
         </div>
       </button>
 
-      {/* Animated dropdown content */}
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
@@ -249,112 +236,19 @@ export default function ImagesManager({
               )}
             </div>
 
-            {/* Validation Rules Section (exactly like FeedbackManager) */}
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <p className="font-medium text-lg text-gray-800 dark:text-gray-100">
-                  <span className="mr-2">{getHeaderIcon()}</span>
-                  Image Requirements:
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {displayRules.map((rule) => {
-                  const result = rule.check();
-                  return (
-                    <div
-                      key={rule.id}
-                      className="flex items-start gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <div className="mt-1">
-                        {result ? (
-                          <span className="text-green-600 dark:text-green-400">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="text-red-600 dark:text-red-400">
-                            ✗
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
-                            {rule.name}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                            {rule.importance}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {rule.description}
-                        </p>
-                        {!result && rule.id === 1 && (
-                          <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                            ❌ Set title and category first
-                          </div>
-                        )}
-                        {!result && rule.id === 2 && hasPrerequisites && (
-                          <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                            ❌ Add at least one image
-                          </div>
-                        )}
-                        {!result && rule.id === 3 && hasPrerequisites && (
-                          <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                            ❌ {pendingUploads} image(s) pending upload
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {totalRules > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Overall Progress:
-                      <span
-                        className={`ml-2 ${getValidationColor(validationScore)}`}
-                      >
-                        {validationScore}%
-                      </span>
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            allRulesPass
-                              ? "bg-green-500"
-                              : passedRules > 0
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
-                          }`}
-                          style={{ width: `${validationScore}%` }}
-                        />
-                      </div>
-                      <span
-                        className={`text-sm ${getValidationColor(validationScore)}`}
-                      >
-                        {!hasPrerequisites
-                          ? "Missing Info"
-                          : images.length === 0
-                            ? "Add Images"
-                            : pendingUploads > 0
-                              ? "Upload Pending"
-                              : allRulesPass
-                                ? "Perfect!"
-                                : "Needs work"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ValidationRules
+              rules={displayRules}
+              headerIcon={getHeaderIcon()}
+              headerText="Image Requirements:"
+              validationScore={validationScore}
+              allRulesPass={allRulesPass}
+              passedRules={passedRules}
+              totalRules={totalRules}
+              overallStatusMessage={getOverallStatus()}
+            />
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </ValidationWrapper>
   );
 }

@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { Check, AlertTriangle, Download, Trash2, Plus, X } from "lucide-react";
 import { CATEGORY_SECTIONS } from "../../data/categories";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { ValidationWrapper } from "./ValidationWrapper";
 import { ValidationRules } from "./ValidationRules";
+
 // Helper function to convert sections to plain text for keyword counting
 export function sectionsToText(sections) {
   if (!sections || !Array.isArray(sections)) return "";
@@ -360,28 +362,15 @@ export default function SeoSectionManager({
     isComplete: allRulesPass,
   });
 
-  // Get border color based on overall state
-  const getBorderColor = () => {
-    if (!selectedCategory) {
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (totalParagraphs === 0) {
-      return "border-red-400 dark:border-red-500 border-2";
-    }
-    if (totalParagraphs < 3) {
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (totalChars < 800) {
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (hasMissingKeywords) {
-      return "border-yellow-400 dark:border-yellow-500 border-2";
-    }
-    if (allRulesPass) {
-      return "border-green-500 dark:border-green-500 border-2";
-    }
-    return "border-gray-300 dark:border-gray-600";
-  };
+  // New flags for ValidationWrapper (same logic as before)
+  const hasCriticalError = !!selectedCategory && totalParagraphs === 0;
+  const hasWarning =
+    !selectedCategory ||
+    (totalParagraphs > 0 &&
+      (totalParagraphs < 3 ||
+        totalChars < 800 ||
+        hasMissingKeywords ||
+        !allRulesPass));
 
   // Handle new paragraph change
   const handleNewParagraphChange = (e) => {
@@ -435,8 +424,11 @@ export default function SeoSectionManager({
   };
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 w-full p-4 rounded-lg ${getBorderColor()} transition-all duration-300`}
+    <ValidationWrapper
+      validationScore={validationScore}
+      hasCriticalError={hasCriticalError}
+      hasWarning={hasWarning}
+      isComplete={allRulesPass}
     >
       {/* Status banner at the top */}
       <div className="mb-4">
@@ -1110,6 +1102,6 @@ export default function SeoSectionManager({
         totalRules={totalRules}
         overallStatusMessage={getOverallStatus()}
       />
-    </div>
+    </ValidationWrapper>
   );
 }
