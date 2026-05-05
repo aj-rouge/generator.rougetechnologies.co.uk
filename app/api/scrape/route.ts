@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 
-const DECODO_API = "https://scraper-api.decodo.com/v2/scrape";
-const AUTH =
-  "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2";
-
 async function decodoRequest(payload: object) {
-  const res = await fetch(DECODO_API, {
+  const res = await fetch("https://scraper-api.decodo.com/v2/scrape", {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      Authorization: AUTH,
+      Authorization:
+        "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
     },
     body: JSON.stringify({ ...payload, parse: true }),
   });

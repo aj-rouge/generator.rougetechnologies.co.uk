@@ -1,3 +1,23 @@
+// Reusable function for Decodo API calls
+const callDecodoAPI = async (requestBody: object): Promise<any> => {
+  const response = await fetch("https://scraper-api.decodo.com/v2/scrape", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization:
+        "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
 export const scrapeAmazonProductImages = async (
   productId: string,
 ): Promise<string[]> => {
@@ -63,27 +83,9 @@ export const scrapeCurrysProductImages = async (
   url: string,
 ): Promise<string[]> => {
   try {
-    const response = await fetch("https://scraper-api.decodo.com/v2/scrape", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Authorization:
-          "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
-      },
-      body: JSON.stringify({
-        url: url,
-      }),
+    const json = await callDecodoAPI({
+      url: url,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const json = await response.json();
-
-    // Debug: See the full response structure
-    // console.log("Full API Response:", JSON.stringify(json, null, 2));
 
     // The HTML is in json.raw (not json.content or json.results[0].content)
     const htmlContent = json?.results[0]?.content;
@@ -127,28 +129,14 @@ export const searchAmazonByEAN = async (
   ean: string,
 ): Promise<string | null> => {
   try {
-    const response = await fetch("https://scraper-api.decodo.com/v2/scrape", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization:
-          "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        target: "amazon_search",
-        query: ean,
-        domain: "co.uk",
-        parse: true,
-        page_from: "1",
-      }),
+    const json = await callDecodoAPI({
+      target: "amazon_search",
+      query: ean,
+      domain: "co.uk",
+      parse: true,
+      page_from: "1",
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const json = await response.json();
     console.log("Search API Response:", json);
 
     // Extract ASIN from search results - corrected path
@@ -196,27 +184,12 @@ export const searchAmazonByEAN = async (
 // Function to fetch product details by ASIN
 const fetchProductByASIN = async (asin: string): Promise<string[]> => {
   try {
-    const response = await fetch("https://scraper-api.decodo.com/v2/scrape", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization:
-          "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        target: "amazon_product",
-        query: asin,
-        domain: "co.uk",
-        parse: true,
-      }),
+    const json = await callDecodoAPI({
+      target: "amazon_product",
+      query: asin,
+      domain: "co.uk",
+      parse: true,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const json = await response.json();
 
     const productData = json?.results?.[0]?.content?.results;
 
@@ -298,24 +271,10 @@ const extractCurrysMetadata = async (
   brand?: string;
 }> => {
   try {
-    const response = await fetch("https://scraper-api.decodo.com/v2/scrape", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization:
-          "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: url,
-      }),
+    const json = await callDecodoAPI({
+      url: url,
     });
 
-    if (!response.ok) {
-      return {};
-    }
-
-    const json = await response.json();
     const htmlContent = json?.results?.[0]?.content;
 
     if (!htmlContent) {
