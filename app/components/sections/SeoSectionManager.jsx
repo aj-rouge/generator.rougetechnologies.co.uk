@@ -349,7 +349,7 @@ export default function SeoSectionManager({
     return "⚠️";
   };
 
-  // Get status badge color (unchanged, for the top banner)
+  // Get status badge color (for the top banner)
   const badgeColor = getStatusBadgeColorFromState({
     hasCriticalError: !!selectedCategory && totalParagraphs === 0,
     hasWarning:
@@ -423,6 +423,30 @@ export default function SeoSectionManager({
     });
   };
 
+  // Helper: get badge color for keyword count status (missing, low, good)
+  const getKeywordCountBadgeColor = (count, targetGood = 2) => {
+    if (count === 0) {
+      return getStatusBadgeColorFromState({ hasCriticalError: true });
+    }
+    if (count === 1 && targetGood === 2) {
+      // Low count: warning state
+      return getStatusBadgeColorFromState({ hasWarning: true });
+    }
+    // Good / complete
+    return getStatusBadgeColorFromState({ isComplete: true });
+  };
+
+  // Helper: get badge color for keyword matches in paragraph
+  const getKeywordMatchBadgeColor = (matches) => {
+    if (matches > 2) {
+      return getStatusBadgeColorFromState({ isComplete: true });
+    }
+    if (matches > 0) {
+      return getStatusBadgeColorFromState({ hasWarning: true });
+    }
+    return getStatusBadgeColorFromState({ hasCriticalError: true });
+  };
+
   return (
     <ValidationWrapper
       validationScore={validationScore}
@@ -437,9 +461,13 @@ export default function SeoSectionManager({
             Category SEO Content
           </h3>
           <div className="flex items-center gap-3">
-            {/* Default content indicator */}
+            {/* Default content indicator - now using utility */}
             {isDefaultContentLoaded() && (
-              <span className="text-xs px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full flex items-center gap-1">
+              <span
+                className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${getStatusBadgeColorFromState(
+                  { isComplete: true },
+                )}`}
+              >
                 <Check size={12} /> Default
               </span>
             )}
@@ -639,14 +667,10 @@ export default function SeoSectionManager({
 
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 <div
-                  className={`p-2 rounded border text-center transition-all duration-300 ${
-                    !keywordCounts["Rouge Technologies"] ||
-                    keywordCounts["Rouge Technologies"] === 0
-                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                      : keywordCounts["Rouge Technologies"] === 1
-                        ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                        : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
-                  }`}
+                  className={`p-2 rounded border text-center transition-all duration-300 ${getKeywordCountBadgeColor(
+                    keywordCounts["Rouge Technologies"] || 0,
+                    2,
+                  )}`}
                 >
                   <div
                     className="font-medium text-sm mb-1 truncate"
@@ -681,13 +705,10 @@ export default function SeoSectionManager({
                   return (
                     <div
                       key={index}
-                      className={`p-2 rounded border text-center transition-all duration-300 ${
-                        count === 0
-                          ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                          : count === 1
-                            ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                            : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
-                      }`}
+                      className={`p-2 rounded border text-center transition-all duration-300 ${getKeywordCountBadgeColor(
+                        count,
+                        1,
+                      )}`}
                     >
                       <div
                         className="font-medium text-sm mb-1 truncate"
@@ -838,11 +859,9 @@ export default function SeoSectionManager({
                               </span>
                               {keywordMatches > 0 && (
                                 <span
-                                  className={`px-2 py-0.5 text-xs rounded-full ${
-                                    keywordMatches > 2
-                                      ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
-                                      : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
-                                  }`}
+                                  className={`px-2 py-0.5 text-xs rounded-full ${getKeywordMatchBadgeColor(
+                                    keywordMatches,
+                                  )}`}
                                 >
                                   {keywordMatches} keyword
                                   {keywordMatches !== 1 ? "s" : ""}
@@ -1091,7 +1110,6 @@ export default function SeoSectionManager({
         )}
       </div>
 
-      {/* ========== REPLACED VALIDATION RULES SECTION ========== */}
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}

@@ -3,6 +3,7 @@
 import { useState, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers"; // adjust path if needed
 
 interface CollapsibleStatusHeaderProps {
   title: string;
@@ -11,9 +12,9 @@ interface CollapsibleStatusHeaderProps {
   rulesPassed?: number;
   totalRules?: number;
   subtitle?: ReactNode;
-  severity?: string; // kept for compatibility, not used internally
+  severity?: string;
   collapsible?: boolean;
-  isOpen?: boolean; // optional – if provided, component is controlled
+  isOpen?: boolean;
   onToggle?: (isOpen: boolean) => void;
   defaultOpen?: boolean;
   chevronPosition?: "left" | "right";
@@ -54,18 +55,21 @@ const CollapsibleStatusHeader = ({
     }
   };
 
+  // Determine state flags from the status text (only if no custom statusColor)
   const getBadgeColor = (): string => {
     if (statusColor) return statusColor;
+
     const s = status.toLowerCase();
-    if (s.includes("complete") || s.includes("✓"))
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    if (s.includes("error") || s.includes("✗"))
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    if (s.includes("warning") || s.includes("⚠️") || s.includes("needs"))
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    if (s.includes("ready") || s.includes("set"))
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    const hasCriticalError = s.includes("error") || s.includes("✗");
+    const hasWarning =
+      s.includes("warning") || s.includes("⚠️") || s.includes("needs");
+    const isComplete = s.includes("complete") || s.includes("✓");
+
+    return getStatusBadgeColorFromState({
+      hasCriticalError,
+      hasWarning,
+      isComplete,
+    });
   };
 
   const badgeColor = getBadgeColor();

@@ -6,6 +6,7 @@ import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 import { LengthIndicatorBar } from "./LengthIndicatorBar";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers"; // <-- added import
 
 const TITLE_CONFIG = {
   MIN_LENGTH: 50,
@@ -146,6 +147,23 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
 
   const keywordAnalysis = checkKeywordUsage();
 
+  // Helper to get badge color for keyword status
+  const keywordStatusBadgeColor = () => {
+    if (!hasCategory || !keywordAnalysis) return "";
+    if (keywordAnalysis.hasAtLeastOne) {
+      return getStatusBadgeColorFromState({ isComplete: true });
+    }
+    return getStatusBadgeColorFromState({ hasCriticalError: true });
+  };
+
+  // Helper for individual keyword chip
+  const getKeywordChipColor = (isUsed) => {
+    if (isUsed) {
+      return getStatusBadgeColorFromState({ isComplete: true });
+    }
+    return getStatusBadgeColorFromState({}); // default gray
+  };
+
   return (
     <ValidationWrapper validationScore={validationScore}>
       <StatusHeader
@@ -167,11 +185,7 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
           <div className="flex items-center gap-2">
             {hasCategory && keywordAnalysis && (
               <span
-                className={`text-sm font-medium px-2 py-1 rounded ${
-                  keywordAnalysis.hasAtLeastOne
-                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                }`}
+                className={`text-sm font-medium px-2 py-1 rounded ${keywordStatusBadgeColor()}`}
               >
                 Keywords: {keywordAnalysis.used.length}/
                 {Math.min(1, categoryKeywords.length)} required
@@ -245,11 +259,7 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
                 return (
                   <span
                     key={index}
-                    className={`px-2 py-1 rounded ${
-                      isUsed
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-400"
-                    }`}
+                    className={`px-2 py-1 rounded ${getKeywordChipColor(isUsed)}`}
                     title={isUsed ? "Keyword used" : "Keyword not used"}
                   >
                     {keyword} {isUsed ? "✓" : "✗"}
