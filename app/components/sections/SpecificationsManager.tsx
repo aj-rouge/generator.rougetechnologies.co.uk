@@ -9,6 +9,7 @@ import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { ValidationRules } from "./ValidationRules";
 import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers"; // <-- added import
 
 const generateUniqueId = (): string => {
   try {
@@ -174,11 +175,13 @@ export default function SpecificationsManager({
   const borderColorClass = getBorderColorFromScore(validationScore);
 
   const getStatusColor = () => {
-    if (specifications.length === 0)
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-    if (allRulesPass)
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+    if (specifications.length === 0) {
+      return getStatusBadgeColorFromState({ hasCriticalError: true });
+    }
+    if (allRulesPass) {
+      return getStatusBadgeColorFromState({ isComplete: true });
+    }
+    return getStatusBadgeColorFromState({ hasWarning: true });
   };
 
   return (

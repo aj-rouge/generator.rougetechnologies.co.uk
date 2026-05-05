@@ -497,6 +497,8 @@ export default function ProductForm({
           <ExternalPlatformIdsSection
             baselinker_id={formData.baselinker_id}
             shopify_id={formData.shopify_id}
+            sku={formData.sku}
+            title={formData.title}
             onUpdate={updateForm}
           />
           <SKUManager

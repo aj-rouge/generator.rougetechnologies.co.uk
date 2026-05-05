@@ -335,7 +335,7 @@ export default function ConditionSelector({
                 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-400
                 ${
                   validationState?.isValid === false
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : ""
                 }`}
             >

@@ -493,7 +493,7 @@ export default function SeoSectionManager({
                 disabled={isDefaultContentLoaded()}
                 className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-2 transition-colors ${
                   isDefaultContentLoaded()
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 cursor-not-allowed"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 cursor-not-allowed"
                     : "bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-900/20 dark:hover:bg-blue-800/30 dark:text-blue-300"
                 }`}
                 title="Load all default content for this category"
