@@ -345,7 +345,7 @@ export default function ProductForm({
 
   const handleUniversalBatchImport = (importedData) => {
     // importedData is an object with keys: title, price, description, images, condition, brand, mpn, sku, specifications, shipping, returns
-    const updates = {};
+    const updates = INITIAL_FORM_STATE;
 
     // Title
     if (importedData.title) updates.title = importedData.title;
@@ -437,7 +437,6 @@ export default function ProductForm({
 
     // Shipping & returns (store in logistics fields)
     if (importedData.shipping) updates.shipping_method = importedData.shipping;
-    if (importedData.returns) updates.returns_policy = importedData.returns; // you may need to add this field to your form state
 
     updateForm(updates);
     addNotification({
@@ -538,9 +537,6 @@ export default function ProductForm({
           title={formData.title}
           selectedCategory={formData.selectedCategory}
           isSaving={isSaving}
-          onAsinEanUpdate={(asin, ean) => updateForm({ asin, ean })}
-          asin={formData.asin}
-          ean={formData.ean}
         />
         <FeedbackManager
           feedbacks={formData.feedbacks}
