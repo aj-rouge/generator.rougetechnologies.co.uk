@@ -2,8 +2,138 @@
 
 import axios from "axios";
 import * as cheerio from "cheerio";
+import { fetchRawHtml } from "../utils/decodo";
 
-async function fetchDescriptionFromIframe(iframeUrl: string) {
+export async function decodoRequest(payload: object) {
+  const res = await fetch("https://scraper-api.decodo.com/v2/scrape", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization:
+        "Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2",
+    },
+    body: JSON.stringify({ ...payload, parse: true }),
+  });
+  if (!res.ok) throw new Error(`Decodo API Error: ${res.status}`);
+  return await res.json();
+}
+
+// Function to search Amazon by query (EAN or title) and get ASIN
+export async function searchAmazonByQuery(
+  query: string,
+  domain: string = "co.uk",
+): Promise<string | null> {
+  try {
+    const response = await decodoRequest({
+      target: "amazon_search",
+      query: query,
+      domain: domain,
+      page_from: "1",
+    });
+
+    // Extract ASIN from search results - following your pattern
+    const organicResults =
+      response?.results?.[0]?.content?.results?.results?.organic;
+
+    if (organicResults && organicResults.length > 0) {
+      const firstResult = organicResults[0];
+      if (firstResult.asin) {
+        return firstResult.asin;
+      }
+    }
+
+    // Fallback: Check sponsored results
+    const sponsoredResults =
+      response?.results?.[0]?.content?.results?.results?.paid;
+    if (sponsoredResults && sponsoredResults.length > 0) {
+      const firstSponsored = sponsoredResults[0];
+      if (firstSponsored.asin) {
+        return firstSponsored.asin;
+      }
+    }
+
+    // Fallback: Check Amazon's Choices
+    const amazonChoices =
+      response?.results?.[0]?.content?.results?.results?.amazons_choices;
+    if (amazonChoices && amazonChoices.length > 0) {
+      const firstChoice = amazonChoices[0];
+      if (firstChoice.asin) {
+        return firstChoice.asin;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error searching Amazon by query:", error);
+    return null;
+  }
+}
+
+// Function to fetch product details by ASIN
+export async function fetchProductByASIN(
+  asin: string,
+  domain: string = "co.uk",
+): Promise<any> {
+  try {
+    const response = await decodoRequest({
+      target: "amazon_product",
+      query: asin,
+      domain: domain,
+    });
+
+    const productData = response?.results?.[0]?.content?.results;
+
+    if (!productData) {
+      return null;
+    }
+
+    return productData;
+  } catch (error) {
+    console.error("Error fetching product by ASIN:", error);
+    return null;
+  }
+}
+
+// Extract EAN from product details (following your pattern in the utility functions)
+export function extractEANFromProduct(
+  productData: any,
+  providedEan?: string,
+): string | null {
+  if (providedEan && /^\d{8,13}$/.test(providedEan)) {
+    return providedEan;
+  }
+
+  const possibleEanLocations = [
+    productData?.ean,
+    productData?.gtin,
+    productData?.gtin13,
+    productData?.product_details?.ean,
+    productData?.product_details?.gtin,
+    productData?.product_details?.gtin13,
+    productData?.product_details?.EAN,
+    productData?.product_details?.GTIN,
+    productData?.product_details?.["EAN"],
+    productData?.product_details?.["GTIN-13"],
+    ...(productData?.attributes ? Object.values(productData.attributes) : []),
+    ...(productData?.specifications
+      ? Object.values(productData.specifications)
+      : []),
+  ];
+
+  for (const location of possibleEanLocations) {
+    if (
+      location &&
+      typeof location === "string" &&
+      /^\d{8,13}$/.test(location)
+    ) {
+      return location;
+    }
+  }
+  return null;
+}
+
+export async function fetchDescriptionFromIframe(iframeUrl: string) {
   if (!iframeUrl || iframeUrl === "N/A") return "No description available.";
   try {
     console.log(`📡 Fetching description from iframe: ${iframeUrl}`);
@@ -22,29 +152,14 @@ async function fetchDescriptionFromIframe(iframeUrl: string) {
   }
 }
 
-export async function scrapeEbayProduct(ebayUrl) {
+export async function scrapeEbayProduct(ebayUrl: string) {
   console.log(`\n🚀 Starting eBay scrape for URL: ${ebayUrl}`);
   const startTime = Date.now();
 
   try {
-    // 1. Request HTML via scraping API
-    console.log("⏳ Requesting HTML from scraper API...");
-    const response = await axios.post(
-      "https://scraper-api.decodo.com/v2/scrape",
-      {
-        url: ebayUrl,
-        target: "universal",
-        render: "html",
-      },
-      {
-        headers: {
-          Authorization: `Basic VTAwMDAzMzY1MDA6UFdfMTU1OWEwN2I4N2NiMjU4YTk1MjhlYWY4NDc2MTMwYzU2`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    const rawHtml = response.data.results[0].content;
+    // 1. Request HTML via central Decodo client
+    console.log("⏳ Requesting HTML from Decodo API...");
+    const rawHtml = await fetchRawHtml(ebayUrl);
     const htmlSizeKB = (rawHtml.length / 1024).toFixed(1);
     console.log(`✅ HTML received (${htmlSizeKB} KB)`);
 
