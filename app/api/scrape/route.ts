@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractEANFromProduct, fetchProductByASIN, searchAmazonByQuery } from "../../actions/ebay-scrape";
+import { extractEANFromProduct, fetchProductByASIN, searchAmazonByQuery } from "../../utils/scrape/amazon";
 
 export async function POST(req: Request) {
   try {

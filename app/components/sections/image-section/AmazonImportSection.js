@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchAmazonProductImages } from "../../../utils/images/getImagesfromAmazon";
+import { fetchAmazonProductImages } from "../../../utils/scrape/amazon";
 
 export default function AmazonImportSection({
   handleAddImages,
