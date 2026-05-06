@@ -96,12 +96,10 @@ function extractEANFromProduct(
   productData: any,
   providedEan?: string,
 ): string | null {
-  // If we already have a valid EAN from the input, use it
   if (providedEan && /^\d{8,13}$/.test(providedEan)) {
     return providedEan;
   }
 
-  // Try to find EAN in various locations (following Decodo's response structure)
   const possibleEanLocations = [
     productData?.ean,
     productData?.gtin,
@@ -113,9 +111,7 @@ function extractEANFromProduct(
     productData?.product_details?.GTIN,
     productData?.product_details?.["EAN"],
     productData?.product_details?.["GTIN-13"],
-    // Try to find in attributes if they exist
     ...(productData?.attributes ? Object.values(productData.attributes) : []),
-    // Try to find in specifications
     ...(productData?.specifications
       ? Object.values(productData.specifications)
       : []),
@@ -130,7 +126,6 @@ function extractEANFromProduct(
       return location;
     }
   }
-
   return null;
 }
 
@@ -138,11 +133,6 @@ export async function POST(req: Request) {
   try {
     const { identifier, query, domain = "co.uk" } = await req.json();
 
-    let asin: string | null = null;
-    let ean: string | null = null;
-    let productData: any = null;
-
-    // Check if identifier is a Currys URL (following your pattern)
     if (identifier && identifier.includes("currys.co.uk")) {
       return NextResponse.json({
         success: true,
@@ -154,15 +144,14 @@ export async function POST(req: Request) {
       });
     }
 
-    // Check if identifier looks like an ASIN (10 characters, alphanumeric) - following your pattern
     const isASIN = identifier && /^[A-Z0-9]{10}$/i.test(identifier);
-
-    // Check if identifier looks like an EAN (8-13 digits) - following your pattern
     const isEAN = identifier && /^\d{8,13}$/.test(identifier);
 
-    // STEP 1: Determine search approach based on input type
+    let asin: string | null = null;
+    let ean: string | null = null;
+    let productData: any = null;
+
     if (isASIN) {
-      // Direct ASIN lookup
       console.log(`Identifier is ASIN: ${identifier}`);
       asin = identifier;
 
@@ -194,7 +183,6 @@ export async function POST(req: Request) {
         }
       }
     } else if (query || identifier) {
-      // Search by product title/query
       const searchTerm = query || identifier;
       console.log(`Searching by title: ${searchTerm}`);
 
@@ -211,7 +199,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // If we still don't have productData but have ASIN, fetch it
     if (asin && !productData) {
       productData = await fetchProductByASIN(asin, domain);
       if (productData) {
@@ -219,7 +206,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Prepare response
     const response = {
       success: !!(asin || productData),
       asin: asin,
@@ -231,7 +217,6 @@ export async function POST(req: Request) {
       inputType: isASIN ? "ASIN" : isEAN ? "EAN" : "TITLE",
     };
 
-    // Log the result (following your pattern)
     if (response.asin && response.ean) {
       console.log(
         `✅ Fully Enriched: ASIN[${response.asin}] EAN[${response.ean}]`,
