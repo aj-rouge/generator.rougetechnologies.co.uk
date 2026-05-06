@@ -343,85 +343,24 @@ export default function ProductForm({
     }
   };
 
-  const handleEbayImport = (scrapedData) => {
-    const { product, itemSpecifics } = scrapedData;
+  const handleUniversalBatchImport = (importedData) => {
+    // importedData is an object with keys: title, price, description, images, condition, brand, mpn, sku, specifications, shipping, returns
+    const updates = {};
 
-    // --- Price parsing ---
-    let priceBrutto = 0;
-    if (product.price && product.price !== "N/A") {
-      const numericMatch = product.price.match(/[\d,]+\.?\d*/);
-      if (numericMatch) {
-        priceBrutto = parseFloat(numericMatch[0].replace(/,/g, ""));
-      }
+    // Title
+    if (importedData.title) updates.title = importedData.title;
+
+    // Price
+    if (importedData.price) {
+      let price = importedData.price;
+      if (typeof price === "string")
+        price = parseFloat(price.replace(/[^0-9.-]/g, ""));
+      if (!isNaN(price)) updates.price_brutto = price;
     }
 
-    // --- Images mapping ---
-    const importedImages = (product.allImages || []).map((url, idx) => ({
-      url,
-      altText: product.title || `Product image ${idx + 1}`,
-      s3Path: null,
-      isUploaded: false,
-      needsUpload: true,
-      uploadStatus: "pending",
-    }));
-
-    // --- Specifications from item specifics ---
-    const specifications = itemSpecifics
-      ? Object.entries(itemSpecifics).map(([name, value]) => ({
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${name}`,
-          key: name,
-          value: typeof value === "string" ? value : JSON.stringify(value),
-        }))
-      : [];
-
-    // --- Description paragraphs ---
-    let paragraphs = [];
-    if (
-      product.description &&
-      product.description !== "No description available."
-    ) {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = product.description;
-      const text = tempDiv.textContent || tempDiv.innerText;
-      paragraphs = text.split(/\r?\n/).filter((p) => p.trim().length > 0);
-      if (paragraphs.length === 0 && text.trim()) paragraphs = [text.trim()];
-    }
-
-    // --- Condition mapping using the selected category ---
-    let condition = "";
-    const rawCondition = product.condition !== "N/A" ? product.condition : "";
-
-    if (rawCondition && selectedCategoryObj) {
-      // Get the condition group options for this category
-      const conditionOptions =
-        selectedCategoryObj.condition_group?.options || [];
-
-      // Normalize eBay condition string: replace en dash, em dash, etc.
-      const normalized = rawCondition
-        .replace(/–/g, "-") // en dash to hyphen
-        .replace(/—/g, "-") // em dash to hyphen
-        .trim();
-
-      // Try to find an exact match (case‑insensitive)
-      let matched = conditionOptions.find(
-        (opt) => opt.toLowerCase() === normalized.toLowerCase(),
-      );
-
-      // If no exact match, try partial match (e.g. "Opened - never used" contains "opened")
-      if (!matched) {
-        matched = conditionOptions.find(
-          (opt) =>
-            normalized.toLowerCase().includes(opt.toLowerCase()) ||
-            opt.toLowerCase().includes(normalized.toLowerCase()),
-        );
-      }
-
-      condition = matched || conditionOptions[0] || "";
-    }
-
-    // Fallback to simple map if category not yet selected (shouldn't happen because button is disabled)
-    if (!condition && rawCondition) {
-      const fallbackMap = {
+    // Condition mapping (you can extend with category-specific mapping)
+    if (importedData.condition) {
+      const conditionMap = {
         New: "New",
         "Brand New": "New",
         Used: "Used",
@@ -429,21 +368,82 @@ export default function ProductForm({
         Refurbished: "Refurbished",
         "For parts or not working": "For parts",
       };
-      condition = fallbackMap[rawCondition] || "";
+      updates.condition =
+        conditionMap[importedData.condition] || importedData.condition;
     }
 
-    // --- Apply updates ---
-    const updates = {
-      title: product.title !== "N/A" ? product.title : "",
-      condition,
-      paragraphs,
-      features: [],
-      specifications,
-      images: importedImages,
-      price_brutto: priceBrutto,
-    };
+    // Brand / MPN / SKU -> specifications
+    if (importedData.brand || importedData.mpn || importedData.sku) {
+      const currentSpecs = [...(formData.specifications || [])];
+      if (importedData.brand && !currentSpecs.some((s) => s.key === "Brand")) {
+        currentSpecs.push({
+          id: Date.now() + "-brand",
+          key: "Brand",
+          value: importedData.brand,
+        });
+      }
+      if (importedData.mpn && !currentSpecs.some((s) => s.key === "MPN")) {
+        currentSpecs.push({
+          id: Date.now() + "-mpn",
+          key: "MPN",
+          value: importedData.mpn,
+        });
+      }
+      if (importedData.sku) updates.sku = importedData.sku;
+      updates.specifications = currentSpecs;
+    }
+
+    // Description -> paragraphs
+    if (
+      importedData.description &&
+      typeof importedData.description === "string"
+    ) {
+      const paragraphs = importedData.description
+        .split(/\r?\n/)
+        .filter((p) => p.trim());
+      if (paragraphs.length) updates.paragraphs = paragraphs;
+    }
+
+    // Images
+    if (importedData.images && importedData.images.length) {
+      const newImages = importedData.images.map((url, idx) => ({
+        url,
+        altText: importedData.title
+          ? `${importedData.title} - image ${idx + 1}`
+          : `Product image ${idx + 1}`,
+        s3Path: null,
+        isUploaded: false,
+        needsUpload: true,
+        uploadStatus: "pending",
+      }));
+      updates.images = newImages;
+    }
+
+    // Specifications array (from Amazon or eBay item specifics)
+    if (importedData.specifications && importedData.specifications.length) {
+      const existingKeys = new Set(
+        (formData.specifications || []).map((s) => s.key),
+      );
+      const newSpecs = importedData.specifications.filter(
+        (s) => !existingKeys.has(s.key),
+      );
+      if (newSpecs.length) {
+        updates.specifications = [
+          ...(formData.specifications || []),
+          ...newSpecs,
+        ];
+      }
+    }
+
+    // Shipping & returns (store in logistics fields)
+    if (importedData.shipping) updates.shipping_method = importedData.shipping;
+    if (importedData.returns) updates.returns_policy = importedData.returns; // you may need to add this field to your form state
 
     updateForm(updates);
+    addNotification({
+      message: "Imported product data from multiple sources",
+      type: "success",
+    });
   };
 
   return (
@@ -461,7 +461,7 @@ export default function ProductForm({
         baselinkerId={mode === "edit" ? formData.baselinker_id : undefined}
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
         onBaselinkerCreated={(id) => updateForm({ baselinker_id: id })}
-        onEbayImport={handleEbayImport}
+        onUniversalImport={handleUniversalBatchImport}
       />
       <div className="flex pb-4 flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import SortableImageGrid from "./SortableImageGrid";
-import AmazonImportSection from "./AmazonImportSection";
 import DownloadButton from "./DownloadButton";
 import {
   generateSeoAltText,
@@ -21,9 +20,6 @@ export default function ImagesManager({
   title = "",
   selectedCategory = "",
   isSaving,
-  onAsinEanUpdate,
-  asin = "",
-  ean = "",
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const hasAutoExpanded = useRef(false);
@@ -35,11 +31,6 @@ export default function ImagesManager({
     }
   }, [title, selectedCategory]);
 
-  const isImageDuplicate = (url) => {
-    if (!url) return false;
-    return images.some((img) => img.url === url);
-  };
-
   const removeImage = (index) => {
     const newImages = images.filter((_, i) => i !== index);
     const updatedImages = newImages.map((img, i) => ({
@@ -49,34 +40,6 @@ export default function ImagesManager({
     }));
     setImages(updatedImages);
   };
-
-  const handleAddImages = useCallback(
-    async (urls) => {
-      if (!title || !selectedCategory) {
-        alert("Set title and category first");
-        return;
-      }
-      setImages((prev) => {
-        const newBatch = urls
-          .filter((url) => !prev.some((img) => img.url === url))
-          .map((url, index) => ({
-            url: url,
-            s3Path: generateSeoFileName(
-              selectedCategory,
-              title,
-              prev.length + index + 1,
-            ),
-            altText: generateSeoAltText(title, prev.length + index + 1),
-            isUploading: false,
-            isUploaded: false,
-            uploadStatus: "pending",
-            needsUpload: true,
-          }));
-        return [...prev, ...newBatch];
-      });
-    },
-    [title, selectedCategory, setImages],
-  );
 
   const hasPrerequisites = title && selectedCategory;
   const pendingUploads = images.filter(
@@ -213,13 +176,6 @@ export default function ImagesManager({
                       onError={(error) => alert(error)}
                     />
                   </div>
-                  <AmazonImportSection
-                    handleAddImages={handleAddImages}
-                    isImageDuplicate={isImageDuplicate}
-                    onAsinEanUpdate={onAsinEanUpdate}
-                    initialAsin={asin}
-                    initialEan={ean}
-                  />
                   {images.length > 0 && (
                     <div className="mt-8 space-y-4">
                       <SortableImageGrid

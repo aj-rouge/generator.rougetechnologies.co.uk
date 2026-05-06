@@ -6,7 +6,7 @@ import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
-import EbayImportButton from "./ebay-import-product/EbayImportButton";
+import UniversalImportButton from "../UniversalImportButton";
 
 export default function ProductFormHeader({
   mode,
@@ -21,7 +21,7 @@ export default function ProductFormHeader({
   baselinkerId,
   shopifyId,
   onBaselinkerCreated,
-  onEbayImport,
+  onUniversalImport,
 }) {
   const isEdit = mode === "edit";
 
@@ -54,7 +54,7 @@ export default function ProductFormHeader({
           </div>
           <div className="flex flex-wrap justify-end items-center gap-3 mt-4">
             <DarkModeToggle />
-            <EbayImportButton onEbayImport={onEbayImport} />
+            <UniversalImportButton onImport={onUniversalImport} />
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
                 {shopifyId && shopifyId !== "null" && (
@@ -127,8 +127,8 @@ export default function ProductFormHeader({
             <div></div>
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />
-              <EbayImportButton
-                onEbayImport={onEbayImport}
+              <UniversalImportButton
+                onImport={onUniversalImport}
                 disabled={!selectedCategory}
               />
               <SaveButton
