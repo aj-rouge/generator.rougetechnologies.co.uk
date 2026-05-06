@@ -3,7 +3,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 
-async function fetchDescriptionFromIframe(iframeUrl) {
+async function fetchDescriptionFromIframe(iframeUrl: string) {
   if (!iframeUrl || iframeUrl === "N/A") return "No description available.";
   try {
     console.log(`📡 Fetching description from iframe: ${iframeUrl}`);
@@ -49,7 +49,8 @@ export async function scrapeEbayProduct(ebayUrl) {
     console.log(`✅ HTML received (${htmlSizeKB} KB)`);
 
     const $ = cheerio.load(rawHtml);
-    const getText = (selector) => $(selector).first().text().trim() || "N/A";
+    const getText = (selector: string) =>
+      $(selector).first().text().trim() || "N/A";
 
     // 2. Extract JSON-LD Product
     console.log("🔍 Extracting JSON-LD Product...");
@@ -69,15 +70,13 @@ export async function scrapeEbayProduct(ebayUrl) {
     // 3. Extract category from breadcrumbs (JSON-LD or HTML)
     console.log("🏷️ Extracting product category...");
     let category = "N/A";
-    // First try JSON-LD BreadcrumbList
     $('script[type="application/ld+json"]').each((i, el) => {
       try {
         const data = JSON.parse($(el).text());
         if (data["@type"] === "BreadcrumbList" && data.itemListElement) {
           const items = data.itemListElement
-            .filter((item) => item["@type"] === "ListItem" && item.name)
-            .map((item) => item.name);
-          // Skip first item if it's "eBay"
+            .filter((item: any) => item["@type"] === "ListItem" && item.name)
+            .map((item: any) => item.name);
           if (items[0] === "eBay" && items.length > 1) {
             category = items.slice(1).join(" > ");
           } else {
@@ -88,9 +87,8 @@ export async function scrapeEbayProduct(ebayUrl) {
         }
       } catch (e) {}
     });
-    // Fallback to HTML breadcrumbs if JSON-LD not found
     if (category === "N/A") {
-      const breadcrumbs = [];
+      const breadcrumbs: string[] = [];
       $(".breadcrumbs li a").each((i, el) => {
         const text = $(el).text().trim();
         if (text) breadcrumbs.push(text);
@@ -105,7 +103,7 @@ export async function scrapeEbayProduct(ebayUrl) {
 
     // 4. Extract images
     console.log("🖼️ Extracting images...");
-    const images = [];
+    const images: string[] = [];
     $(".ux-image-carousel-item img").each((i, el) => {
       const src = $(el).attr("src");
       if (src && !images.includes(src)) images.push(src);
@@ -118,7 +116,7 @@ export async function scrapeEbayProduct(ebayUrl) {
 
     // 5. Extract item specifics
     console.log("🏷️ Extracting item specifics...");
-    const itemSpecifics = {};
+    const itemSpecifics: Record<string, string> = {};
     $(".x-about-this-item .ux-labels-values").each((i, el) => {
       const label = $(el)
         .find(".ux-labels-values__labels .ux-textspans")
@@ -195,7 +193,7 @@ export async function scrapeEbayProduct(ebayUrl) {
       allImages: images,
       description: descriptionText,
       descriptionUrl: descriptionIframeUrl,
-      category: category, // Add category to product object
+      category: category,
     };
     console.log("🛒 Product (before JSON-LD override):", {
       title: product.title,
@@ -219,7 +217,7 @@ export async function scrapeEbayProduct(ebayUrl) {
       product.mpn = jsonLdProduct.mpn || itemSpecifics["MPN"] || "N/A";
       if (jsonLdProduct.image && jsonLdProduct.image.length) {
         product.image = jsonLdProduct.image[0];
-        jsonLdProduct.image.forEach((img) => {
+        jsonLdProduct.image.forEach((img: string) => {
           if (!product.allImages.includes(img)) product.allImages.push(img);
         });
       }
@@ -255,7 +253,7 @@ export async function scrapeEbayProduct(ebayUrl) {
       },
       html: rawHtml,
     };
-  } catch (error) {
+  } catch (error: any) {
     const elapsed = Date.now() - startTime;
     console.error(`❌ Scraping failed after ${elapsed}ms:`, error.message);
     if (error.response) {
