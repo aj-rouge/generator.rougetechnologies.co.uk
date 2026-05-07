@@ -6,7 +6,7 @@ import DeleteButton from "./delete-product/DeleteButton";
 import SaveButton from "./save-product/SaveButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
-import UniversalImportButton from "../UniversalImportButton";
+import UniversalImportButton from "./import-product/UniversalImportButton";
 
 export default function ProductFormHeader({
   mode,
