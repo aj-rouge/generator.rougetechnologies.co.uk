@@ -12,16 +12,8 @@ export default function SaveButton({
   productTitle,
 }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'success', 'error'
+  const [saveStatus, setSaveStatus] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
-
-  console.log("💾 SaveButton rendered with:", {
-    mode,
-    productTitle,
-    isSaving,
-    isFormValid,
-    shouldShowSave,
-  });
 
   const handleSaveClick = () => {
     if (isSaving || !isFormValid) return;

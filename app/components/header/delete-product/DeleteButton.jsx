@@ -7,11 +7,6 @@ export default function DeleteButton({ productTitle, selectedCategory, uuid }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState(null); // 'deleting', 'success', 'error'
   const [errorMessage, setErrorMessage] = useState("");
-  // console.log("🗑️ DeleteButton rendered with:", {
-  //   productTitle,
-  //   selectedCategory,
-  //   uuid,
-  // });
   const handleConfirmDelete = async () => {
     setDeleteStatus("deleting");
     setErrorMessage("");
