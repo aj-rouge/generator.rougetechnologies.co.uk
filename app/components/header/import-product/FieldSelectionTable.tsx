@@ -1,6 +1,13 @@
 // components/UniversalImportModal/FieldSelectionTable.tsx
+import { useState } from "react";
 import { IMPORT_FIELDS } from "./UniversalImportModal";
-import { ImageIcon } from "lucide-react";
+import {
+  ImageIcon,
+  Circle,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface ScrapedSource {
   source: string;
@@ -17,7 +24,7 @@ interface FieldSelectionTableProps {
   onFieldSelectionChange: (fieldKey: string, sourceIndex: number) => void;
 }
 
-// Helper: get display value for a field (for the dropdown and cell rendering)
+// Helper: get display value for a field (for the cell rendering)
 function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
   if (fieldKey === "specifications")
     return source.specifications?.length
@@ -27,18 +34,18 @@ function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
   if (fieldKey === "returns") return source.returns || null;
   if (fieldKey === "images") {
     const images = source.product.images;
-    return images?.length ? images : null; // return array of URLs
+    return images?.length ? images : null;
   }
   return source.product[fieldKey] || null;
 }
 
 // Component to render image thumbnails
 function ImagePreview({ urls }: { urls: string[] }) {
-  const previewUrls = urls; // show first 3 images
+  const previewUrls = urls;
   const remaining = urls.length - previewUrls.length;
 
   return (
-    <div className="flex gap-1 items-center">
+    <div className="flex gap-1 items-center flex-wrap">
       {previewUrls.map((url, idx) => (
         <div
           key={idx}
@@ -50,7 +57,7 @@ function ImagePreview({ urls }: { urls: string[] }) {
             className="w-full h-full object-cover transition-transform group-hover:scale-110"
             onError={(e) => {
               (e.target as HTMLImageElement).src =
-                "https://placehold.co/40x40?text=404";
+                "https://placehold.co/80x80?text=404";
             }}
           />
         </div>
@@ -69,19 +76,61 @@ function ImagePreview({ urls }: { urls: string[] }) {
   );
 }
 
-// Component for rendering a cell value (non-image)
-function TextCell({ value }: { value: any }) {
-  if (value === null || value === undefined)
+function ExpandableTextCell({ value }: { value: any }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (value === null || value === undefined) {
     return <span className="text-gray-400">—</span>;
-  let displayValue: string;
-  if (typeof value === "object") {
-    displayValue = JSON.stringify(value);
-  } else {
-    displayValue = String(value);
   }
+
+  let fullText: string;
+  if (typeof value === "object") {
+    fullText = JSON.stringify(value, null, 2);
+  } else {
+    fullText = String(value);
+  }
+
+  const truncated =
+    fullText.length > 100 ? fullText.slice(0, 100) + "…" : fullText;
+  const displayText = isExpanded ? fullText : truncated;
+  const isTruncatable = fullText.length > 100;
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isTruncatable) setIsExpanded(!isExpanded);
+  };
+
   return (
-    <div className="max-w-xs truncate" title={displayValue}>
-      {displayValue}
+    <div className="relative max-w-3xl">
+      {/* Text container - add bottom padding when collapsed to make room for overlay */}
+      <div
+        className={`text-black dark:text-white ${
+          isExpanded
+            ? "whitespace-pre-wrap break-words pb-0"
+            : "whitespace-normal"
+        }`}
+        style={{ wordBreak: "break-word", maxWidth: "100%" }}
+      >
+        {displayText}
+      </div>
+      {isTruncatable && !isExpanded && (
+        <button
+          onClick={handleToggle}
+          className="absolute bottom-0 left-0 right-0 flex justify-center items-center bg-gradient-to-t from-white to-transparent dark:from-gray-900/80 dark:to-transparent transition-all hover:opacity-80"
+          title="Expand"
+        >
+          <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        </button>
+      )}
+      {isTruncatable && isExpanded && (
+        <button
+          onClick={handleToggle}
+          className="mt-1 flex justify-center items-center w-full py-1 text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 transition-all"
+          title="Collapse"
+        >
+          <ChevronUp className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -111,28 +160,26 @@ export function FieldSelectionTable({
                 </div>
               </th>
             ))}
-            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
-              Selected Source
-            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
           {IMPORT_FIELDS.map((field) => {
-            // Collect available sources that have a value for this field
-            const availableOptions: { idx: number; val: any }[] = [];
+            // Determine which sources have a valid value for this field
+            const availableSources: { idx: number; val: any }[] = [];
             sources.forEach((src, idx) => {
               const val = getFieldDisplayValue(src, field.key);
               if (val !== null && val !== undefined && val !== "") {
-                availableOptions.push({ idx, val });
+                availableSources.push({ idx, val });
               }
             });
-            if (availableOptions.length === 0) return null;
+            if (availableSources.length === 0) return null;
 
             const currentSelection = fieldSelections[field.key];
+
             return (
               <tr
                 key={field.key}
-                className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
               >
                 <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">
                   {field.label}
@@ -141,14 +188,32 @@ export function FieldSelectionTable({
                   const val = getFieldDisplayValue(src, field.key);
                   const hasValue =
                     val !== null && val !== undefined && val !== "";
+                  const isSelected = currentSelection === idx;
+
                   return (
                     <td key={idx} className="px-4 py-3 align-middle">
                       {hasValue ? (
-                        field.key === "images" && Array.isArray(val) ? (
-                          <ImagePreview urls={val} />
-                        ) : (
-                          <TextCell value={val} />
-                        )
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() =>
+                              onFieldSelectionChange(field.key, idx)
+                            }
+                            className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity w-full"
+                          >
+                            {isSelected ? (
+                              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                            ) : (
+                              <Circle className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              {field.key === "images" && Array.isArray(val) ? (
+                                <ImagePreview urls={val} />
+                              ) : (
+                                <ExpandableTextCell value={val} />
+                              )}
+                            </div>
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-gray-300 dark:text-gray-600">
                           —
@@ -157,34 +222,6 @@ export function FieldSelectionTable({
                     </td>
                   );
                 })}
-                <td className="px-4 py-3 align-middle">
-                  <select
-                    value={
-                      currentSelection !== undefined ? currentSelection : ""
-                    }
-                    onChange={(e) =>
-                      onFieldSelectionChange(
-                        field.key,
-                        parseInt(e.target.value, 10),
-                      )
-                    }
-                    className="p-1.5 border rounded-md dark:bg-gray-800 dark:border-gray-700 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="" disabled>
-                      Choose source
-                    </option>
-                    {availableOptions.map((opt) => (
-                      <option key={opt.idx} value={opt.idx}>
-                        Source {opt.idx + 1}:{" "}
-                        {field.key === "images"
-                          ? `${opt.val.length} images`
-                          : typeof opt.val === "string"
-                            ? opt.val.substring(0, 40)
-                            : opt.val?.toString().substring(0, 40)}
-                      </option>
-                    ))}
-                  </select>
-                </td>
               </tr>
             );
           })}
