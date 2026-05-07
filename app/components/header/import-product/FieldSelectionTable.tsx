@@ -1,5 +1,5 @@
 // components/UniversalImportModal/FieldSelectionTable.tsx
-import { IMPORT_FIELDS } from "./header/import-product/UniversalImportModal";
+import { IMPORT_FIELDS } from "./UniversalImportModal";
 import { ImageIcon } from "lucide-react";
 
 interface ScrapedSource {

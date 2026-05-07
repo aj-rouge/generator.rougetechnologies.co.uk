@@ -1,8 +1,8 @@
 // UniversalImportModal.tsx - Merged component + hook
 import { useState } from "react";
 import { X, Globe } from "lucide-react";
-import { FieldSelectionTable } from "../../FieldSelectionTable";
-import { IdentifierForm } from "../../IdentifierForm";
+import { FieldSelectionTable } from "./FieldSelectionTable";
+import { IdentifierForm } from "./IdentifierForm";
 
 // ----------------------------------------------------------------------------
 // Constants
