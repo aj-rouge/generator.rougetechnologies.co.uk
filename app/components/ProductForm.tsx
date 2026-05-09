@@ -343,8 +343,8 @@ export default function ProductForm({
     }
   };
 
-  const handleUniversalBatchImport = (importedData) => {
-    const updates = { ...INITIAL_FORM_STATE };
+  const handleUniversalBatchImport = (importedData: any) => {
+    const updates: Partial<typeof INITIAL_FORM_STATE> = {};
 
     // Title
     if (importedData.title) updates.title = importedData.title;
@@ -357,7 +357,6 @@ export default function ProductForm({
       if (!isNaN(price)) updates.price_brutto = price;
     }
 
-    // RRP (upper/retail price)
     if (importedData.rrp) {
       let rrp = importedData.rrp;
       if (typeof rrp === "string")
@@ -365,7 +364,6 @@ export default function ProductForm({
       if (!isNaN(rrp)) updates.rrp = rrp;
     }
 
-    // Brand -> specifications
     if (importedData.brand) {
       const currentSpecs = [...(formData.specifications || [])];
       if (importedData.brand && !currentSpecs.some((s) => s.key === "Brand")) {
@@ -378,7 +376,6 @@ export default function ProductForm({
       updates.specifications = currentSpecs;
     }
 
-    // Description -> paragraphs
     if (
       importedData.description &&
       typeof importedData.description === "string"
@@ -391,7 +388,7 @@ export default function ProductForm({
 
     // Images
     if (importedData.images && importedData.images.length) {
-      const newImages = importedData.images.map((url, idx) => ({
+      const newImages = importedData.images.map((url: string, idx: number) => ({
         url,
         altText: importedData.title
           ? `${importedData.title} - image ${idx + 1}`
@@ -399,18 +396,16 @@ export default function ProductForm({
         s3Path: null,
         isUploaded: false,
         needsUpload: true,
-        uploadStatus: "pending",
+        uploadStatus: "pending" as const,
       }));
       updates.images = newImages;
     }
-    
-    // Specifications array (from Amazon or eBay item specifics)
     if (importedData.specifications && importedData.specifications.length) {
       const existingKeys = new Set(
         (formData.specifications || []).map((s) => s.key),
       );
       const newSpecs = importedData.specifications.filter(
-        (s) => !existingKeys.has(s.key),
+        (s: any) => !existingKeys.has(s.key),
       );
       if (newSpecs.length) {
         updates.specifications = [
