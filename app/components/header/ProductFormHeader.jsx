@@ -28,10 +28,9 @@ export default function ProductFormHeader({
   const HomeButton = () => (
     <Link
       href="/"
-      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+      className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
     >
       <Home className="w-4 h-4" />
-      <span className="hidden sm:inline">Home</span>
     </Link>
   );
 
@@ -117,14 +116,13 @@ export default function ProductFormHeader({
         </div>
       ) : (
         <div className="py-4">
-          <div className="grid lg:grid-cols-3">
+          <div className="grid lg:grid-cols-2 gap-2">
             <div className="flex items-center gap-3 justify-start">
               <HomeButton />
               <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
                 {title || "Create New Product"}
               </h2>
             </div>
-            <div></div>
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />
               <UniversalImportButton

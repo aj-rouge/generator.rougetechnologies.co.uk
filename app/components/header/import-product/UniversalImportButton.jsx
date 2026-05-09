@@ -12,7 +12,7 @@ export default function UniversalImportButton({ onImport, disabled = false }) {
       <button
         onClick={() => setShowModal(true)}
         disabled={disabled}
-        className={`px-3 py-2 text-sm font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+        className={` h-fit p-3 md:px-4 md:py-2 text-sm my-auto font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
           disabled
             ? "bg-gray-400 dark:bg-gray-700 cursor-not-allowed text-gray-200"
             : "bg-indigo-600 hover:bg-indigo-700 text-white"

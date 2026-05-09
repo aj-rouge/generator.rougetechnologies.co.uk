@@ -29,9 +29,9 @@ export function DarkModeToggle() {
   return (
     <button
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="p-2 rounded-lg bg-gray-700 hover:bg-gray-900 
+      className="p-3 rounded-lg bg-gray-700 hover:bg-gray-900 
                dark:bg-gray-200 dark:hover:bg-gray-400 
-               transition-colors duration-200"
+               transition-colors duration-200 h-fit my-auto"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
@@ -39,7 +39,7 @@ export function DarkModeToggle() {
         <>
           {/* Sun icon for dark mode */}
           <svg
-            className="w-6 h-6 text-yellow-500"
+            className="w-4 h-4 text-yellow-500"
             fill="currentColor"
             viewBox="0 0 20 20"
             xmlns="http://www.w3.org/2000/svg"
@@ -56,7 +56,7 @@ export function DarkModeToggle() {
         <>
           {/* Moon icon for light mode */}
           <svg
-            className="w-6 h-6 text-gray-200"
+            className="w-4 h-4 text-gray-200"
             fill="currentColor"
             viewBox="0 0 20 20"
             xmlns="http://www.w3.org/2000/svg"
