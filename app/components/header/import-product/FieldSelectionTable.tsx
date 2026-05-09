@@ -14,24 +14,22 @@ interface ScrapedSource {
   identifier: string;
   product: Record<string, any>;
   specifications?: any[];
-  shipping?: any;
-  returns?: any;
 }
 
 interface FieldSelectionTableProps {
   sources: ScrapedSource[];
-  fieldSelections: Record<string, number>;
-  onFieldSelectionChange: (fieldKey: string, sourceIndex: number) => void;
+  fieldSelections: Record<string, number | null>;
+  onFieldSelectionChange: (
+    fieldKey: string,
+    sourceIndex: number | null,
+  ) => void;
 }
 
-// Helper: get display value for a field (for the cell rendering)
 function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
   if (fieldKey === "specifications")
     return source.specifications?.length
-      ? `${source.specifications.length} specs`
+      ? { count: source.specifications.length, list: source.specifications }
       : null;
-  if (fieldKey === "shipping") return source.shipping || null;
-  if (fieldKey === "returns") return source.returns || null;
   if (fieldKey === "images") {
     const images = source.product.images;
     return images?.length ? images : null;
@@ -39,11 +37,9 @@ function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
   return source.product[fieldKey] || null;
 }
 
-// Component to render image thumbnails
 function ImagePreview({ urls }: { urls: string[] }) {
   const previewUrls = urls;
   const remaining = urls.length - previewUrls.length;
-
   return (
     <div className="flex gap-1 items-center flex-wrap">
       {previewUrls.map((url, idx) => (
@@ -78,10 +74,8 @@ function ImagePreview({ urls }: { urls: string[] }) {
 
 function ExpandableTextCell({ value }: { value: any }) {
   const [isExpanded, setIsExpanded] = useState(false);
-
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined)
     return <span className="text-gray-400">—</span>;
-  }
 
   let fullText: string;
   if (typeof value === "object") {
@@ -89,7 +83,6 @@ function ExpandableTextCell({ value }: { value: any }) {
   } else {
     fullText = String(value);
   }
-
   const truncated =
     fullText.length > 100 ? fullText.slice(0, 100) + "…" : fullText;
   const displayText = isExpanded ? fullText : truncated;
@@ -102,14 +95,8 @@ function ExpandableTextCell({ value }: { value: any }) {
 
   return (
     <div className="relative max-w-3xl">
-      {/* Text container - add bottom padding when collapsed to make room for overlay */}
       <div
-        className={`text-black dark:text-white ${
-          isExpanded
-            ? "whitespace-pre-wrap break-words pb-0"
-            : "whitespace-normal"
-        }`}
-        style={{ wordBreak: "break-word", maxWidth: "100%" }}
+        className={`text-black dark:text-white ${isExpanded ? "whitespace-pre-wrap break-words pb-0" : "whitespace-normal"}`}
       >
         {displayText}
       </div>
@@ -130,6 +117,47 @@ function ExpandableTextCell({ value }: { value: any }) {
         >
           <ChevronUp className="w-5 h-5" />
         </button>
+      )}
+    </div>
+  );
+}
+
+function SpecificationsCell({ count, list }: { count: number; list: any[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+  return (
+    <div className="w-full">
+      <div
+        onClick={handleToggle}
+        className="flex items-center justify-between gap-2 cursor-pointer select-none"
+      >
+        <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+          {count} specs
+        </span>
+        {isOpen ? (
+          <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+        )}
+      </div>
+      {isOpen && (
+        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 max-h-60 overflow-y-auto pr-1">
+            {list.map((spec, idx) => (
+              <div key={idx} className="text-xs">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {spec.key}:
+                </span>{" "}
+                <span className="text-gray-600 dark:text-gray-400 break-words">
+                  {spec.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -164,7 +192,6 @@ export function FieldSelectionTable({
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
           {IMPORT_FIELDS.map((field) => {
-            // Determine which sources have a valid value for this field
             const availableSources: { idx: number; val: any }[] = [];
             sources.forEach((src, idx) => {
               const val = getFieldDisplayValue(src, field.key);
@@ -190,35 +217,61 @@ export function FieldSelectionTable({
                     val !== null && val !== undefined && val !== "";
                   const isSelected = currentSelection === idx;
 
+                  if (!hasValue) {
+                    return (
+                      <td
+                        key={idx}
+                        className="px-4 py-3 align-middle text-gray-300 dark:text-gray-600"
+                      >
+                        —
+                      </td>
+                    );
+                  }
+
                   return (
                     <td key={idx} className="px-4 py-3 align-middle">
-                      {hasValue ? (
-                        <div className="flex flex-col gap-2">
-                          <button
-                            onClick={() =>
-                              onFieldSelectionChange(field.key, idx)
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (isSelected) {
+                            onFieldSelectionChange(field.key, null); // deselect
+                          } else {
+                            onFieldSelectionChange(field.key, idx);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (isSelected) {
+                              onFieldSelectionChange(field.key, null);
+                            } else {
+                              onFieldSelectionChange(field.key, idx);
                             }
-                            className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity w-full"
-                          >
-                            {isSelected ? (
-                              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                            ) : (
-                              <Circle className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              {field.key === "images" && Array.isArray(val) ? (
-                                <ImagePreview urls={val} />
-                              ) : (
-                                <ExpandableTextCell value={val} />
-                              )}
-                            </div>
-                          </button>
+                          }
+                        }}
+                        className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity w-full cursor-pointer"
+                      >
+                        {isSelected ? (
+                          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          {field.key === "images" && Array.isArray(val) ? (
+                            <ImagePreview urls={val} />
+                          ) : field.key === "specifications" &&
+                            typeof val === "object" &&
+                            val.list ? (
+                            <SpecificationsCell
+                              count={val.count}
+                              list={val.list}
+                            />
+                          ) : (
+                            <ExpandableTextCell value={val} />
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-gray-300 dark:text-gray-600">
-                          —
-                        </span>
-                      )}
+                      </div>
                     </td>
                   );
                 })}

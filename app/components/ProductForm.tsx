@@ -344,8 +344,7 @@ export default function ProductForm({
   };
 
   const handleUniversalBatchImport = (importedData) => {
-    // importedData is an object with keys: title, price, description, images, condition, brand, mpn, sku, specifications, shipping, returns
-    const updates = INITIAL_FORM_STATE;
+    const updates = { ...INITIAL_FORM_STATE };
 
     // Title
     if (importedData.title) updates.title = importedData.title;
@@ -358,22 +357,16 @@ export default function ProductForm({
       if (!isNaN(price)) updates.price_brutto = price;
     }
 
-    // Condition mapping (you can extend with category-specific mapping)
-    if (importedData.condition) {
-      const conditionMap = {
-        New: "New",
-        "Brand New": "New",
-        Used: "Used",
-        "Pre-owned": "Used",
-        Refurbished: "Refurbished",
-        "For parts or not working": "For parts",
-      };
-      updates.condition =
-        conditionMap[importedData.condition] || importedData.condition;
+    // RRP (upper/retail price)
+    if (importedData.rrp) {
+      let rrp = importedData.rrp;
+      if (typeof rrp === "string")
+        rrp = parseFloat(rrp.replace(/[^0-9.-]/g, ""));
+      if (!isNaN(rrp)) updates.rrp = rrp;
     }
 
-    // Brand / MPN / SKU -> specifications
-    if (importedData.brand || importedData.mpn || importedData.sku) {
+    // Brand -> specifications
+    if (importedData.brand) {
       const currentSpecs = [...(formData.specifications || [])];
       if (importedData.brand && !currentSpecs.some((s) => s.key === "Brand")) {
         currentSpecs.push({
@@ -382,14 +375,6 @@ export default function ProductForm({
           value: importedData.brand,
         });
       }
-      if (importedData.mpn && !currentSpecs.some((s) => s.key === "MPN")) {
-        currentSpecs.push({
-          id: Date.now() + "-mpn",
-          key: "MPN",
-          value: importedData.mpn,
-        });
-      }
-      if (importedData.sku) updates.sku = importedData.sku;
       updates.specifications = currentSpecs;
     }
 
@@ -418,7 +403,7 @@ export default function ProductForm({
       }));
       updates.images = newImages;
     }
-
+    
     // Specifications array (from Amazon or eBay item specifics)
     if (importedData.specifications && importedData.specifications.length) {
       const existingKeys = new Set(
@@ -434,9 +419,6 @@ export default function ProductForm({
         ];
       }
     }
-
-    // Shipping & returns (store in logistics fields)
-    if (importedData.shipping) updates.shipping_method = importedData.shipping;
 
     updateForm(updates);
     addNotification({

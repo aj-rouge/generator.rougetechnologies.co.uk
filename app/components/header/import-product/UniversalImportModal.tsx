@@ -1,4 +1,4 @@
-// UniversalImportModal.tsx - Merged component + hook
+// app/components/import-product/UniversalImportModal.tsx
 import { useState } from "react";
 import { X, Globe } from "lucide-react";
 import { FieldSelectionTable } from "./FieldSelectionTable";
@@ -12,13 +12,8 @@ export const IMPORT_FIELDS = [
   { key: "price", label: "Price" },
   { key: "description", label: "Description" },
   { key: "images", label: "Images" },
-  { key: "condition", label: "Condition" },
   { key: "brand", label: "Brand" },
-  { key: "mpn", label: "MPN" },
-  { key: "sku", label: "SKU" },
   { key: "specifications", label: "Specifications" },
-  { key: "shipping", label: "Shipping Info" },
-  { key: "returns", label: "Returns" },
 ];
 
 // ----------------------------------------------------------------------------
@@ -29,8 +24,6 @@ interface ScrapedSource {
   identifier: string;
   product: Record<string, any>;
   specifications?: any[];
-  shipping?: any;
-  returns?: any;
 }
 
 function useUniversalImport() {
@@ -39,7 +32,7 @@ function useUniversalImport() {
   >("idle");
   const [scrapedSources, setScrapedSources] = useState<ScrapedSource[]>([]);
   const [fieldSelections, setFieldSelections] = useState<
-    Record<string, number>
+    Record<string, number | null>
   >({});
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -73,18 +66,10 @@ function useUniversalImport() {
         return false;
       }
       setScrapedSources(result.data);
-      // Auto-select first source that provides a value for each field
-      const initialSelections: Record<string, number> = {};
+      // All fields start as skipped (null)
+      const initialSelections: Record<string, number | null> = {};
       for (const field of IMPORT_FIELDS) {
-        const availableIndex = result.data.findIndex((src: ScrapedSource) => {
-          if (field.key === "specifications")
-            return src.specifications?.length > 0;
-          if (field.key === "shipping") return src.shipping;
-          if (field.key === "returns") return src.returns;
-          return src.product[field.key] && src.product[field.key] !== "";
-        });
-        if (availableIndex !== -1)
-          initialSelections[field.key] = availableIndex;
+        initialSelections[field.key] = null;
       }
       setFieldSelections(initialSelections);
       setStatus("success");
@@ -99,12 +84,11 @@ function useUniversalImport() {
   const buildImportData = () => {
     const finalData: Record<string, any> = {};
     for (const [fieldKey, sourceIdx] of Object.entries(fieldSelections)) {
+      if (sourceIdx === null || sourceIdx === undefined) continue; // skip this field
       const source = scrapedSources[sourceIdx];
       if (!source) continue;
       let value = null;
       if (fieldKey === "specifications") value = source.specifications;
-      else if (fieldKey === "shipping") value = source.shipping;
-      else if (fieldKey === "returns") value = source.returns;
       else if (fieldKey === "images") value = source.product.images;
       else value = source.product[fieldKey];
       if (value !== null && value !== undefined && value !== "") {
@@ -157,10 +141,7 @@ export default function UniversalImportModal({
   const isSuccess = status === "success";
 
   const handleFetch = async (identifiers: string[]) => {
-    const success = await fetchProducts(identifiers);
-    if (!success && status === "error") {
-      // Error already handled in hook
-    }
+    await fetchProducts(identifiers);
   };
 
   const handleImport = () => {
@@ -172,22 +153,6 @@ export default function UniversalImportModal({
 
   const handleBack = () => {
     reset();
-  };
-
-  const allFieldsSelected = () => {
-    // Only fields that appear in at least one source need a selection
-    const availableFields = IMPORT_FIELDS.filter((field) =>
-      scrapedSources.some((src) => {
-        if (field.key === "specifications")
-          return src.specifications?.length > 0;
-        if (field.key === "shipping") return src.shipping;
-        if (field.key === "returns") return src.returns;
-        return src.product[field.key] && src.product[field.key] !== "";
-      }),
-    );
-    return availableFields.every(
-      (field) => fieldSelections[field.key] !== undefined,
-    );
   };
 
   return (
@@ -252,17 +217,11 @@ export default function UniversalImportModal({
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={!allFieldsSelected()}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-medium"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
                 >
                   Import Selected Fields
                 </button>
               </div>
-              {!allFieldsSelected() && (
-                <p className="text-xs text-amber-600">
-                  Please select a source for each available field
-                </p>
-              )}
             </div>
           )}
         </div>

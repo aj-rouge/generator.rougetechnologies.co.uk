@@ -17,6 +17,12 @@ export async function searchAmazonByQuery(
       page_from: "1",
     });
 
+    // Log full Decodo response for debugging
+    console.log(
+      `[Decodo Amazon Search] Response for query "${query}":\n`,
+      JSON.stringify(response, null, 2),
+    );
+
     const organicResults =
       response?.results?.[0]?.content?.results?.results?.organic;
     if (organicResults?.length > 0 && organicResults[0].asin) {
@@ -37,7 +43,10 @@ export async function searchAmazonByQuery(
 
     return null;
   } catch (error) {
-    console.error("Error searching Amazon by query:", error);
+    console.error(
+      `[Decodo Amazon Search] Error searching for query "${query}":`,
+      error,
+    );
     return null;
   }
 }
@@ -55,9 +64,19 @@ export async function fetchProductByASIN(
       query: asin,
       domain,
     });
+
+    // Log full Decodo response for debugging
+    console.log(
+      `[Decodo Amazon Product] Response for ASIN "${asin}":\n`,
+      JSON.stringify(response, null, 2),
+    );
+
     return response?.results?.[0]?.content?.results || null;
   } catch (error) {
-    console.error("Error fetching product by ASIN:", error);
+    console.error(
+      `[Decodo Amazon Product] Error fetching ASIN "${asin}":`,
+      error,
+    );
     return null;
   }
 }
@@ -127,7 +146,6 @@ export async function fetchAmazonProductImages(identifier: string): Promise<{
   source?: "ASIN" | "EAN" | "Currys" | "URL";
   metadata?: {
     productName?: string;
-    sku?: string;
     brand?: string;
   };
 }> {
