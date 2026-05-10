@@ -35,7 +35,6 @@ const sortOptions = [
   { value: "created_at", label: "Created Date" },
 ] as const;
 
-// Custom hook for media queries
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
 
@@ -161,7 +160,7 @@ export const TimelineFilters = ({
     );
   }
 
-  // Mobile view - button + bottom sheet
+  // Mobile view - title + refresh button + filters button
   return (
     <>
       <motion.div
@@ -175,20 +174,43 @@ export const TimelineFilters = ({
           </h2>
         </div>
 
-        <motion.button
-          onClick={() => setIsMobileFiltersOpen(true)}
-          className="
-            flex items-center gap-2 px-3 py-1.5
-            text-sm font-medium rounded-md
-            border transition-all duration-200
-            bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-            text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
-          "
-          whileTap={{ scale: 0.95 }}
-        >
-          <Filter className="w-4 h-4" />
-          <span>Filters</span>
-        </motion.button>
+        {/* Action buttons group: Refresh + Filters */}
+        <div className="flex items-center gap-2">
+          {/* Refresh button - now outside modal, left of Filters */}
+          <motion.button
+            onClick={fetchRecent}
+            disabled={loading}
+            className="
+              flex items-center gap-2 p-2 
+              text-sm font-medium rounded-md
+              border transition-all duration-200
+              bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
+              text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
+              disabled:opacity-50 disabled:cursor-not-allowed
+            "
+            whileTap={{ scale: 0.95 }}
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </motion.button>
+
+          {/* Filters button */}
+          <motion.button
+            onClick={() => setIsMobileFiltersOpen(true)}
+            className="
+              flex items-center gap-2 p-2
+              text-sm font-medium rounded-md
+              border transition-all duration-200
+              bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
+              text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
+            "
+            whileTap={{ scale: 0.95 }}
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filters</span>
+          </motion.button>
+        </div>
       </motion.div>
 
       {/* Mobile Bottom Sheet */}
@@ -236,7 +258,6 @@ export const TimelineFilters = ({
                     value={category}
                     onChange={(val) => {
                       setCategory(val);
-                      // Optionally close sheet after selection? We'll keep open.
                     }}
                     categories={categories}
                   />
@@ -305,34 +326,8 @@ export const TimelineFilters = ({
                     width="w-full"
                   />
                 </div>
-
-                {/* Refresh Button */}
-                <div className="pt-2">
-                  <motion.button
-                    onClick={() => {
-                      fetchRecent();
-                      // Optionally close sheet after refresh
-                      // setIsMobileFiltersOpen(false);
-                    }}
-                    disabled={loading}
-                    className="
-                      w-full flex items-center justify-center gap-2 px-4 py-2
-                      text-sm font-medium rounded-md border transition-all duration-200
-                      bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-                      text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    "
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <RefreshCw
-                      className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                    />
-                    <span>Refresh Products</span>
-                  </motion.button>
-                </div>
               </div>
 
-              {/* Optional: Apply button if you want to batch changes, but since changes are immediate, we provide a close button */}
               <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setIsMobileFiltersOpen(false)}
