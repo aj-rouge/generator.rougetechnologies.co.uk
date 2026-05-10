@@ -38,11 +38,11 @@ export default async function Page(props: { searchParams: SearchParams }) {
   return (
     <div className="flex flex-col items-center gap-4 p-4 min-h-screen transition-colors duration-300">
       {/* Absolute positioned elements */}
-      <div className="absolute top-4 right-4 md:top-4 md:right-6 flex items-center gap-3 z-20">
+      <div className="w-full flex justify-between items-center gap-3">
         <form action={logout}>
           <button
             type="submit"
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
+            className="flex items-center gap-2 p-3 sm:px-4 sm:py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Log out</span>
@@ -52,7 +52,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
 
         <Link
           href="/create"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
+          className="flex items-center gap-2 p-3 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">New Product</span>
@@ -60,7 +60,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
       </div>
 
       {/* Main Content */}
-      <div className="mt-16 w-full flex flex-col items-center gap-4">
+      <div className=" w-full flex flex-col items-center gap-4">
         <SearchBar />
         <RecentProducts
           initialProducts={initialProducts}

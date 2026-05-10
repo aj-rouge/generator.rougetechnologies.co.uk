@@ -20,7 +20,7 @@ interface ProductCardProps {
   index: number;
   sortField: string;
   formatDate: (ts: number) => string;
-  categoryNameMap: Map<string, string>; // new prop
+  categoryNameMap: Map<string, string>;
 }
 
 export const ProductCard = ({
@@ -33,7 +33,7 @@ export const ProductCard = ({
   const categoryName = product.category_slug
     ? categoryNameMap.get(product.category_slug)
     : undefined;
-  // Helper to parse JSON strings from D1 View into arrays
+
   const parseJson = (data: any) => {
     if (!data) return [];
     if (typeof data === "string") {
@@ -55,10 +55,8 @@ export const ProductCard = ({
   const featureCount = features.length;
   const imageCount = images.length;
 
-  // Use the prioritized URL from the SQL view
   const firstImageUrl = images[0]?.url;
 
-  // Strict check for note content
   const hasNote =
     product.note &&
     product.note !== "null" &&
@@ -72,22 +70,36 @@ export const ProductCard = ({
       transition={{ delay: index * 0.03 }}
       className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md overflow-hidden"
     >
-      <div className="flex items-center p-4">
-        {/* Center: Content */}
-        <div className="flex flex-col gap-2  flex-grow min-w-0">
-          {/* 👇 Category name – now from the joined field */}
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            {categoryName || "Uncategorized"}
+      <div className="flex items-start p-3 sm:p-4 gap-3">
+        {/* Image – smaller on mobile */}
+        <Link
+          href={`/products/${product.id}`}
+          className="my-auto flex-shrink-0"
+        >
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-900">
+            {firstImageUrl ? (
+              <Image
+                src={firstImageUrl}
+                alt={product.title}
+                fill
+                className="object-contain group-hover:scale-105 transition-transform duration-300"
+                sizes="(max-width: 640px) 80px, 96px"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center p-3">
+                <Box className="w-full h-full text-gray-300 dark:text-gray-600" />
+              </div>
+            )}
           </div>
+        </Link>
 
-          <div className="flex items-start justify-between gap-2">
-            <Link href={`/products/${product.id}`} className="min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors">
-                {product.title}
-              </h3>
-            </Link>
-
-            {/* Note Presence Indicator */}
+        {/* Right content */}
+        <div className="flex flex-col gap-2 flex-grow min-w-0">
+          {/* Category + Note row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {categoryName || "Uncategorized"}
+            </div>
             {hasNote && (
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-700 dark:text-amber-400 flex-shrink-0">
                 <StickyNote className="w-2.5 h-2.5" />
@@ -96,63 +108,49 @@ export const ProductCard = ({
             )}
           </div>
 
-          {/* Identification Grid: ID, ASIN, EAN, BL, Shopify */}
-          <div className="flex gap-4">
-            <Link href={`/products/${product.id}`} className="flex-shrink-0">
-              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-900">
-                {firstImageUrl ? (
-                  <Image
-                    src={firstImageUrl}
-                    alt={product.title}
-                    fill
-                    className="object-contain group-hover:scale-105 transition-transform duration-300"
-                    sizes="96px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-3">
-                    <Box className="w-full h-full text-gray-300 dark:text-gray-600" />
-                  </div>
-                )}
-              </div>
-            </Link>
-            <div className="grid grid-cols-2 gap-2 items-center">
-              {product.sku && (
-                <CopyBadge label="SKU" value={product.sku} variant="orange" />
-              )}{" "}
-              {product.baselinker_id !== "null" && (
+          {/* Title */}
+          <Link href={`/products/${product.id}`} className="min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors text-sm sm:text-base">
+              {product.title}
+            </h3>
+          </Link>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 items-center">
+            {product.sku && (
+              <CopyBadge label="SKU" value={product.sku} variant="orange" />
+            )}
+            {product.baselinker_id !== "null" && (
+              <CopyBadge
+                label="BL"
+                value={product.baselinker_id}
+                variant="blue"
+              />
+            )}
+            {product.shopify_id &&
+              product.shopify_id !== "null" &&
+              product.shopify_id !== "NULL" && (
                 <CopyBadge
-                  label="BL"
-                  value={product.baselinker_id}
-                  variant="blue"
+                  label="SH"
+                  value={product.shopify_id}
+                  variant="green"
                 />
               )}
-              {product.shopify_id &&
-                product.shopify_id !== "null" &&
-                product.shopify_id !== "NULL" && (
-                  <CopyBadge
-                    label="SH"
-                    value={product.shopify_id}
-                    variant="green"
-                  />
-                )}
-              {product.id !== "null" && (
-                <CopyBadge
-                  label="ID"
-                  value={product.id.toString()}
-                  variant="gray"
-                />
-              )}
-              {product.asin !== "null" && (
-                <CopyBadge label="ASIN" value={product.asin} />
-              )}
-              {product.ean !== "null" && (
-                <CopyBadge label="EAN" value={product.ean} />
-              )}
-            </div>
+            {product.id !== "null" && (
+              <CopyBadge
+                label="ID"
+                value={product.id.toString()}
+                variant="gray"
+              />
+            )}
+            {product.asin !== "null" && (
+              <CopyBadge label="ASIN" value={product.asin} />
+            )}
+            {product.ean !== "null" && (
+              <CopyBadge label="EAN" value={product.ean} />
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1">
               <StatItem
                 icon={<ListTree className="w-3 h-3" />}
                 label="Features"
@@ -171,7 +169,7 @@ export const ProductCard = ({
                 count={imageCount}
                 color="text-purple-600"
               />
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 border-l border-gray-200 dark:border-gray-700 pl-3">
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 border-l border-gray-200 dark:border-gray-700 pl-2">
                 {sortField === "updated_at" ? (
                   <Clock className="w-3 h-3" />
                 ) : (
@@ -192,7 +190,7 @@ export const ProductCard = ({
         {/* Right: Arrow */}
         <Link
           href={`/products/${product.id}`}
-          className="border-l border-gray-50 dark:border-gray-700/50"
+          className="border-l border-gray-50 dark:border-gray-700/50 self-center"
         >
           <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
         </Link>
@@ -201,7 +199,6 @@ export const ProductCard = ({
   );
 };
 
-// CopyBadge and StatItem remain unchanged
 const CopyBadge = ({
   label,
   value,
@@ -238,7 +235,7 @@ const CopyBadge = ({
       <span className="opacity-60 font-bold border-r pr-1 border-current/20">
         {label}
       </span>
-      <span className="font-mono truncate max-w-[80px]">
+      <span className="font-mono truncate max-w-[60px] sm:max-w-[80px]">
         {value.split("/").pop()}
       </span>
       {copied ? (
@@ -256,7 +253,7 @@ const StatItem = ({ icon, label, count, color }: any) => (
   >
     {icon}
     <span className="text-[10px] font-bold">{count}</span>
-    <span className="hidden md:inline text-[9px] uppercase tracking-wider opacity-70 font-medium">
+    <span className="hidden sm:inline text-[9px] uppercase tracking-wider opacity-70 font-medium">
       {label}
     </span>
   </div>

@@ -23,14 +23,12 @@ export default function RecentProducts({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // State for products and pagination
   const [products, setProducts] = useState<any[]>(initialProducts);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
 
-  // Filter states (same as before)
   const [sortField, setSortField] = useState<SortField>(
     (searchParams.get("sortBy") as SortField) || "updated_at",
   );
@@ -42,10 +40,8 @@ export default function RecentProducts({
   );
   const [category, setCategory] = useState(searchParams.get("category") || "");
 
-  // Ref for the sentinel element
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Helper to update URL
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (limit !== 10) params.set("limit", limit.toString());
@@ -55,7 +51,6 @@ export default function RecentProducts({
     router.push(`?${params.toString()}`, { scroll: false });
   }, [limit, sortField, sortOrder, category, router]);
 
-  // Fetch function that can either replace or append
   const fetchProducts = useCallback(
     async (append = false) => {
       const currentOffset = append ? offset : 0;
@@ -82,7 +77,6 @@ export default function RecentProducts({
 
         if (append) {
           setProducts((prev) => [...prev, ...newProducts]);
-          // If fewer items than requested limit, no more data
           setHasMore(newProducts.length === limit);
           setOffset((prev) => prev + newProducts.length);
         } else {
@@ -105,7 +99,6 @@ export default function RecentProducts({
     [limit, sortField, sortOrder, category, offset, updateUrlParams],
   );
 
-  // Reset pagination and fetch when filters change
   useEffect(() => {
     setOffset(0);
     setProducts([]);
@@ -114,7 +107,6 @@ export default function RecentProducts({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limit, sortField, sortOrder, category]);
 
-  // Load more when sentinel becomes visible
   useEffect(() => {
     if (!sentinelRef.current || loadingMore || !hasMore) return;
     const observer = new IntersectionObserver(
@@ -129,7 +121,6 @@ export default function RecentProducts({
     return () => observer.disconnect();
   }, [loading, loadingMore, hasMore, fetchProducts]);
 
-  // Format date helper
   const formatDate = (timestamp: number) =>
     new Date(timestamp * 1000).toLocaleDateString(undefined, {
       month: "short",
@@ -138,7 +129,6 @@ export default function RecentProducts({
       minute: "2-digit",
     });
 
-  // Category name mapping (unchanged)
   const buildCategoryNameMap = (categories: any[]): Map<string, string> => {
     const map = new Map<string, string>();
     const traverse = (cats: any[]) => {
@@ -153,7 +143,7 @@ export default function RecentProducts({
   const categoryNameMap = buildCategoryNameMap(categories);
 
   return (
-    <div className="w-full max-w-6xl px-4 md:px-0">
+    <div className="w-full max-w-6xl md:px-0">
       <div className="mb-4 space-y-3">
         <TimelineFilters
           sortField={sortField}
@@ -176,11 +166,11 @@ export default function RecentProducts({
       <div className="relative min-h-[200px]">
         <AnimatePresence mode="wait">
           {loading && products.length === 0 ? (
-            <div className="grid gap-2 grid-cols-2">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
               {[...Array(limit)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-[224.5px] w-full bg-gray-100 dark:bg-gray-800/50 animate-pulse rounded-xl border border-gray-200 dark:border-gray-700"
+                  className="h-[200px] sm:h-[224px] w-full bg-gray-100 dark:bg-gray-800/50 animate-pulse rounded-xl border border-gray-200 dark:border-gray-700"
                 />
               ))}
             </div>
@@ -204,7 +194,7 @@ export default function RecentProducts({
               key="results"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="grid gap-2 grid-cols-2 overflow-y-auto"
+              className="grid gap-2 grid-cols-1 sm:grid-cols-2 overflow-y-auto"
             >
               {products.map((product, index) => (
                 <ProductCard
