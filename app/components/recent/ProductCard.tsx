@@ -12,8 +12,8 @@ import {
   Box,
   Copy,
   Check,
-  StickyNote,
 } from "lucide-react";
+import { NoteTooltip } from "./NoteTooltip"; // adjust path as needed
 
 interface ProductCardProps {
   product: any;
@@ -68,10 +68,10 @@ export const ProductCard = ({
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03 }}
-      className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md overflow-hidden"
+      className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md"
     >
       <div className="flex items-start p-3 sm:p-4 gap-3">
-        {/* Image – smaller on mobile */}
+        {/* Image */}
         <Link
           href={`/products/${product.id}`}
           className="my-auto flex-shrink-0"
@@ -100,12 +100,7 @@ export const ProductCard = ({
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
               {categoryName || "Uncategorized"}
             </div>
-            {hasNote && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-[9px] font-bold text-amber-700 dark:text-amber-400 flex-shrink-0">
-                <StickyNote className="w-2.5 h-2.5" />
-                NOTE
-              </div>
-            )}
+            {hasNote && <NoteTooltip note={product.note} />}
           </div>
 
           {/* Title */}
