@@ -12,8 +12,9 @@ import {
   Box,
   Copy,
   Check,
+  FileText,
 } from "lucide-react";
-import { NoteTooltip } from "./NoteTooltip"; // adjust path as needed
+import { NoteTooltip } from "./NoteTooltip";
 
 interface ProductCardProps {
   product: any;
@@ -50,10 +51,12 @@ export const ProductCard = ({
   const paragraphs = parseJson(product.paragraphs);
   const features = parseJson(product.features);
   const images = parseJson(product.images);
+  const specifications = parseJson(product.specifications);
 
   const paragraphCount = paragraphs.length;
   const featureCount = features.length;
   const imageCount = images.length;
+  const specCount = specifications.length;
 
   const firstImageUrl = images[0]?.url;
 
@@ -104,7 +107,7 @@ export const ProductCard = ({
           </div>
 
           {/* Title */}
-          <Link href={`/products/${product.id}`} className="min-w-0">
+          <Link href={`/products/${product.id}`} className="min-w-0 flex-1">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors text-sm sm:text-base">
               {product.title}
             </h3>
@@ -164,7 +167,13 @@ export const ProductCard = ({
                 count={imageCount}
                 color="text-purple-600"
               />
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 border-l border-gray-200 dark:border-gray-700 pl-2">
+              <StatItem
+                icon={<FileText className="w-3 h-3" />}
+                label="Specs"
+                count={specCount}
+                color="text-slate-600 dark:text-slate-400"
+              />
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 ">
                 {sortField === "updated_at" ? (
                   <Clock className="w-3 h-3" />
                 ) : (
