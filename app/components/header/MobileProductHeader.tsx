@@ -132,6 +132,9 @@ export function MobileProductHeader({
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <h1 className="text-sm font-semibold text-black dark:text-gray-100 ">
+                  {isEdit ? `Editing: ${title}` : title || "Create New Product"}
+                </h1>
                 <UniversalImportButton
                   onImport={onUniversalImport}
                   disabled={!selectedCategory && !isEdit}
@@ -199,14 +202,16 @@ export function MobileProductHeader({
                     </div>
                   </div>
                 )}
-                <DarkModeToggle />
-                {isEdit && (
-                  <DeleteButton
-                    productTitle={title}
-                    selectedCategory={selectedCategory}
-                    uuid={uuid}
-                  />
-                )}
+                <div className="flex justify-between">
+                  <DarkModeToggle />
+                  {isEdit && (
+                    <DeleteButton
+                      productTitle={title}
+                      selectedCategory={selectedCategory}
+                      uuid={uuid}
+                    />
+                  )}
+                </div>
               </div>
             </motion.div>
           </>
