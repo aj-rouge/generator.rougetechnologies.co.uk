@@ -44,6 +44,19 @@ ${specsList}
    Feature title: Description
    No numbering, no extra commentary, no blank lines between entries.`;
 
+    // --- LOGGING: print the final prompt sent to Groq ---
+    console.log("========================================");
+    console.log("🤖 FINAL PROMPT SENT TO GROQ (Features):");
+    console.log("----------------------------------------");
+    console.log(`Model: ${GROQ_MODEL}`);
+    console.log(`Product Title: ${title}`);
+    console.log(`Category: ${category}`);
+    console.log(`Specifications count: ${specifications.length}`);
+    console.log(`SEO Keywords: ${keywordsList}`);
+    console.log("-------- PROMPT BODY --------");
+    console.log(prompt);
+    console.log("========================================");
+
     const response = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -55,28 +68,30 @@ ${specsList}
         body: JSON.stringify({
           model: GROQ_MODEL,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.4, // Slightly lower for more factual consistency
-          max_tokens: 800, // More room for longer descriptions
+          temperature: 0.4,
+          max_tokens: 800,
         }),
       },
     );
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("Groq API error response:", errorText);
       throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
+    console.log("Groq API response (Features):", JSON.stringify(data, null, 2));
+
     const rawText = data.choices?.[0]?.message?.content?.trim();
     if (!rawText) throw new Error("Groq returned empty response");
 
-    // Parse lines -> extract title: description
     const lines = rawText.split("\n").filter((line: string) => line.trim());
     const features = lines
       .map((line: string) => {
         const colonIndex = line.indexOf(":");
         if (colonIndex === -1) {
-          return { title: line, description: "" }; // fallback
+          return { title: line, description: "" };
         }
         const title = line.substring(0, colonIndex).trim();
         const description = line.substring(colonIndex + 1).trim();
@@ -84,11 +99,15 @@ ${specsList}
       })
       .filter((f: any) => f.title && f.description);
 
-    // Limit to 8 features, require at least 3
     const finalFeatures = features.slice(0, 8);
     if (finalFeatures.length < 3) {
       throw new Error("Generated fewer than 3 valid features");
     }
+
+    console.log(`✅ Generated Features: ${finalFeatures.length} items`);
+    console.log(
+      finalFeatures.map((f: any) => `${f.title}: ${f.description}`).join("\n"),
+    );
 
     return NextResponse.json({ features: finalFeatures });
   } catch (error: any) {
