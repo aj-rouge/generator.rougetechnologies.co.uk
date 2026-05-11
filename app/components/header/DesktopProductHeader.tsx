@@ -1,4 +1,5 @@
-// app/components/ProductFormHeader.jsx
+"use client";
+
 import Link from "next/link";
 import { Home, ExternalLink, ShoppingBag, Package } from "lucide-react";
 import { DarkModeToggle } from "./DarkModeToggle";
@@ -8,7 +9,23 @@ import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
 import UniversalImportButton from "./import-product/UniversalImportButton";
 
-export default function ProductFormHeader({
+interface DesktopProductHeaderProps {
+  mode: "edit" | "create" | string;
+  title: string;
+  isSaving: boolean;
+  isFormValid: boolean;
+  shouldShowSave: boolean;
+  onSave: () => void;
+  selectedCategory?: string;
+  hasPendingUploads?: boolean;
+  uuid?: string;
+  baselinkerId?: string;
+  shopifyId?: string;
+  onBaselinkerCreated?: (id: string) => void;
+  onUniversalImport?: (data: any) => void;
+}
+
+export function DesktopProductHeader({
   mode,
   title,
   isSaving,
@@ -16,13 +33,13 @@ export default function ProductFormHeader({
   shouldShowSave,
   onSave,
   selectedCategory,
-  hasPendingUploads = false,
+  hasPendingUploads,
   uuid,
   baselinkerId,
   shopifyId,
   onBaselinkerCreated,
   onUniversalImport,
-}) {
+}: DesktopProductHeaderProps) {
   const isEdit = mode === "edit";
 
   const HomeButton = () => (
@@ -35,21 +52,19 @@ export default function ProductFormHeader({
   );
 
   return (
-    <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
+    <div className="sticky top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
       {isEdit ? (
         <div className="py-4">
           <div className="flex flex-wrap justify-between items-center gap-3">
-            <h1 className="text-xl font-bold text-black dark:text-white truncate max-w-fit">
+            <HomeButton />
+            <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100 truncate max-w-fit">
               Editing: {title}
             </h1>
-            <div className="flex items-center gap-3">
-              <HomeButton />
-              <DeleteButton
-                productTitle={title}
-                selectedCategory={selectedCategory}
-                uuid={uuid}
-              />
-            </div>
+            <DeleteButton
+              productTitle={title}
+              selectedCategory={selectedCategory}
+              uuid={uuid}
+            />
           </div>
           <div className="flex flex-wrap justify-end items-center gap-3 mt-4">
             <DarkModeToggle />
@@ -110,7 +125,6 @@ export default function ProductFormHeader({
               shouldShowSave={shouldShowSave}
               mode={mode}
               productTitle={title}
-              hasPendingUploads={hasPendingUploads}
             />
           </div>
         </div>
@@ -119,9 +133,9 @@ export default function ProductFormHeader({
           <div className="grid lg:grid-cols-2 gap-2">
             <div className="flex items-center gap-3 justify-start">
               <HomeButton />
-              <h2 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
+              <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
                 {title || "Create New Product"}
-              </h2>
+              </h1>
             </div>
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />
@@ -136,7 +150,6 @@ export default function ProductFormHeader({
                 shouldShowSave={shouldShowSave}
                 mode={mode}
                 productTitle={title}
-                hasPendingUploads={hasPendingUploads}
               />
             </div>
           </div>

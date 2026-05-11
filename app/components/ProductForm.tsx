@@ -423,7 +423,7 @@ export default function ProductForm({
   };
 
   return (
-    <div className="w-full min-h-screen">
+    <div className="w-full min-h-screen flex flex-col gap-2">
       <ProductFormHeader
         mode={mode}
         title={formData.title}
@@ -439,56 +439,56 @@ export default function ProductForm({
         onBaselinkerCreated={(id) => updateForm({ baselinker_id: id })}
         onUniversalImport={handleUniversalBatchImport}
       />
-      <div className="flex pb-4 flex-col px-4 gap-2 pt-60 sm:pt-48 md:pt-52 lg:pt-40">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-          <PricingSection
-            vat_rate={formData.vat_rate}
-            price_brutto={formData.price_brutto}
-            rrp={formData.rrp}
-            onUpdate={updateForm}
-          />
-          <LogisticsSection
-            weight={formData.weight}
-            quantity={formData.quantity}
-            shipping_method={formData.shipping_method}
-            onUpdate={updateForm}
-          />
-          <CategorySelector
-            selectedCategory={formData.selectedCategory}
-            setSelectedCategory={(val) => updateForm({ selectedCategory: val })}
-            options={categoryOptions}
-            keywords={currentCategoryKeywords}
-          />
-          <ConditionSelector
-            condition={formData.condition}
-            setCondition={(val) => updateForm({ condition: val })}
-            selectedCategory={formData.selectedCategory}
-            categories={categories}
-          />
-          <ProductIdentifiersSection
-            asin={formData.asin}
-            ean={formData.ean}
-            onUpdate={updateForm}
-          />
-          <ExternalPlatformIdsSection
-            baselinker_id={formData.baselinker_id}
-            shopify_id={formData.shopify_id}
-            sku={formData.sku}
-            title={formData.title}
-            onUpdate={updateForm}
-          />
-          <SKUManager
-            sku={formData.sku}
-            title={formData.title}
-            condition={formData.condition}
-            onSkuChange={(val) => updateForm({ sku: val })}
-          />
-          <TitleInput
-            title={formData.title}
-            setTitle={(val) => updateForm({ title: val })}
-            categoryKeywords={currentCategoryKeywords}
-          />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4">
+        <PricingSection
+          vat_rate={formData.vat_rate}
+          price_brutto={formData.price_brutto}
+          rrp={formData.rrp}
+          onUpdate={updateForm}
+        />
+        <LogisticsSection
+          weight={formData.weight}
+          quantity={formData.quantity}
+          shipping_method={formData.shipping_method}
+          onUpdate={updateForm}
+        />
+        <CategorySelector
+          selectedCategory={formData.selectedCategory}
+          setSelectedCategory={(val) => updateForm({ selectedCategory: val })}
+          options={categoryOptions}
+          keywords={currentCategoryKeywords}
+        />
+        <ConditionSelector
+          condition={formData.condition}
+          setCondition={(val) => updateForm({ condition: val })}
+          selectedCategory={formData.selectedCategory}
+          categories={categories}
+        />
+        <ProductIdentifiersSection
+          asin={formData.asin}
+          ean={formData.ean}
+          onUpdate={updateForm}
+        />
+        <ExternalPlatformIdsSection
+          baselinker_id={formData.baselinker_id}
+          shopify_id={formData.shopify_id}
+          sku={formData.sku}
+          title={formData.title}
+          onUpdate={updateForm}
+        />
+        <SKUManager
+          sku={formData.sku}
+          title={formData.title}
+          condition={formData.condition}
+          onSkuChange={(val) => updateForm({ sku: val })}
+        />
+        <TitleInput
+          title={formData.title}
+          setTitle={(val) => updateForm({ title: val })}
+          categoryKeywords={currentCategoryKeywords}
+        />
+      </div>
+      <div className="px-4 flex-col flex gap-2">
         <ParagraphsManager
           paragraphs={formData.paragraphs}
           setParagraphs={(val) => updateForm({ paragraphs: val })}

@@ -24,7 +24,7 @@ export default function UniversalImportButton({ onImport, disabled = false }) {
         }
       >
         <Globe className="w-4 h-4" />
-        <span className="hidden sm:inline">Import Product</span>
+        <span className="inline">Import Product</span>
       </button>
 
       <UniversalImportModal

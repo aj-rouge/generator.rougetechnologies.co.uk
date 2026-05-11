@@ -97,7 +97,7 @@ export default function UpdateShopifyButton({
           className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
         />
         <ShoppingBag className="w-4 h-4" />
-        <span className="hidden sm:inline">
+        <span className="inline">
           {isProcessing ? "Processing..." : "Update Shopify Description"}
         </span>
       </button>

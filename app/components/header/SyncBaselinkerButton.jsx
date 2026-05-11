@@ -98,7 +98,7 @@ export default function SyncBaselinkerButton({
           className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
         />
         <Package className="w-4 h-4" />
-        <span className="hidden sm:inline">
+        <span className="inline">
           {isProcessing ? "Processing..." : buttonText}
         </span>
       </button>
