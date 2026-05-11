@@ -493,11 +493,18 @@ export default function ProductForm({
           paragraphs={formData.paragraphs}
           setParagraphs={(val) => updateForm({ paragraphs: val })}
           categoryKeywords={currentCategoryKeywords}
+          productTitle={formData.title}
+          categoryName={categoryName}
+          specifications={formData.specifications}
+          features={formData.features}
         />
         <FeaturesManager
           features={formData.features}
           setFeatures={(val) => updateForm({ features: val })}
           categoryKeywords={currentCategoryKeywords}
+          productTitle={formData.title}
+          categoryName={categoryName}
+          specifications={formData.specifications}
         />
         <SpecificationsManager
           specifications={formData.specifications}

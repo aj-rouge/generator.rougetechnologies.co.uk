@@ -1,3 +1,4 @@
+// app/components/forms/sections/ParagraphsManager.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,17 +7,25 @@ import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
+import { useNotification } from "../../context/NotificationContext";
 
 export default function ParagraphsManager({
   paragraphs,
   setParagraphs,
   categoryKeywords = [],
+  productTitle = "",
+  categoryName = "",
+  specifications = [],
+  features = [],
 }) {
   const [newParagraph, setNewParagraph] = useState("");
   const [localParagraphsError, setLocalParagraphsError] = useState("");
   const [keywordCounts, setKeywordCounts] = useState({});
   const [showKeywordStats, setShowKeywordStats] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const { addNotification } = useNotification();
 
   const validateParagraph = (text) => {
     if (text.length < 160) {
@@ -70,6 +79,45 @@ export default function ParagraphsManager({
     if (value.length > 100) {
       const validationMsg = validateParagraph(value);
       setLocalParagraphsError(validationMsg);
+    }
+  };
+  const handleAiGenerate = async () => {
+    if (!productTitle || !categoryName) {
+      addNotification({
+        message: "Please enter a product title and select a category first.",
+        type: "warning",
+      });
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/generate-paragraphs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: productTitle,
+          category: categoryName,
+          specifications,
+          features,
+          keywords: categoryKeywords,
+        }),
+      });
+      const data = await res.json();
+      if (!data.paragraphs)
+        throw new Error(data.error || "No paragraphs generated");
+      setParagraphs(data.paragraphs);
+      addNotification({
+        message: "AI description generated successfully!",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("AI paragraph generation failed:", error);
+      addNotification({
+        message: `AI generation failed: ${error.message}`,
+        type: "error",
+      });
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -211,6 +259,46 @@ export default function ParagraphsManager({
         totalRules={totalRules}
         subtitle={subtitleStats}
       />
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={handleAiGenerate}
+          disabled={aiLoading || !productTitle || !categoryName}
+          className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors ${
+            aiLoading || !productTitle || !categoryName
+              ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500"
+              : "bg-purple-600 hover:bg-purple-700 text-white"
+          }`}
+        >
+          {aiLoading ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              Generating...
+            </>
+          ) : (
+            "🤖 AI Generate Description"
+          )}
+        </button>
+      </div>
 
       {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
@@ -301,7 +389,8 @@ export default function ParagraphsManager({
         {paragraphs.length === 0 ? (
           <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
             <p className="text-gray-500 dark:text-gray-400">
-              No paragraphs yet. Add your first paragraph below.
+              No paragraphs yet. Add your first paragraph or use AI to generate
+              a description.
             </p>
           </div>
         ) : (

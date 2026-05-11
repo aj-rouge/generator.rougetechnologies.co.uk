@@ -1,3 +1,4 @@
+// app/components/forms/sections/FeaturesManager.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,6 +6,7 @@ import { Pencil, Trash2, X } from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 import { ValidationRules } from "./ValidationRules";
 import { ValidationWrapper } from "./ValidationWrapper";
+import { useNotification } from "../../context/NotificationContext";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -31,12 +33,18 @@ export default function FeaturesManager({
   features,
   setFeatures,
   categoryKeywords = [],
+  productTitle = "",
+  categoryName = "",
+  specifications = [],
 }) {
   const [newFeatureTitle, setNewFeatureTitle] = useState("");
   const [newFeatureDesc, setNewFeatureDesc] = useState("");
   const [showKeywordStats, setShowKeywordStats] = useState(true);
   const [keywordCounts, setKeywordCounts] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const { addNotification } = useNotification();
 
   useEffect(() => {
     const cleaned = features.map((f) => ({
@@ -102,6 +110,46 @@ export default function FeaturesManager({
     setNewFeatureTitle(feature.title);
     setNewFeatureDesc(feature.description);
     setEditingIndex(index);
+  };
+
+  // --- AI Generation Handler ---
+  const handleAiGenerate = async () => {
+    if (!productTitle || !categoryName) {
+      addNotification({
+        message: "Please enter a product title and select a category first.",
+        type: "warning",
+      });
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/generate-features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: productTitle,
+          category: categoryName,
+          specifications,
+          keywords: categoryKeywords,
+        }),
+      });
+      const data = await res.json();
+      if (!data.features)
+        throw new Error(data.error || "No features generated");
+      setFeatures(data.features);
+      addNotification({
+        message: "AI features generated successfully!",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("AI feature generation failed:", error);
+      addNotification({
+        message: `AI generation failed: ${error.message}`,
+        type: "error",
+      });
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   // Calculate keyword occurrences whenever features change
@@ -285,6 +333,48 @@ export default function FeaturesManager({
         </div>
       </div>
 
+      {/* AI Generate button */}
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={handleAiGenerate}
+          disabled={aiLoading || !productTitle || !categoryName}
+          className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors ${
+            aiLoading || !productTitle || !categoryName
+              ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500"
+              : "bg-purple-600 hover:bg-purple-700 text-white"
+          }`}
+        >
+          {aiLoading ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Generating...
+            </>
+          ) : (
+            "🤖 AI Generate Features"
+          )}
+        </button>
+      </div>
+
       {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
         <div
@@ -355,7 +445,8 @@ export default function FeaturesManager({
         {features.length === 0 ? (
           <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
             <p className="text-gray-500 dark:text-gray-400">
-              No features yet. Add your first feature below.
+              No features yet. Add your first feature below or use AI to
+              generate them automatically.
             </p>
           </div>
         ) : (
