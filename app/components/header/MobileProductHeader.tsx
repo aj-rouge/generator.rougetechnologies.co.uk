@@ -32,6 +32,8 @@ interface MobileProductHeaderProps {
   shopifyId?: string;
   onBaselinkerCreated?: (id: string) => void;
   onUniversalImport?: (data: any) => void;
+  condition?: string;
+  categoryKeywords?: string[];
 }
 
 export function MobileProductHeader({
@@ -48,6 +50,8 @@ export function MobileProductHeader({
   shopifyId,
   onBaselinkerCreated,
   onUniversalImport,
+  condition,
+  categoryKeywords,
 }: MobileProductHeaderProps) {
   const isEdit = mode === "edit";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -137,7 +141,10 @@ export function MobileProductHeader({
                 </h1>
                 <UniversalImportButton
                   onImport={onUniversalImport}
-                  disabled={!selectedCategory && !isEdit}
+                  disabled={!selectedCategory}
+                  categoryName={selectedCategory}
+                  condition={condition}
+                  categoryKeywords={categoryKeywords}
                 />
                 {isEdit && (shopifyId || baselinkerId) && (
                   <div className="space-y-2">

@@ -30,6 +30,8 @@ interface ProductFormHeaderProps {
   shopifyId?: string;
   onBaselinkerCreated?: (id: string) => void;
   onUniversalImport?: (data: any) => void;
+  condition?: string;
+  categoryKeywords?: string[];
 }
 
 export default function ProductFormHeader(props: ProductFormHeaderProps) {

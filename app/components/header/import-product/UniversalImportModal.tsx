@@ -1,8 +1,9 @@
 // app/components/import-product/UniversalImportModal.tsx
-import { useState } from "react";
-import { X, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Globe, Loader2, Sparkles } from "lucide-react";
 import { FieldSelectionTable } from "./FieldSelectionTable";
 import { IdentifierForm } from "./IdentifierForm";
+import { useNotification } from "../../../context/NotificationContext";
 
 // ----------------------------------------------------------------------------
 // Constants
@@ -123,7 +124,14 @@ export default function UniversalImportModal({
   isOpen,
   onClose,
   onImport,
-}: UniversalImportModalProps) {
+  categoryName = "",
+  condition = "",
+  categoryKeywords = [],
+}: UniversalImportModalProps & {
+  categoryName?: string;
+  condition?: string;
+  categoryKeywords?: string[];
+}) {
   const {
     status,
     scrapedSources,
@@ -135,8 +143,30 @@ export default function UniversalImportModal({
     reset,
   } = useUniversalImport();
 
-  if (!isOpen) return null;
-
+  const { addNotification } = useNotification();
+  const [aiLoading, setAiLoading] = useState(false);
+  const getSelectedFieldValue = (fieldKey: string) => {
+    const sourceIdx = fieldSelections[fieldKey];
+    if (sourceIdx === null || sourceIdx === undefined) return null;
+    const source = scrapedSources[sourceIdx];
+    if (!source) return null;
+    switch (fieldKey) {
+      case "title":
+        return source.product?.title || null;
+      case "price":
+        return source.product?.price || null;
+      case "description":
+        return source.product?.description || null;
+      case "images":
+        return source.product?.images || null;
+      case "brand":
+        return source.product?.brand || null;
+      case "specifications":
+        return source.specifications || null;
+      default:
+        return null;
+    }
+  };
   const isLoading = status === "loading";
   const isSuccess = status === "success";
 
@@ -154,6 +184,122 @@ export default function UniversalImportModal({
   const handleBack = () => {
     reset();
   };
+  const selectedTitle = getSelectedFieldValue("title");
+  const selectedSpecs = getSelectedFieldValue("specifications") || [];
+  const canAiAutofill = !!selectedTitle && !!categoryName && !aiLoading;
+
+  // --- AI Autofill Handler ---
+  const handleAiAutofill = async () => {
+    if (!selectedTitle) {
+      addNotification({
+        message: "Select a title source first",
+        type: "warning",
+      });
+      return;
+    }
+    if (!categoryName) {
+      addNotification({
+        message: "Select a product category first",
+        type: "warning",
+      });
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      // Helper with built‑in retry (unchanged from your version)
+      async function groqFetch(url, body, maxRetries = 2) {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) return res.json();
+          if (res.status === 429 && attempt < maxRetries) {
+            const retryAfter = parseInt(
+              res.headers.get("Retry-After") || "5",
+              10,
+            );
+            await new Promise((r) => setTimeout(r, retryAfter * 1000));
+            continue;
+          }
+          const errorText = await res.text();
+          throw new Error(`Generation failed (${res.status}): ${errorText}`);
+        }
+        throw new Error("Max retries exceeded");
+      }
+
+      // Run calls one by one – this prevents the combined token count from exceeding the limit
+      const skuRes = await groqFetch("/api/generate-sku", {
+        title: selectedTitle,
+        condition: condition || "New",
+      });
+      const paraRes = await groqFetch("/api/generate-paragraphs", {
+        title: selectedTitle,
+        category: categoryName,
+        specifications: selectedSpecs,
+        features: [],
+        keywords: categoryKeywords,
+      });
+      const featRes = await groqFetch("/api/generate-features", {
+        title: selectedTitle,
+        category: categoryName,
+        specifications: selectedSpecs,
+        keywords: categoryKeywords,
+      });
+
+      // Build final import payload (same as before)
+      const finalData: any = {};
+
+      if (skuRes.sku) finalData.sku = skuRes.sku;
+      if (paraRes.paragraphs) finalData.paragraphs = paraRes.paragraphs;
+      if (featRes.features)
+        finalData.features = featRes.features.map((f) => ({
+          title: f.title,
+          description: f.description,
+        }));
+
+      finalData.title = selectedTitle;
+      const selectedPrice = getSelectedFieldValue("price");
+      if (selectedPrice) finalData.price = selectedPrice;
+      const selectedImages = getSelectedFieldValue("images");
+      if (selectedImages) finalData.images = selectedImages;
+      const selectedBrand = getSelectedFieldValue("brand");
+      if (selectedBrand) finalData.brand = selectedBrand;
+      if (selectedSpecs.length) finalData.specifications = selectedSpecs;
+
+      onImport(finalData);
+      onClose();
+      reset();
+      addNotification({ message: "AI Autofill complete!", type: "success" });
+    } catch (error: any) {
+      addNotification({
+        message: `AI Autofill failed: ${error.message}`,
+        type: "error",
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+  useEffect(() => {
+    console.group("🔍 AI Autofill Debug");
+    console.log("selectedTitle:", selectedTitle);
+    console.log("categoryName:", categoryName);
+    console.log("aiLoading:", aiLoading);
+    console.log("canAiAutofill:", canAiAutofill);
+    if (!selectedTitle)
+      console.warn(
+        "❌ No title selected – click a radio button for the Title row",
+      );
+    if (!categoryName)
+      console.warn(
+        "❌ No categoryName – check that it is passed from ProductForm → Header → Button → Modal",
+      );
+    if (aiLoading) console.log("⏳ Already loading...");
+    console.groupEnd();
+  }, [selectedTitle, categoryName, aiLoading, canAiAutofill]);
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -216,7 +362,26 @@ export default function UniversalImportModal({
                   Back
                 </button>
                 <button
+                  onClick={handleAiAutofill}
+                  disabled={!canAiAutofill}
+                  className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+                    canAiAutofill
+                      ? "bg-purple-600 hover:bg-purple-700 text-white"
+                      : "bg-purple-300 cursor-not-allowed text-white"
+                  }`}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {aiLoading ? "Autofilling..." : "AI Autofill"}
+                </button>
+                <button
                   onClick={handleImport}
+                  disabled={
+                    !Object.values(fieldSelections).some((s) => s !== null)
+                  }
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
                 >
                   Import Selected Fields

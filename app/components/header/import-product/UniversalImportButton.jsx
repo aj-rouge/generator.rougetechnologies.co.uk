@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Globe } from "lucide-react";
 import UniversalImportModal from "./UniversalImportModal";
 
-export default function UniversalImportButton({ onImport, disabled = false }) {
+export default function UniversalImportButton({
+  onImport,
+  disabled = false,
+  categoryName = "",
+  condition = "",
+  categoryKeywords = [],
+}) {
   const [showModal, setShowModal] = useState(false);
 
   return (
@@ -31,6 +37,9 @@ export default function UniversalImportButton({ onImport, disabled = false }) {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onImport={onImport}
+        categoryName={categoryName}
+        condition={condition}
+        categoryKeywords={categoryKeywords}
       />
     </>
   );

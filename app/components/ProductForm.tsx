@@ -376,7 +376,10 @@ export default function ProductForm({
       updates.specifications = currentSpecs;
     }
 
-    if (
+    if (importedData.paragraphs && Array.isArray(importedData.paragraphs)) {
+      // AI-generated paragraphs array
+      updates.paragraphs = importedData.paragraphs;
+    } else if (
       importedData.description &&
       typeof importedData.description === "string"
     ) {
@@ -399,6 +402,16 @@ export default function ProductForm({
         uploadStatus: "pending" as const,
       }));
       updates.images = newImages;
+    }
+    if (importedData.features && Array.isArray(importedData.features)) {
+      updates.features = importedData.features.map((f) => ({
+        title: f.title || "",
+        description: f.description || "",
+      }));
+    }
+
+    if (importedData.sku) {
+      updates.sku = importedData.sku;
     }
     if (importedData.specifications && importedData.specifications.length) {
       const existingKeys = new Set(
@@ -438,6 +451,8 @@ export default function ProductForm({
         shopifyId={mode === "edit" ? formData.shopify_id : undefined}
         onBaselinkerCreated={(id) => updateForm({ baselinker_id: id })}
         onUniversalImport={handleUniversalBatchImport}
+        condition={formData.condition}
+        categoryKeywords={currentCategoryKeywords}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4">
         <PricingSection

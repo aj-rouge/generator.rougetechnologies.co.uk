@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     // Fetch existing SKUs for context (limit to 200)
     const allSkus = await executeQuery(
-      `SELECT sku, title FROM products WHERE sku IS NOT NULL ORDER BY updated_at DESC LIMIT 200`,
+      `SELECT sku, title FROM products WHERE sku IS NOT NULL ORDER BY updated_at DESC LIMIT 100`,
     );
     const existingPairs = allSkus
       .map((p: any) => `- SKU: ${p.sku} (Title: ${p.title})`)

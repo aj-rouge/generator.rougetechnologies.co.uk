@@ -23,6 +23,8 @@ interface DesktopProductHeaderProps {
   shopifyId?: string;
   onBaselinkerCreated?: (id: string) => void;
   onUniversalImport?: (data: any) => void;
+  condition?: string;
+  categoryKeywords?: string[];
 }
 
 export function DesktopProductHeader({
@@ -39,6 +41,8 @@ export function DesktopProductHeader({
   shopifyId,
   onBaselinkerCreated,
   onUniversalImport,
+  condition,
+  categoryKeywords,
 }: DesktopProductHeaderProps) {
   const isEdit = mode === "edit";
 
@@ -68,7 +72,13 @@ export function DesktopProductHeader({
           </div>
           <div className="flex flex-wrap justify-end items-center gap-3 mt-4">
             <DarkModeToggle />
-            <UniversalImportButton onImport={onUniversalImport} />
+            <UniversalImportButton
+              onImport={onUniversalImport}
+              disabled={!selectedCategory}
+              categoryName={selectedCategory}
+              condition={condition}
+              categoryKeywords={categoryKeywords}
+            />
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
                 {shopifyId && shopifyId !== "null" && (
@@ -142,6 +152,9 @@ export function DesktopProductHeader({
               <UniversalImportButton
                 onImport={onUniversalImport}
                 disabled={!selectedCategory}
+                categoryName={selectedCategory}
+                condition={condition}
+                categoryKeywords={categoryKeywords}
               />
               <SaveButton
                 onSave={onSave}
