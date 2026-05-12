@@ -13,6 +13,7 @@ import { calculateValidationScore } from "../../../utils/ui/validationHelpers";
 import { getStatusBadgeColorFromState } from "../../../utils/ui/statusHelpers";
 import { ValidationWrapper } from "../ValidationWrapper";
 import { ValidationRules } from "../ValidationRules";
+import AddImageButton from "./AddImageButton";
 
 export default function ImagesManager({
   images,
@@ -176,7 +177,7 @@ export default function ImagesManager({
                       onError={(error) => alert(error)}
                     />
                   </div>
-                  {images.length > 0 && (
+                  {images.length > 0 ? (
                     <div className="mt-8 space-y-4">
                       <SortableImageGrid
                         images={images}
@@ -185,6 +186,14 @@ export default function ImagesManager({
                         selectedCategory={selectedCategory}
                         removeImage={removeImage}
                         isSaving={isSaving}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      <AddImageButton
+                        variant="full-width"
+                        label="Add First Image"
+                        setImages={setImages}
                       />
                     </div>
                   )}
