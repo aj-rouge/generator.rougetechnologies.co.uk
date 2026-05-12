@@ -354,7 +354,7 @@ export default function UniversalImportModal({
                   }))
                 }
               />
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex sm:flex-row flex-col-reverse justify-end gap-3 pt-2">
                 <button
                   onClick={handleBack}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300"
@@ -364,7 +364,7 @@ export default function UniversalImportModal({
                 <button
                   onClick={handleAiAutofill}
                   disabled={!canAiAutofill}
-                  className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
+                  className={`px-4 py-2 rounded-lg justify-center font-medium flex items-center gap-2 transition-colors ${
                     canAiAutofill
                       ? "bg-purple-600 hover:bg-purple-700 text-white"
                       : "bg-purple-300 cursor-not-allowed text-white"
