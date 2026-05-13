@@ -74,17 +74,30 @@ const validateSkuFormat = (sku) => {
     }
   }
 
-  // Valid condition codes as per new spec
-  const validConditions = ["NEW", "USE", "EX-REF", "VG-REF", "GD-REF"];
-  const lastPart = parts[parts.length - 1];
-  if (!validConditions.includes(lastPart)) {
-    return {
-      isValid: false,
-      error: `Invalid condition code: ${lastPart}. Use: ${validConditions.join(", ")}`,
-    };
+  // Valid condition codes: single-part and hyphenated
+  const validSimpleConditions = ["NEW", "USE"];
+  const validHyphenatedConditions = ["EX-REF", "VG-REF", "GD-REF"];
+
+  // Check last segment for simple codes
+  const lastSegment = parts[parts.length - 1];
+  if (validSimpleConditions.includes(lastSegment)) {
+    return { isValid: true, error: null };
   }
 
-  return { isValid: true, error: null };
+  // Check last two segments combined for hyphenated codes
+  if (parts.length >= 2) {
+    const lastTwo = parts.slice(-2).join("-");
+    if (validHyphenatedConditions.includes(lastTwo)) {
+      return { isValid: true, error: null };
+    }
+  }
+
+  // If we reach here, condition code is invalid
+  const allValid = [...validSimpleConditions, ...validHyphenatedConditions];
+  return {
+    isValid: false,
+    error: `Invalid condition code. Use: ${allValid.join(", ")}`,
+  };
 };
 
 export default function SKUManager({ sku, title, condition, onSkuChange }) {
@@ -120,9 +133,26 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     }
   };
 
+  // Helper to extract condition code from SKU (handles hyphenated)
+  const getConditionCodeFromSku = (sku) => {
+    if (!sku) return null;
+    const parts = sku.split("-");
+    const lastSegment = parts[parts.length - 1];
+    const validSimple = ["NEW", "USE"];
+    if (validSimple.includes(lastSegment)) return lastSegment;
+    if (parts.length >= 2) {
+      const lastTwo = parts.slice(-2).join("-");
+      const validHyphenated = ["EX-REF", "VG-REF", "GD-REF"];
+      if (validHyphenated.includes(lastTwo)) return lastTwo;
+    }
+    return lastSegment; // fallback, but will show as invalid
+  };
+
   // Validation rules checker
   const checkValidationRules = () => {
     const skuValidation = validateSkuFormat(sku);
+    const conditionCode = getConditionCodeFromSku(sku);
+    const isValidCondition = skuValidation.isValid;
 
     const rules = [
       {
@@ -143,8 +173,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           "Format: BRAND-TYPE-[SPECS]-[COLOR]-CONDITION (e.g., APP-IPA-PRO-11I-SIL-NEW)",
         check: () => {
           if (!sku) return false;
-          const validation = validateSkuFormat(sku);
-          return validation.isValid;
+          return validateSkuFormat(sku).isValid;
         },
         importance: "critical",
         condition: !!sku,
@@ -180,15 +209,14 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         id: 4,
         name: "Condition Code Valid",
         description:
-          "Last segment must be a valid condition code (NEW, USE, EX-REF, VG-REF, GD-REF)",
-        check: () => {
-          if (!sku) return false;
-          const validation = validateSkuFormat(sku);
-          return validation.isValid;
-        },
+          "Last segment(s) must be a valid condition code (NEW, USE, EX-REF, VG-REF, GD-REF)",
+        check: () => isValidCondition,
         importance: "critical",
         condition: !!sku,
-        errorMessage: null,
+        errorMessage:
+          !isValidCondition && sku
+            ? `❌ ${validateSkuFormat(sku).error}`
+            : null,
       },
     ];
 
@@ -220,7 +248,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     const parts = sku.split("-");
     const brand = parts[0] || "";
     const type = parts[1] || "";
-    const conditionCode = parts[parts.length - 1] || "";
+    const conditionCode = getConditionCodeFromSku(sku);
     return `Format: ${brand}-${type}-[...]-${conditionCode}`;
   };
 
@@ -228,11 +256,24 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     if (!sku) return null;
     const parts = sku.split("-");
     if (parts.length < 2) return null;
+    // Determine condition (could be last one or last two)
+    let conditionCode = parts[parts.length - 1];
+    const validHyphenated = ["EX-REF", "VG-REF", "GD-REF"];
+    if (
+      parts.length >= 2 &&
+      validHyphenated.includes(parts.slice(-2).join("-"))
+    ) {
+      conditionCode = parts.slice(-2).join("-");
+    }
+    const specsEndIndex = conditionCode.includes("-")
+      ? parts.length - 2
+      : parts.length - 1;
+    const specsParts = parts.slice(2, specsEndIndex);
     return {
       brand: parts[0],
       type: parts[1],
-      specs: parts.slice(2, -1).join("-"),
-      condition: parts[parts.length - 1],
+      specs: specsParts.join("-"),
+      condition: conditionCode,
     };
   };
 
@@ -341,14 +382,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
                 </div>
                 <div
                   className={`font-mono font-bold ${
-                    [
-                      "NEW",
-                      "REF",
-                      "ONU",
-                      "EX-REF",
-                      "VG-REF",
-                      "GD-REF",
-                    ].includes(skuParts.condition)
+                    validateSkuFormat(sku).isValid
                       ? "text-green-600 dark:text-green-400"
                       : "text-yellow-600 dark:text-yellow-400"
                   }`}
