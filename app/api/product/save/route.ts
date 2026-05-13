@@ -302,13 +302,21 @@ export async function POST(req: Request) {
       finalizedImages,
       !!existing,
     );
-
+    const updatedImages = finalizedImages.map((img, idx) => ({
+      url: img.url,
+      s3Path: img.s3_path,
+      altText: img.alt_text,
+      isUploaded: true,
+      needsUpload: false,
+      uploadStatus: "completed",
+    }));
     await cleanupImagesFromR2(newData.category, productSlug, finalizedImages);
 
     return NextResponse.json({
       success: true,
       id: productId,
       message: "Product synced successfully",
+      updatedImages,
     });
   } catch (error: any) {
     console.error("💥 Save Error:", error);

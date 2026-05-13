@@ -44,33 +44,40 @@ export async function processImages(
   oldImages: any[],
 ) {
   const finalized = [];
+  const BUCKET = process.env.R2_BUCKET_NAME!;
+  const PUBLIC_DOMAIN = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN!;
 
   for (let i = 0; i < uiImages.length; i++) {
     const img = uiImages[i];
     const targetS3Path = generateSeoFileName(category, productSlug, i + 1);
     let finalUrl = "";
+    let stagingKey: string | null = null;
 
-    if (img.needsUpload) {
-      if (img.url.includes("/temp-uploads/")) {
-        // Move from staging
-        await s3Client.send(
-          new CopyObjectCommand({
-            Bucket: BUCKET,
-            CopySource: `${BUCKET}/${img.s3Path}`,
-            Key: targetS3Path,
-          }),
-        );
-        await s3Client.send(
-          new DeleteObjectCommand({ Bucket: BUCKET, Key: img.s3Path }),
-        );
-        finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
-      } else {
-        // External Upload
-        const result = await uploadToR2FromUrl(img.url, targetS3Path);
-        finalUrl = result.url;
-      }
+    if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
+      // Extract staging key from URL (remove domain)
+      const urlWithoutDomain = img.url.replace(PUBLIC_DOMAIN, "");
+      stagingKey = urlWithoutDomain.startsWith("/")
+        ? urlWithoutDomain.slice(1)
+        : urlWithoutDomain;
+
+      // Copy from staging to final location
+      await s3Client.send(
+        new CopyObjectCommand({
+          Bucket: BUCKET,
+          CopySource: `${BUCKET}/${stagingKey}`,
+          Key: targetS3Path,
+        }),
+      );
+      await s3Client.send(
+        new DeleteObjectCommand({ Bucket: BUCKET, Key: stagingKey }),
+      );
+      finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
+    } else if (img.needsUpload) {
+      // External URL upload
+      const result = await uploadToR2FromUrl(img.url, targetS3Path);
+      finalUrl = result.url;
     } else {
-      // Restore from Temp
+      // Restore from temp folder (edit mode)
       const prev = oldImages.find(
         (old) => old.url === img.url || old.s3_path === img.s3Path,
       );
