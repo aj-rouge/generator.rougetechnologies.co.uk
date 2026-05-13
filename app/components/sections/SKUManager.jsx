@@ -26,7 +26,7 @@ const mapConditionToAbbreviation = (condition) => {
     "Very Good Refurbished": "VG-REF",
     "Good Refurbished": "GD-REF",
   };
-  return map[condition] || null; // null indicates unsupported condition
+  return map[condition] || null;
 };
 
 // Fallback heuristic – still used if AI call fails
