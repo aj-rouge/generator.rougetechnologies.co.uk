@@ -129,7 +129,7 @@ export default function CategorySelector({
         subtitle={subtitle}
       />
 
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 gap-4">
         <label className="block text-black dark:text-gray-100 font-medium mb-2">
           Select Category:
         </label>
@@ -154,7 +154,7 @@ export default function CategorySelector({
 
         {/* Keywords display – removed emoji, added icon */}
         {selectedCategory && selectedValueExists && keywords.length > 0 && (
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+          <div className=" p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
               <AlignJustify className="h-4 w-4" /> Keywords for this Category:
             </p>
