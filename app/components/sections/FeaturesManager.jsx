@@ -2,11 +2,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, X } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  X,
+  Check,
+  Search,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 import { ValidationRules } from "./ValidationRules";
 import { ValidationWrapper } from "./ValidationWrapper";
-import { useNotification } from "../../context/NotificationContext";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 // ----- Helper functions for text cleaning -----
 const capitalizeFirstLetter = (str) => {
@@ -42,9 +50,6 @@ export default function FeaturesManager({
   const [showKeywordStats, setShowKeywordStats] = useState(true);
   const [keywordCounts, setKeywordCounts] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
-
-  const [aiLoading, setAiLoading] = useState(false);
-  const { addNotification } = useNotification();
 
   useEffect(() => {
     const cleaned = features.map((f) => ({
@@ -110,46 +115,6 @@ export default function FeaturesManager({
     setNewFeatureTitle(feature.title);
     setNewFeatureDesc(feature.description);
     setEditingIndex(index);
-  };
-
-  // --- AI Generation Handler ---
-  const handleAiGenerate = async () => {
-    if (!productTitle || !categoryName) {
-      addNotification({
-        message: "Please enter a product title and select a category first.",
-        type: "warning",
-      });
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const res = await fetch("/api/generate-features", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: productTitle,
-          category: categoryName,
-          specifications,
-          keywords: categoryKeywords,
-        }),
-      });
-      const data = await res.json();
-      if (!data.features)
-        throw new Error(data.error || "No features generated");
-      setFeatures(data.features);
-      addNotification({
-        message: "AI features generated successfully!",
-        type: "success",
-      });
-    } catch (error) {
-      console.error("AI feature generation failed:", error);
-      addNotification({
-        message: `AI generation failed: ${error.message}`,
-        type: "error",
-      });
-    } finally {
-      setAiLoading(false);
-    }
   };
 
   // Calculate keyword occurrences whenever features change
@@ -279,12 +244,12 @@ export default function FeaturesManager({
   };
 
   const getHeaderIcon = () => {
-    if (features.length === 0) return "❌";
-    if (features.length < 1) return "⚠️";
-    if (!categoryKeywords.length) return "⚠️";
-    if (hasMissingKeywords) return "⚠️";
-    if (allRulesPass) return "✅";
-    return "⚠️";
+    if (features.length === 0) return AlertCircle;
+    if (features.length < 1) return AlertCircle;
+    if (!categoryKeywords.length) return AlertCircle;
+    if (hasMissingKeywords) return AlertCircle;
+    if (allRulesPass) return CheckCircle;
+    return AlertCircle;
   };
 
   const badgeColor = getStatusBadgeColorFromState({
@@ -292,7 +257,6 @@ export default function FeaturesManager({
     hasWarning: !categoryKeywords.length || hasMissingKeywords,
     isComplete: allRulesPass,
   });
-
 
   const canAddOrUpdate =
     newFeatureTitle.trim().length > 0 && newFeatureDesc.trim().length > 0;
@@ -335,44 +299,20 @@ export default function FeaturesManager({
 
       {/* AI Generate button */}
       <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={handleAiGenerate}
-          disabled={aiLoading || !productTitle || !categoryName}
-          className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors ${
-            aiLoading || !productTitle || !categoryName
-              ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500"
-              : "bg-purple-600 hover:bg-purple-700 text-white"
-          }`}
+        <AIGenerateButton
+          endpoint="/api/generate-features"
+          body={{
+            title: productTitle,
+            category: categoryName,
+            specifications,
+            keywords: categoryKeywords,
+          }}
+          onSuccess={(data) => data.features && setFeatures(data.features)}
+          successMessage="Features generated successfully!"
+          disabled={!productTitle || !categoryName}
         >
-          {aiLoading ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Generating...
-            </>
-          ) : (
-            "🤖 AI Generate Features"
-          )}
-        </button>
+          Generate Features
+        </AIGenerateButton>
       </div>
 
       {/* Keyword Usage Statistics */}
@@ -385,8 +325,9 @@ export default function FeaturesManager({
           } transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-black dark:text-gray-100">
-              🔍 Keyword Usage in Features ({totalKeywordCount} total)
+            <h4 className="font-medium text-black dark:text-gray-100 flex items-center gap-2">
+              <Search className="h-4 w-4" /> Keyword Usage in Features (
+              {totalKeywordCount} total)
             </h4>
             <button
               onClick={() => setShowKeywordStats(!showKeywordStats)}
@@ -570,13 +511,19 @@ export default function FeaturesManager({
             <button
               onClick={addOrUpdateFeature}
               disabled={!canAddOrUpdate}
-              className={`flex-1 px-4 py-3 rounded-lg transition-all duration-300 ${
+              className={`flex-1 px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
                 canAddOrUpdate
                   ? "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white shadow-md"
                   : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
-              {editingIndex !== null ? "✓ Update Feature" : "+ Add Feature"}
+              {editingIndex !== null ? (
+                <>
+                  <Check className="h-4 w-4" /> Update Feature
+                </>
+              ) : (
+                "+ Add Feature"
+              )}
             </button>
 
             {editingIndex !== null && (
@@ -595,7 +542,7 @@ export default function FeaturesManager({
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}
-        headerText="Feature Requirements:"
+        headerText="Feature Requirements"
         validationScore={validationScore}
         allRulesPass={allRulesPass}
         passedRules={passedRules}

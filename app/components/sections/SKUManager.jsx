@@ -1,13 +1,18 @@
 // app/components/forms/sections/SKUManager.jsx
 "use client";
 
-import { useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Package,
+  BarChart3,
+  Zap,
+} from "lucide-react";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
-import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
-import { useNotification } from "../../context/NotificationContext";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 const formatSnippet = (text) => {
   if (!text) return "";
@@ -101,39 +106,6 @@ const validateSkuFormat = (sku) => {
 };
 
 export default function SKUManager({ sku, title, condition, onSkuChange }) {
-  const { addNotification } = useNotification();
-  const [aiGenerating, setAiGenerating] = useState(false);
-
-  const handleAiGenerate = async () => {
-    if (!title || !condition) return;
-    setAiGenerating(true);
-    try {
-      const res = await fetch("/api/generate-sku", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, condition }),
-      });
-      const data = await res.json();
-      if (data.sku) {
-        onSkuChange(data.sku);
-      } else {
-        throw new Error(data.error || "No SKU generated");
-      }
-    } catch (error) {
-      console.error("AI SKU generation failed, using fallback:", error);
-      // Fallback to heuristic
-      const fallback = suggestSkuFromTitle(title, condition);
-      onSkuChange(fallback);
-      addNotification({
-        message: `AI generation failed, using heuristic: ${error.message}`,
-        type: "warning",
-      });
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  // Helper to extract condition code from SKU (handles hyphenated)
   const getConditionCodeFromSku = (sku) => {
     if (!sku) return null;
     const parts = sku.split("-");
@@ -145,15 +117,12 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
       const validHyphenated = ["EX-REF", "VG-REF", "GD-REF"];
       if (validHyphenated.includes(lastTwo)) return lastTwo;
     }
-    return lastSegment; // fallback, but will show as invalid
+    return lastSegment;
   };
 
-  // Validation rules checker
   const checkValidationRules = () => {
     const skuValidation = validateSkuFormat(sku);
-    const conditionCode = getConditionCodeFromSku(sku);
     const isValidCondition = skuValidation.isValid;
-
     const rules = [
       {
         id: 1,
@@ -163,7 +132,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         importance: "critical",
         errorMessage:
           !sku || sku.trim().length === 0
-            ? "❌ Missing: Please enter a SKU"
+            ? "Missing: Please enter a SKU"
             : null,
       },
       {
@@ -171,15 +140,12 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         name: "Valid SKU Format",
         description:
           "Format: BRAND-TYPE-[SPECS]-[COLOR]-CONDITION (e.g., APP-IPA-PRO-11I-SIL-NEW)",
-        check: () => {
-          if (!sku) return false;
-          return validateSkuFormat(sku).isValid;
-        },
+        check: () => !!sku && validateSkuFormat(sku).isValid,
         importance: "critical",
         condition: !!sku,
         errorMessage:
           sku && !validateSkuFormat(sku).isValid
-            ? `❌ Format Error: ${validateSkuFormat(sku).error}`
+            ? `Format Error: ${validateSkuFormat(sku).error}`
             : null,
       },
       {
@@ -191,8 +157,6 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           const suggested = suggestSkuFromTitle(title, condition);
           const skuParts = sku.split("-");
           const suggestedParts = suggested.split("-");
-
-          // Check if first segment (brand) matches
           return skuParts[0] === suggestedParts[0];
         },
         importance: "warning",
@@ -202,7 +166,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           title &&
           sku.split("-")[0] !==
             suggestSkuFromTitle(title, condition).split("-")[0]
-            ? "⚠️ Warning: Brand code doesn't match title. Consider generating with AI."
+            ? "Warning: Brand code doesn't match title. Consider generating with AI."
             : null,
       },
       {
@@ -214,12 +178,9 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         importance: "critical",
         condition: !!sku,
         errorMessage:
-          !isValidCondition && sku
-            ? `❌ ${validateSkuFormat(sku).error}`
-            : null,
+          !isValidCondition && sku ? validateSkuFormat(sku).error : null,
       },
     ];
-
     return rules;
   };
 
@@ -227,20 +188,19 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
   const displayRules = validationRules.filter(
     (rule) => rule.condition !== false,
   );
-
   const { passedRules, totalRules, allRulesPass, validationScore } =
     calculateValidationScore(displayRules);
 
   const getOverallStatus = () => {
-    if (!sku) return "⚠️ Enter SKU";
-    if (allRulesPass) return "✓ Valid SKU";
-    return "⚠️ Needs Attention";
+    if (!sku) return "Enter SKU";
+    if (allRulesPass) return "Valid SKU";
+    return "Needs Attention";
   };
 
   const getHeaderIcon = () => {
-    if (!sku) return VALIDATION_COLORS.icon.critical;
-    if (allRulesPass) return VALIDATION_COLORS.icon.success;
-    return VALIDATION_COLORS.icon.warning;
+    if (!sku) return AlertCircle;
+    if (allRulesPass) return CheckCircle;
+    return AlertCircle;
   };
 
   const getSubtitle = () => {
@@ -256,7 +216,6 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     if (!sku) return null;
     const parts = sku.split("-");
     if (parts.length < 2) return null;
-    // Determine condition (could be last one or last two)
     let conditionCode = parts[parts.length - 1];
     const validHyphenated = ["EX-REF", "VG-REF", "GD-REF"];
     if (
@@ -290,49 +249,23 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
       />
 
       <div className="flex flex-col flex-1">
-        <div className="flex items-center justify-between ">
+        <div className="flex items-center justify-between">
           <label className="text-black dark:text-gray-100 font-medium">
             Product SKU:
           </label>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleAiGenerate}
-              disabled={!title || !condition || aiGenerating}
-              className={`text-sm px-3 py-1 rounded transition-colors flex items-center gap-1 ${
-                !title || !condition || aiGenerating
-                  ? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
+            <AIGenerateButton
+              endpoint="/api/generate-sku"
+              body={{ title, condition }}
+              onSuccess={(data) => data.sku && onSkuChange(data.sku)}
+              fallback={() =>
+                onSkuChange(suggestSkuFromTitle(title, condition))
+              }
+              successMessage="SKU generated successfully!"
+              disabled={!title || !condition}
             >
-              {aiGenerating ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                "🤖 AI Generate SKU"
-              )}
-            </button>
+              Generate SKU
+            </AIGenerateButton>
           </div>
         </div>
 
@@ -352,8 +285,8 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
 
         {skuParts && (
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              📊 SKU Breakdown:
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> SKU Breakdown:
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div className="text-center p-2 bg-white dark:bg-gray-800 rounded border">
@@ -394,6 +327,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           </div>
         )}
       </div>
+
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}

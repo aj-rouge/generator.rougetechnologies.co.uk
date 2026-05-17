@@ -2,12 +2,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Pencil, Trash2, X } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  X,
+  Search,
+  AlertCircle,
+  CheckCircle,
+  Zap,
+} from "lucide-react";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
-import { useNotification } from "../../context/NotificationContext";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 export default function ParagraphsManager({
   paragraphs,
@@ -23,9 +31,6 @@ export default function ParagraphsManager({
   const [keywordCounts, setKeywordCounts] = useState({});
   const [showKeywordStats, setShowKeywordStats] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
-
-  const [aiLoading, setAiLoading] = useState(false);
-  const { addNotification } = useNotification();
 
   const validateParagraph = (text) => {
     if (text.length < 160) {
@@ -79,45 +84,6 @@ export default function ParagraphsManager({
     if (value.length > 100) {
       const validationMsg = validateParagraph(value);
       setLocalParagraphsError(validationMsg);
-    }
-  };
-  const handleAiGenerate = async () => {
-    if (!productTitle || !categoryName) {
-      addNotification({
-        message: "Please enter a product title and select a category first.",
-        type: "warning",
-      });
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const res = await fetch("/api/generate-paragraphs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: productTitle,
-          category: categoryName,
-          specifications,
-          features,
-          keywords: categoryKeywords,
-        }),
-      });
-      const data = await res.json();
-      if (!data.paragraphs)
-        throw new Error(data.error || "No paragraphs generated");
-      setParagraphs(data.paragraphs);
-      addNotification({
-        message: "AI description generated successfully!",
-        type: "success",
-      });
-    } catch (error) {
-      console.error("AI paragraph generation failed:", error);
-      addNotification({
-        message: `AI generation failed: ${error.message}`,
-        type: "error",
-      });
-    } finally {
-      setAiLoading(false);
     }
   };
 
@@ -183,13 +149,11 @@ export default function ParagraphsManager({
       {
         id: 4,
         name: "Category Keywords",
-        description: `Use all category keywords at least once: ${categoryKeywords
-          .slice(0, 3)
-          .join(", ")}${categoryKeywords.length > 3 ? "..." : ""}`,
-        check: () => {
-          if (categoryKeywords.length === 0) return false;
-          return !hasMissingKeywords;
-        },
+        description: `Use all category keywords at least once: ${categoryKeywords.slice(0, 3).join(", ")}${
+          categoryKeywords.length > 3 ? "..." : ""
+        }`,
+        check: () =>
+          categoryKeywords.length === 0 ? false : !hasMissingKeywords,
         importance: "critical",
         condition: categoryKeywords.length > 0,
       },
@@ -208,7 +172,6 @@ export default function ParagraphsManager({
         condition: categoryKeywords.length > 0,
       },
     ];
-
     return rules;
   };
 
@@ -228,18 +191,17 @@ export default function ParagraphsManager({
   };
 
   const getHeaderIcon = () => {
-    if (paragraphs.length === 0) return "❌";
-    if (!categoryKeywords.length) return "⚠️";
-    if (hasMissingKeywords) return "⚠️";
-    if (allRulesPass) return "✅";
-    return "⚠️";
+    if (paragraphs.length === 0) return AlertCircle;
+    if (!categoryKeywords.length) return AlertCircle;
+    if (hasMissingKeywords) return AlertCircle;
+    if (allRulesPass) return CheckCircle;
+    return AlertCircle;
   };
 
   const hasCriticalError = paragraphs.length === 0;
   const hasWarning =
     paragraphs.length > 0 &&
     (!categoryKeywords.length || hasMissingKeywords || !allRulesPass);
-
   const subtitleStats = `Paragraphs: ${paragraphs.length}, Keywords: ${totalKeywordCount} total, Avg length: ${avgParaLength} chars`;
 
   return (
@@ -260,47 +222,25 @@ export default function ParagraphsManager({
         subtitle={subtitleStats}
       />
       <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={handleAiGenerate}
-          disabled={aiLoading || !productTitle || !categoryName}
-          className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors ${
-            aiLoading || !productTitle || !categoryName
-              ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed text-gray-500"
-              : "bg-purple-600 hover:bg-purple-700 text-white"
-          }`}
+        <AIGenerateButton
+          endpoint="/api/generate-paragraphs"
+          body={{
+            title: productTitle,
+            category: categoryName,
+            specifications,
+            features,
+            keywords: categoryKeywords,
+          }}
+          onSuccess={(data) =>
+            data.paragraphs && setParagraphs(data.paragraphs)
+          }
+          successMessage="Description generated successfully!"
+          disabled={!productTitle || !categoryName}
         >
-          {aiLoading ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Generating...
-            </>
-          ) : (
-            "🤖 AI Generate Description"
-          )}
-        </button>
+          Generate Description
+        </AIGenerateButton>
       </div>
 
-      {/* Keyword Usage Statistics */}
       {categoryKeywords.length > 0 && (
         <div
           className={`mb-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border ${
@@ -310,8 +250,9 @@ export default function ParagraphsManager({
           } transition-all duration-300`}
         >
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-black dark:text-gray-100">
-              🔍 Keyword Usage ({totalKeywordCount} total)
+            <h4 className="font-medium text-black dark:text-gray-100 flex items-center gap-2">
+              <Search className="h-4 w-4" /> Keyword Usage ({totalKeywordCount}{" "}
+              total)
             </h4>
             <button
               onClick={() => setShowKeywordStats(!showKeywordStats)}
@@ -384,7 +325,6 @@ export default function ParagraphsManager({
         </div>
       )}
 
-      {/* Current Paragraphs */}
       <div className="space-y-3 my-4">
         {paragraphs.length === 0 ? (
           <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
@@ -406,9 +346,7 @@ export default function ParagraphsManager({
                     return matches ? acc + matches.length : acc;
                   }, 0)
                 : 0;
-
             const isEditingThis = editingIndex === index;
-
             return (
               <div
                 key={index}
@@ -462,8 +400,9 @@ export default function ParagraphsManager({
                 </div>
                 <p className="text-gray-700 dark:text-gray-300">{para}</p>
                 {!isEditingThis && para.length < 160 && (
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center">
-                    ⚠️ Needs {160 - para.length} more characters (minimum 160)
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Needs{" "}
+                    {160 - para.length} more characters (minimum 160)
                   </p>
                 )}
               </div>
@@ -472,7 +411,6 @@ export default function ParagraphsManager({
         )}
       </div>
 
-      {/* Add/Edit Paragraph Form */}
       <div className="mt-6">
         <div className="flex justify-between items-center mb-2">
           <label className="block text-black dark:text-gray-100 font-medium">
@@ -503,20 +441,16 @@ export default function ParagraphsManager({
             <textarea
               value={newParagraph}
               onChange={handleNewParagraphChange}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
-                       dark:bg-gray-700 dark:text-gray-100
-                       ${
-                         newParagraph.length === 0
-                           ? "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                           : newParagraph.length < 160
-                             ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
-                             : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
-                       }`}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-gray-100 ${
+                newParagraph.length === 0
+                  ? "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  : newParagraph.length < 160
+                    ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
+                    : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
+              }`}
               placeholder={
                 categoryKeywords.length > 0
-                  ? `Write detailed paragraph including keywords: ${categoryKeywords
-                      .slice(0, 3)
-                      .join(", ")}${
+                  ? `Write detailed paragraph including keywords: ${categoryKeywords.slice(0, 3).join(", ")}${
                       categoryKeywords.length > 3 ? "..." : ""
                     } (minimum 160 characters)`
                   : "Write detailed paragraph with specifications, features, and benefits... (minimum 160 characters)"
@@ -524,7 +458,6 @@ export default function ParagraphsManager({
               rows={3}
             />
 
-            {/* Length indicator bar */}
             <div className="mt-4">
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                 <span>0</span>
@@ -555,13 +488,9 @@ export default function ParagraphsManager({
                           : "bg-transparent"
                   }`}
                   style={{
-                    width: `${Math.min(
-                      100,
-                      (newParagraph.length / 500) * 100,
-                    )}%`,
+                    width: `${Math.min(100, (newParagraph.length / 500) * 100)}%`,
                   }}
                 />
-                {/* Minimum line indicator */}
                 <div
                   className="h-2 w-0.5 bg-gray-400 absolute top-0"
                   style={{
@@ -569,7 +498,6 @@ export default function ParagraphsManager({
                     transform: "translateX(-50%)",
                   }}
                 />
-                {/* Recommended line indicator */}
                 <div
                   className="h-2 w-0.5 bg-green-400 absolute top-0 opacity-50"
                   style={{
@@ -603,8 +531,8 @@ export default function ParagraphsManager({
               </div>
             </div>
             {localParagraphsError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                ⚠️ {localParagraphsError}
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> {localParagraphsError}
               </p>
             )}
           </div>
@@ -619,9 +547,8 @@ export default function ParagraphsManager({
                   : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
-              {editingIndex !== null ? "✓ Update Paragraph" : "+ Add Paragraph"}
+              {editingIndex !== null ? "Update Paragraph" : "Add Paragraph"}
             </button>
-
             {editingIndex !== null && (
               <button
                 onClick={cancelEdit}
@@ -638,7 +565,7 @@ export default function ParagraphsManager({
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}
-        headerText="Description Requirements:"
+        headerText="Description Requirements"
         validationScore={validationScore}
         allRulesPass={allRulesPass}
         passedRules={passedRules}

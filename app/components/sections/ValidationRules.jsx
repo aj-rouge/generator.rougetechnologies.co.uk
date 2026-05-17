@@ -1,5 +1,7 @@
+// app/components/forms/sections/ValidationRules.jsx
 "use client";
 
+import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import {
   getImportanceColor,
   getValidationColor,
@@ -7,7 +9,7 @@ import {
 
 export function ValidationRules({
   rules,
-  headerIcon = "⚠️",
+  headerIcon = AlertCircle, // can be a component or a string (legacy)
   headerText = "Requirements",
   validationScore = 0,
   allRulesPass = false,
@@ -15,11 +17,20 @@ export function ValidationRules({
   totalRules = 0,
   overallStatusMessage = "",
 }) {
+  // Render header icon: if string, wrap in span; if component, render as is
+  const renderHeaderIcon = () => {
+    if (typeof headerIcon === "string") {
+      return <span className="inline mr-2 text-lg">{headerIcon}</span>;
+    }
+    const Icon = headerIcon;
+    return <Icon className="inline mr-2 h-5 w-5" />;
+  };
+
   return (
     <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between mb-3">
         <p className="font-medium text-lg text-gray-800 dark:text-gray-100">
-          <span className="mr-2">{headerIcon}</span>
+          {renderHeaderIcon()}
           {headerText}:
         </p>
       </div>
@@ -27,7 +38,6 @@ export function ValidationRules({
       <div className="space-y-2">
         {rules.map((rule) => {
           const result = rule.check();
-
           return (
             <div
               key={rule.id}
@@ -35,9 +45,9 @@ export function ValidationRules({
             >
               <div className="mt-1">
                 {result ? (
-                  <span className="text-green-600 dark:text-green-400">✓</span>
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                 ) : (
-                  <span className="text-red-600 dark:text-red-400">✗</span>
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                 )}
               </div>
               <div className="flex-1">
@@ -46,9 +56,7 @@ export function ValidationRules({
                     {rule.name}
                   </span>
                   <span
-                    className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(
-                      rule.importance,
-                    )}`}
+                    className={`text-xs px-2 py-0.5 rounded ${getImportanceColor(rule.importance)}`}
                   >
                     {rule.importance}
                   </span>
@@ -57,8 +65,9 @@ export function ValidationRules({
                   {rule.description}
                 </p>
                 {!result && rule.errorMessage && (
-                  <div className="mt-1 text-xs text-red-600 dark:text-red-400">
-                    {rule.errorMessage}
+                  <div className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {rule.errorMessage.replace(/[❌⚠️✅]/g, "")}
                   </div>
                 )}
               </div>
