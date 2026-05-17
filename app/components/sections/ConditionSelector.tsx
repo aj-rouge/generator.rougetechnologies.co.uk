@@ -5,10 +5,14 @@ import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
 import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
-import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
+import {
+  getBorderColorFromScore,
+  VALIDATION_COLORS,
+} from "../../utils/ui/validationColors";
+import { Combobox } from "../Combobox";
 
 // Helper to find a category by slug (recursive)
-export const findCategoryBySlug = (categories, slug) => {
+export const findCategoryBySlug = (categories: any[], slug: string) => {
   if (!categories || !slug) return null;
 
   for (const cat of categories) {
@@ -21,20 +25,31 @@ export const findCategoryBySlug = (categories, slug) => {
   return null;
 };
 
+interface ConditionSelectorProps {
+  condition: string;
+  setCondition: (value: string) => void;
+  selectedCategory: string;
+  categories: any[];
+}
+
 export default function ConditionSelector({
   condition,
   setCondition,
   selectedCategory,
   categories,
-}) {
-
-  const [conditionOptions, setConditionOptions] = useState([]);
-  const [conditionGroup, setConditionGroup] = useState(null);
-  const [validationState, setValidationState] = useState({
+}: ConditionSelectorProps) {
+  const [conditionOptions, setConditionOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [conditionGroup, setConditionGroup] = useState<any>(null);
+  const [validationState, setValidationState] = useState<{
+    isValid: boolean | null;
+    suggestedCondition: string | null;
+  }>({
     isValid: null,
     suggestedCondition: null,
   });
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Find the selected category object whenever selectedCategory or categories change
   useEffect(() => {
@@ -50,14 +65,13 @@ export default function ConditionSelector({
 
     if (cat) {
       if (cat.condition_group && cat.condition_group.options) {
-        const options = cat.condition_group.options.map((opt) => ({
+        const options = cat.condition_group.options.map((opt: string) => ({
           value: opt,
           label: opt,
         }));
 
         setConditionOptions(options);
         setConditionGroup(cat.condition_group);
-        console.log("Found condition group:", cat.condition_group);
         setError(null);
 
         // Validate current condition against new options
@@ -201,6 +215,7 @@ export default function ConditionSelector({
     validationState,
     allRulesPass,
   ]);
+  const borderColorClass = getBorderColorFromScore(validationScore);
 
   // --- Header icon ---
   const getHeaderIcon = useCallback(() => {
@@ -249,7 +264,10 @@ export default function ConditionSelector({
   }, [selectedCategory, conditionOptions, conditionGroup, conditionGroupValue]);
 
   return (
-    <ValidationWrapper validationScore={validationScore}>
+    <ValidationWrapper
+      validationScore={validationScore}
+      borderColor={borderColorClass}
+    >
       <StatusHeader
         title="Item Condition"
         status={getOverallStatus()}
@@ -324,46 +342,38 @@ export default function ConditionSelector({
           </div>
         )}
 
-        {/* Condition Selector */}
+        {/* Condition Selector - Using Combobox */}
         {conditionOptions.length > 0 && (
-          <>
-            <select
-              value={condition || ""}
-              onChange={(e) => setCondition(e.target.value)}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
-                dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
-                border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-400
-                ${
-                  validationState?.isValid === false
-                    ? "border-red-500"
-                    : ""
-                }`}
-            >
-              <option value="">Select a condition...</option>
-              {conditionOptions.map((option, index) => (
-                <option key={index} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <Combobox
+            options={conditionOptions}
+            selectedValue={condition}
+            onSelect={(value) => setCondition(value)}
+            placeholder="Select a condition..."
+            searchPlaceholder="Type to search..."
+            noOptionsMessage="No conditions found"
+            buttonClassName={
+              validationState?.isValid === false
+                ? "border-red-500 dark:border-red-500"
+                : ""
+            }
+          />
+        )}
 
-            {/* Validation Warning */}
-            {validationState?.isValid === false && (
-              <div className="mt-2 text-sm text-red-600 dark:text-red-400">
-                ⚠️ This condition may not be valid for this category.
-                {validationState.suggestedCondition && (
-                  <button
-                    onClick={() =>
-                      setCondition(validationState.suggestedCondition)
-                    }
-                    className="ml-2 text-blue-600 dark:text-blue-400 underline hover:no-underline"
-                  >
-                    Use suggested: {validationState.suggestedCondition}
-                  </button>
-                )}
-              </div>
+        {/* Validation Warning */}
+        {conditionOptions.length > 0 && validationState?.isValid === false && (
+          <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+            ⚠️ This condition may not be valid for this category.
+            {validationState.suggestedCondition && (
+              <button
+                onClick={() =>
+                  setCondition(validationState.suggestedCondition!)
+                }
+                className="ml-2 text-blue-600 dark:text-blue-400 underline hover:no-underline"
+              >
+                Use suggested: {validationState.suggestedCondition}
+              </button>
             )}
-          </>
+          </div>
         )}
       </div>
 

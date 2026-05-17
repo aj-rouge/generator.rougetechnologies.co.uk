@@ -290,7 +290,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
       />
 
       <div className="flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between ">
           <label className="text-black dark:text-gray-100 font-medium">
             Product SKU:
           </label>
@@ -393,25 +393,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
             </div>
           </div>
         )}
-
-        <div className="mt-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-            Format examples:
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border">
-              APP-IPA-PRO-11I-SIL-NEW
-            </code>
-            <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border">
-              PHI-TOO-SON-7900-BLA-VG-REF
-            </code>
-            <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border">
-              RING-DOOR-VID-BATT-USE
-            </code>
-          </div>
-        </div>
       </div>
-
       <ValidationRules
         rules={displayRules}
         headerIcon={getHeaderIcon()}

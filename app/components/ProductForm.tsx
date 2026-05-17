@@ -130,20 +130,6 @@ export default function ProductForm({
     [selectedCategoryObj],
   );
 
-  const categoryOptions = useMemo(() => {
-    let options = [];
-    categories.forEach((cat) => {
-      options.push({ value: cat.slug, label: cat.name });
-      if (cat.children && cat.children.length > 0) {
-        cat.children.forEach((child, idx, arr) => {
-          const prefix = idx === arr.length - 1 ? "└ " : "├ ";
-          options.push({ value: child.slug, label: `${prefix} ${child.name}` });
-        });
-      }
-    });
-    return options;
-  }, [categories]);
-
   const categoryName = useMemo(
     () => selectedCategoryObj?.name || formData.selectedCategory,
     [selectedCategoryObj, formData.selectedCategory],
@@ -470,7 +456,7 @@ export default function ProductForm({
         <CategorySelector
           selectedCategory={formData.selectedCategory}
           setSelectedCategory={(val) => updateForm({ selectedCategory: val })}
-          options={categoryOptions}
+          categories={categories}
           keywords={currentCategoryKeywords}
         />
         <ConditionSelector
