@@ -6,6 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "./ProductCard";
 import { TimelineFilters } from "./TimelineFilters";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  IdentifierField,
+  IdentifierRule,
+} from "../../utils/d1/getRecentProducts";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -39,6 +43,19 @@ export default function RecentProducts({
     (Number(searchParams.get("limit")) as LimitOption) || 10,
   );
   const [category, setCategory] = useState(searchParams.get("category") || "");
+  const [identifierRules, setIdentifierRules] = useState<
+    Partial<Record<IdentifierField, IdentifierRule>>
+  >(() => {
+    const param = searchParams.get("identifierRules");
+    if (param) {
+      try {
+        return JSON.parse(param);
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -48,8 +65,11 @@ export default function RecentProducts({
     if (sortField !== "updated_at") params.set("sortBy", sortField);
     if (sortOrder !== "DESC") params.set("sortOrder", sortOrder);
     if (category) params.set("category", category);
+    if (Object.keys(identifierRules).length > 0) {
+      params.set("identifierRules", JSON.stringify(identifierRules));
+    }
     router.push(`?${params.toString()}`, { scroll: false });
-  }, [limit, sortField, sortOrder, category, router]);
+  }, [limit, sortField, sortOrder, category, identifierRules, router]);
 
   const fetchProducts = useCallback(
     async (append = false) => {
@@ -70,6 +90,9 @@ export default function RecentProducts({
           sortOrder,
         });
         if (category) params.append("category", category);
+        if (Object.keys(identifierRules).length > 0) {
+          params.append("identifierRules", JSON.stringify(identifierRules));
+        }
 
         const res = await fetch(`/api/product/recent?${params}`);
         const data = await res.json();
@@ -96,7 +119,15 @@ export default function RecentProducts({
         }
       }
     },
-    [limit, sortField, sortOrder, category, offset, updateUrlParams],
+    [
+      limit,
+      sortField,
+      sortOrder,
+      category,
+      identifierRules,
+      offset,
+      updateUrlParams,
+    ],
   );
 
   useEffect(() => {
@@ -105,7 +136,7 @@ export default function RecentProducts({
     setHasMore(true);
     fetchProducts(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, sortField, sortOrder, category]);
+  }, [limit, sortField, sortOrder, category, identifierRules]);
 
   useEffect(() => {
     if (!sentinelRef.current || loadingMore || !hasMore) return;
@@ -160,6 +191,8 @@ export default function RecentProducts({
           categories={categories}
           category={category}
           setCategory={setCategory}
+          identifierRules={identifierRules}
+          setIdentifierRules={setIdentifierRules}
         />
       </div>
 
@@ -210,7 +243,6 @@ export default function RecentProducts({
           )}
         </AnimatePresence>
 
-        {/* Sentinel for infinite scroll */}
         {!loading && hasMore && products.length > 0 && (
           <div
             ref={sentinelRef}

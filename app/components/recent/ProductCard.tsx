@@ -66,6 +66,19 @@ export const ProductCard = ({
     product.note !== "NULL" &&
     product.note.toString().trim().length > 0;
 
+  // Helper to check if a field has a meaningful value (not null, undefined, or placeholder strings)
+  const isValidValue = (value: any): boolean => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return (
+        trimmed !== "" &&
+        !["null", "NULL", "undefined", "none"].includes(trimmed)
+      );
+    }
+    return true; // numbers, booleans, etc. are valid
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
@@ -113,37 +126,35 @@ export const ProductCard = ({
             </h3>
           </Link>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 items-center">
-            {product.sku && (
+            {isValidValue(product.sku) && (
               <CopyBadge label="SKU" value={product.sku} variant="orange" />
             )}
-            {product.baselinker_id !== "null" && (
+            {isValidValue(product.baselinker_id) && (
               <CopyBadge
                 label="BL"
                 value={product.baselinker_id}
                 variant="blue"
               />
             )}
-            {product.shopify_id &&
-              product.shopify_id !== "null" &&
-              product.shopify_id !== "NULL" && (
-                <CopyBadge
-                  label="SH"
-                  value={product.shopify_id}
-                  variant="green"
-                />
-              )}
-            {product.id !== "null" && (
+            {isValidValue(product.shopify_id) && (
+              <CopyBadge
+                label="SH"
+                value={product.shopify_id}
+                variant="green"
+              />
+            )}
+            {isValidValue(product.id) && (
               <CopyBadge
                 label="ID"
                 value={product.id.toString()}
                 variant="gray"
               />
             )}
-            {product.asin !== "null" && (
-              <CopyBadge label="ASIN" value={product.asin} />
+            {isValidValue(product.asin) && (
+              <CopyBadge label="ASIN" value={product.asin} variant="default" />
             )}
-            {product.ean !== "null" && (
-              <CopyBadge label="EAN" value={product.ean} />
+            {isValidValue(product.ean) && (
+              <CopyBadge label="EAN" value={product.ean} variant="default" />
             )}
           </div>
 
@@ -173,7 +184,7 @@ export const ProductCard = ({
                 count={specCount}
                 color="text-slate-600 dark:text-slate-400"
               />
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 ">
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
                 {sortField === "updated_at" ? (
                   <Clock className="w-3 h-3" />
                 ) : (
@@ -209,15 +220,16 @@ const CopyBadge = ({
   variant = "gray",
 }: {
   label: string;
-  value: string;
-  variant?: "blue" | "gray" | "green" | "orange";
+  value: string | number;
+  variant?: "blue" | "gray" | "green" | "orange" | "default";
 }) => {
   const [copied, setCopied] = useState(false);
+  const stringValue = String(value);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    navigator.clipboard.writeText(value);
+    navigator.clipboard.writeText(stringValue);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -229,18 +241,27 @@ const CopyBadge = ({
       "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/50",
     orange:
       "bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/50",
+    default:
+      "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800/50",
   };
+
+  // Safe truncation: get last part after "/" or use full value
+  const displayValue = stringValue.includes("/")
+    ? stringValue.split("/").pop()
+    : stringValue;
 
   return (
     <button
       onClick={handleCopy}
-      className={`group/badge flex justify-between h-fit items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium transition-all active:scale-95 ${variants[variant]}`}
+      className={`group/badge flex justify-between h-fit items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium transition-all active:scale-95 ${
+        variants[variant] || variants.default
+      }`}
     >
       <span className="opacity-60 font-bold border-r pr-1 border-current/20">
         {label}
       </span>
       <span className="font-mono truncate max-w-[60px] sm:max-w-[80px]">
-        {value.split("/").pop()}
+        {displayValue}
       </span>
       {copied ? (
         <Check className="w-2.5 h-2.5 text-green-500 animate-in zoom-in" />

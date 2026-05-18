@@ -5,6 +5,11 @@ import { ArrowUpDown, RefreshCw, Filter, Clock, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { FilterDropdown } from "./FilterDropdown";
 import CategoryFilter from "./CategoryFilter";
+import { IdentifierRulesFilter } from "./IdentifierRulesFilter";
+import {
+  IdentifierField,
+  IdentifierRule,
+} from "../../utils/d1/getRecentProducts";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -23,6 +28,10 @@ interface TimelineFiltersProps {
   categories: any[];
   category: string;
   setCategory: (category: string) => void;
+  identifierRules: Partial<Record<IdentifierField, IdentifierRule>>;
+  setIdentifierRules: (
+    rules: Partial<Record<IdentifierField, IdentifierRule>>,
+  ) => void;
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
@@ -37,17 +46,13 @@ const sortOptions = [
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
-
   useEffect(() => {
     const media = window.matchMedia(query);
-    if (media.matches !== matches) {
-      setMatches(media.matches);
-    }
+    if (media.matches !== matches) setMatches(media.matches);
     const listener = (event: MediaQueryListEvent) => setMatches(event.matches);
     media.addEventListener("change", listener);
     return () => media.removeEventListener("change", listener);
   }, [matches, query]);
-
   return matches;
 }
 
@@ -64,11 +69,12 @@ export const TimelineFilters = ({
   categories,
   category,
   setCategory,
+  identifierRules,
+  setIdentifierRules,
 }: TimelineFiltersProps) => {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  // Prevent body scroll when mobile filters are open
   useEffect(() => {
     if (isMobile && isMobileFiltersOpen) {
       document.body.style.overflow = "hidden";
@@ -80,14 +86,11 @@ export const TimelineFilters = ({
     };
   }, [isMobile, isMobileFiltersOpen]);
 
-  // Desktop view - original layout
+  // Desktop view
   if (!isMobile) {
     return (
-      <motion.div
-        layout
-        className="flex items-center w-full justify-between gap-2"
-      >
-        <div className="flex items-center gap-2">
+      <motion.div layout className="flex flex-col gap-3 w-full">
+        <div className="flex items-center flex-wrap gap-2">
           <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full px-2">
             <Clock className="w-5 h-5 text-blue-500" />
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
@@ -106,19 +109,13 @@ export const TimelineFilters = ({
             onSelect={setSortField}
             Icon={ArrowUpDown}
           />
-
           <motion.button
-            layout
             onClick={toggleSortOrder}
-            className={`
-              p-1.5 rounded-md border transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
-              ${
-                sortOrder === "ASC"
-                  ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
-              }
-            `}
+            className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
+              sortOrder === "ASC"
+                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
+            }`}
             whileTap={{ scale: 0.95 }}
             title={sortOrder === "DESC" ? "Newest first" : "Oldest first"}
           >
@@ -129,7 +126,6 @@ export const TimelineFilters = ({
               <ArrowUpDown className="w-4 h-4" />
             </motion.div>
           </motion.button>
-
           <FilterDropdown
             label={`${limit} items`}
             options={limitOptions}
@@ -138,29 +134,25 @@ export const TimelineFilters = ({
             Icon={Filter}
             width="w-32"
           />
-
           <motion.button
-            layout
             onClick={fetchRecent}
             disabled={loading}
-            className="
-              p-2 rounded-md border transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
-              bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-              text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700
-              disabled:opacity-50 disabled:cursor-not-allowed dark:hover:text-white
-            "
+            className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:hover:text-white"
             whileTap={{ scale: 0.95 }}
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </motion.button>
         </div>
+        <IdentifierRulesFilter
+          value={identifierRules}
+          onChange={setIdentifierRules}
+        />
       </motion.div>
     );
   }
 
-  // Mobile view - title + refresh button + filters button
+  // Mobile view
   return (
     <>
       <motion.div
@@ -173,38 +165,20 @@ export const TimelineFilters = ({
             Recent Products
           </h2>
         </div>
-
-        {/* Action buttons group: Refresh + Filters */}
         <div className="flex items-center gap-2">
-          {/* Refresh button - now outside modal, left of Filters */}
           <motion.button
             onClick={fetchRecent}
             disabled={loading}
-            className="
-              flex items-center gap-2 p-2 
-              text-sm font-medium rounded-md
-              border transition-all duration-200
-              bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-              text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
-              disabled:opacity-50 disabled:cursor-not-allowed
-            "
+            className="flex items-center gap-2 p-2 text-sm font-medium rounded-md border transition-all duration-200 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             whileTap={{ scale: 0.95 }}
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>
           </motion.button>
-
-          {/* Filters button */}
           <motion.button
             onClick={() => setIsMobileFiltersOpen(true)}
-            className="
-              flex items-center gap-2 p-2
-              text-sm font-medium rounded-md
-              border transition-all duration-200
-              bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-              text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700
-            "
+            className="flex items-center gap-2 p-2 text-sm font-medium rounded-md border transition-all duration-200 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             whileTap={{ scale: 0.95 }}
           >
             <Filter className="w-4 h-4" />
@@ -213,11 +187,9 @@ export const TimelineFilters = ({
         </div>
       </motion.div>
 
-      {/* Mobile Bottom Sheet */}
       <AnimatePresence>
         {isMobileFiltersOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -225,8 +197,6 @@ export const TimelineFilters = ({
               onClick={() => setIsMobileFiltersOpen(false)}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
             />
-
-            {/* Sheet */}
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -234,7 +204,6 @@ export const TimelineFilters = ({
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-xl"
             >
-              {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Filters
@@ -246,24 +215,17 @@ export const TimelineFilters = ({
                   <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
-
-              {/* Filter Controls */}
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                {/* Category Filter */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Category
                   </label>
                   <CategoryFilter
                     value={category}
-                    onChange={(val) => {
-                      setCategory(val);
-                    }}
+                    onChange={setCategory}
                     categories={categories}
                   />
                 </div>
-
-                {/* Sort Field */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Sort By
@@ -280,24 +242,17 @@ export const TimelineFilters = ({
                     width="w-full"
                   />
                 </div>
-
-                {/* Sort Order Toggle */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Order
                   </label>
                   <motion.button
                     onClick={toggleSortOrder}
-                    className={`
-                      w-full flex items-center justify-between gap-2 px-3 py-2
-                      text-sm font-medium rounded-md border transition-all duration-200
-                      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
-                      ${
-                        sortOrder === "ASC"
-                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                      }
-                    `}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
+                      sortOrder === "ASC"
+                        ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                        : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    }`}
                     whileTap={{ scale: 0.98 }}
                   >
                     <span>
@@ -311,8 +266,6 @@ export const TimelineFilters = ({
                     </motion.div>
                   </motion.button>
                 </div>
-
-                {/* Limit */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Items per page
@@ -326,8 +279,17 @@ export const TimelineFilters = ({
                     width="w-full"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Identifier Rules
+                  </label>
+                  <IdentifierRulesFilter
+                    value={identifierRules}
+                    onChange={setIdentifierRules}
+                    vertical
+                  />
+                </div>
               </div>
-
               <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setIsMobileFiltersOpen(false)}

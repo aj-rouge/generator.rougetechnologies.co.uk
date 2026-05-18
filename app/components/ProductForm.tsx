@@ -26,6 +26,22 @@ import PricingSection from "./sections/PricingSection";
 import ProductIdentifiersSection from "./sections/ProductIdentifiersSection";
 import ExternalPlatformIdsSection from "./sections/ExternalPlatformIdsSection";
 
+// Helper to sanitise a value: convert empty string or placeholder strings to null
+const sanitizeField = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (
+    trimmed === "" ||
+    trimmed === "null" ||
+    trimmed === "NULL" ||
+    trimmed === "none"
+  ) {
+    return null;
+  }
+  return value;
+};
+
 const INITIAL_FORM_STATE = {
   sku: "",
   title: "",
@@ -66,12 +82,17 @@ export default function ProductForm({
       return {
         ...initialData,
         vat_rate: initialData.vat_rate ?? 0,
-        rrp: initialData.rrp ?? "",
-        weight: initialData.weight ?? "",
+        rrp: sanitizeField(initialData.rrp) ?? "",
+        weight: sanitizeField(initialData.weight) ?? "",
         quantity: initialData.quantity ?? 0,
-        price_brutto: initialData.price_brutto ?? "",
-        shipping_method: initialData.shipping_method ?? "",
-        note: initialData.note === "null" ? null : initialData.note,
+        price_brutto: sanitizeField(initialData.price_brutto) ?? "",
+        shipping_method: sanitizeField(initialData.shipping_method) ?? "",
+        note: sanitizeField(initialData.note),
+        asin: sanitizeField(initialData.asin) ?? "",
+        ean: sanitizeField(initialData.ean) ?? "",
+        baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
+        shopify_id: sanitizeField(initialData.shopify_id) ?? "",
+        sku: sanitizeField(initialData.sku) ?? "",
         images: (initialData.images || []).map((img) => ({
           url: img.url,
           s3Path: img.s3Path,
@@ -80,23 +101,28 @@ export default function ProductForm({
           needsUpload: false,
           uploadStatus: "completed",
         })),
-        baselinker_id: initialData.baselinker_id || "",
-        shopify_id: initialData.shopify_id || "",
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {
           name: "",
           sections: [],
         },
+        specifications: initialData.specifications || [],
       };
     }
     return INITIAL_FORM_STATE;
   });
+
   // If initialData changes (e.g., navigation), update form
   useEffect(() => {
     if (mode === "edit" && initialData) {
       setFormData({
         ...initialData,
-        note: initialData.note === "null" ? null : initialData.note,
+        note: sanitizeField(initialData.note),
+        asin: sanitizeField(initialData.asin) ?? "",
+        ean: sanitizeField(initialData.ean) ?? "",
+        baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
+        shopify_id: sanitizeField(initialData.shopify_id) ?? "",
+        sku: sanitizeField(initialData.sku) ?? "",
         images: (initialData.images || []).map((img) => ({
           url: img.url,
           s3Path: img.s3Path,
@@ -105,8 +131,6 @@ export default function ProductForm({
           needsUpload: false,
           uploadStatus: "completed",
         })),
-        baselinker_id: initialData.baselinker_id || "",
-        shopify_id: initialData.shopify_id || "",
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {
           name: "",
@@ -118,7 +142,7 @@ export default function ProductForm({
   }, [initialData, mode]);
 
   // ---------------------------------------------------------------------
-  // 2. Derived values from selected category
+  // Derived values from selected category
   // ---------------------------------------------------------------------
   const selectedCategoryObj = useMemo(
     () => findCategoryBySlug(categories, formData.selectedCategory),
@@ -136,17 +160,16 @@ export default function ProductForm({
   );
 
   // ---------------------------------------------------------------------
-  // 3. UI state (not part of product data)
+  // UI state
   // ---------------------------------------------------------------------
   const [isSaving, setIsSaving] = useState(false);
 
   // ---------------------------------------------------------------------
-  // 4. Validation and change detection
+  // Validation and change detection
   // ---------------------------------------------------------------------
   const isFormValid =
     formData.title?.trim() && formData.selectedCategory?.trim();
 
-  // For edit mode: detect changes compared to initialData
   const hasChanges = useMemo(() => {
     if (mode !== "edit" || !initialData) return false;
     const getNormalizedData = (data, isInitial = false) => ({
@@ -183,7 +206,7 @@ export default function ProductForm({
   }, [mode, isFormValid, hasChanges]);
 
   // ---------------------------------------------------------------------
-  // 5. Update helper
+  // Update helper
   // ---------------------------------------------------------------------
   const updateForm = (updates) => {
     setFormData((prev) => {
@@ -268,7 +291,7 @@ export default function ProductForm({
       const productSlug = generateSeoSlug(formData.title);
       const slug = `${categorySlug}/${productSlug}`;
 
-      // Convert validated fields to numbers for the API
+      // Build payload with sanitised string fields (convert empty strings to null)
       const payload = {
         ...formData,
         slug,
@@ -277,7 +300,14 @@ export default function ProductForm({
         price_brutto: priceNumber,
         weight: weightNumber,
         quantity: quantityNumber,
-        rrp: formData.rrp === "" ? null : Number(formData.rrp),
+        rrp: sanitizeField(formData.rrp) === null ? null : Number(formData.rrp),
+        asin: sanitizeField(formData.asin),
+        ean: sanitizeField(formData.ean),
+        baselinker_id: sanitizeField(formData.baselinker_id),
+        shopify_id: sanitizeField(formData.shopify_id),
+        sku: sanitizeField(formData.sku),
+        note: sanitizeField(formData.note),
+        shipping_method: sanitizeField(formData.shipping_method),
       };
 
       const response = await fetch("/api/product/save", {
@@ -313,7 +343,6 @@ export default function ProductForm({
         setTimeout(() => removeNotification(toastId), 2000);
       }
 
-      // ✅ Explicitly return the product ID
       return result.id;
     } catch (error) {
       console.error("❌ Save Error:", error);
@@ -323,7 +352,7 @@ export default function ProductForm({
         progress: 0,
       });
       setTimeout(() => removeNotification(toastId), 4000);
-      throw error; // Re-throw so caller can handle
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -332,10 +361,8 @@ export default function ProductForm({
   const handleUniversalBatchImport = (importedData: any) => {
     const updates: Partial<typeof INITIAL_FORM_STATE> = {};
 
-    // Title
     if (importedData.title) updates.title = importedData.title;
 
-    // Price
     if (importedData.price) {
       let price = importedData.price;
       if (typeof price === "string")
@@ -363,7 +390,6 @@ export default function ProductForm({
     }
 
     if (importedData.paragraphs && Array.isArray(importedData.paragraphs)) {
-      // AI-generated paragraphs array
       updates.paragraphs = importedData.paragraphs;
     } else if (
       importedData.description &&
@@ -375,7 +401,6 @@ export default function ProductForm({
       if (paragraphs.length) updates.paragraphs = paragraphs;
     }
 
-    // Images
     if (importedData.images && importedData.images.length) {
       const newImages = importedData.images.map((url: string, idx: number) => ({
         url,
@@ -554,7 +579,7 @@ export default function ProductForm({
               />
             </div>
           ) : (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4  border border-gray-300 dark:border-gray-600">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-300 dark:border-gray-600">
               <p className="text-gray-600 dark:text-gray-400">
                 ⚠️ Live preview will appear once you have:
               </p>

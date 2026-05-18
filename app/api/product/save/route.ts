@@ -256,16 +256,32 @@ export async function POST(req: Request) {
     console.log("Incoming newData:", JSON.stringify(newData, null, 2));
 
     // Clean up "null" strings for all optional fields
-    if (newData.ean === "null") newData.ean = null;
-    if (newData.asin === "null") newData.asin = null;
-    if (newData.sku === "null") newData.sku = null;
-    if (newData.baselinker_id === "null") newData.baselinker_id = null;
-    if (newData.shopify_id === "null") newData.shopify_id = null;
-    if (newData.note === "null") newData.note = null;
-    if (newData.rrp === "null") newData.rrp = null;
-    if (newData.weight === "null") newData.weight = null;
-    if (newData.price_brutto === "null") newData.price_brutto = null;
-    if (newData.shipping_method === "null") newData.shipping_method = null;
+    function sanitizeString(value: any): any {
+      if (value === null || value === undefined) return null;
+      if (typeof value !== "string") return value;
+      const trimmed = value.trim();
+      if (
+        trimmed === "" ||
+        trimmed === "null" ||
+        trimmed === "NULL" ||
+        trimmed === "none"
+      ) {
+        return null;
+      }
+      return value;
+    }
+
+    // Then apply to all relevant fields
+    newData.ean = sanitizeString(newData.ean);
+    newData.asin = sanitizeString(newData.asin);
+    newData.sku = sanitizeString(newData.sku);
+    newData.baselinker_id = sanitizeString(newData.baselinker_id);
+    newData.shopify_id = sanitizeString(newData.shopify_id);
+    newData.note = sanitizeString(newData.note);
+    newData.rrp = sanitizeString(newData.rrp);
+    newData.weight = sanitizeString(newData.weight);
+    newData.price_brutto = sanitizeString(newData.price_brutto);
+    newData.shipping_method = sanitizeString(newData.shipping_method);
 
     // Extract slugs (the full slug is category/product-slug)
     const productSlug = newData.slug.split("/").pop();
