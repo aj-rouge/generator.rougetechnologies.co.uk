@@ -10,6 +10,7 @@ import {
   VALIDATION_COLORS,
 } from "../../utils/ui/validationColors";
 import { Combobox } from "../Combobox";
+import { CheckCircle, AlertCircle, XCircle, Info } from "lucide-react";
 
 // Helper to find a category by slug (recursive)
 export const findCategoryBySlug = (categories: any[], slug: string) => {
@@ -220,15 +221,15 @@ export default function ConditionSelector({
   // --- Header icon ---
   const getHeaderIcon = useCallback(() => {
     if (!selectedCategory || error || conditionOptions.length === 0) {
-      return VALIDATION_COLORS.icon.critical;
+      return XCircle; // critical state
     }
     if (!condition || validationState?.isValid === false) {
-      return VALIDATION_COLORS.icon.warning;
+      return AlertCircle; // warning state
     }
     if (allRulesPass && validationState?.isValid) {
-      return VALIDATION_COLORS.icon.success;
+      return CheckCircle; // success state
     }
-    return VALIDATION_COLORS.icon.warning;
+    return AlertCircle; // fallback warning
   }, [
     selectedCategory,
     error,
