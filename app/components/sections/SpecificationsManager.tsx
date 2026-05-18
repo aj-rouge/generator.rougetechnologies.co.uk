@@ -10,6 +10,7 @@ import { ValidationWrapper } from "./ValidationWrapper";
 import { ValidationRules } from "./ValidationRules";
 import CollapsibleStatusHeader from "./CollapsibleStatusHeader";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers"; // <-- added import
+import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
 
 const generateUniqueId = (): string => {
   try {
@@ -167,9 +168,9 @@ export default function SpecificationsManager({
   };
 
   const getHeaderIcon = () => {
-    if (specifications.length === 0) return VALIDATION_COLORS.icon.critical;
-    if (allRulesPass) return VALIDATION_COLORS.icon.success;
-    return VALIDATION_COLORS.icon.warning;
+    if (specifications.length === 0) return XCircle; // critical state
+    if (allRulesPass) return CheckCircle; // success state
+    return AlertCircle; // warning state
   };
 
   const borderColorClass = getBorderColorFromScore(validationScore);
