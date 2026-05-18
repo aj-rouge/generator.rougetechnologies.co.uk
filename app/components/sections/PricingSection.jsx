@@ -10,6 +10,7 @@ export default function PricingSection({
   price_brutto = "",
   rrp = "",
   onUpdate,
+  disabled = false,
 }) {
   const isFilled = (value) => {
     if (value === null || value === undefined) return false;
@@ -24,6 +25,7 @@ export default function PricingSection({
   const validationScore = (filledCount / total) * 100;
 
   const handleVatChange = (e) => {
+    if (disabled) return;
     let raw = e.target.value;
     if (raw === "") {
       onUpdate({ vat_rate: "" });
@@ -39,6 +41,7 @@ export default function PricingSection({
   };
 
   const handleNumericChange = (field, e) => {
+    if (disabled) return;
     const raw = e.target.value;
     if (raw === "") {
       onUpdate({ [field]: "" });
@@ -56,9 +59,11 @@ export default function PricingSection({
     <ValidationWrapper validationScore={validationScore}>
       <div>
         <div className="flex items-center justify-between mb-4">
-          <label className="block text-black dark:text-gray-100 font-medium">
+          <h2
+            className={`block text-black dark:text-gray-100 font-medium ${disabled && "opacity-50"}`}
+          >
             Pricing
-          </label>
+          </h2>
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {filledCount}/{total} filled
           </span>
@@ -77,7 +82,8 @@ export default function PricingSection({
               value={vat_rate === "" ? "" : vat_rate}
               onChange={handleVatChange}
               onBlur={handleVatChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Tax rate between 0% and {MAX_VAT_RATE}% (e.g., 20 for standard UK
@@ -95,7 +101,8 @@ export default function PricingSection({
               value={price_brutto === "" ? "" : price_brutto}
               onChange={(e) => handleNumericChange("price_brutto", e)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Gross selling price including VAT
@@ -112,7 +119,8 @@ export default function PricingSection({
               value={rrp === "" ? "" : rrp}
               onChange={(e) => handleNumericChange("rrp", e)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Recommended retail price (optional)

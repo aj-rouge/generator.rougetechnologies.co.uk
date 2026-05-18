@@ -446,12 +446,14 @@ export default function ProductForm({
           price_brutto={formData.price_brutto}
           rrp={formData.rrp}
           onUpdate={updateForm}
+          disabled={mode === "edit"}
         />
         <LogisticsSection
           weight={formData.weight}
           quantity={formData.quantity}
           shipping_method={formData.shipping_method}
           onUpdate={updateForm}
+          disabled={mode === "edit"}
         />
         <CategorySelector
           selectedCategory={formData.selectedCategory}

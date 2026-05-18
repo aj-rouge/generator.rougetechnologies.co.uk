@@ -8,6 +8,7 @@ export default function LogisticsSection({
   quantity = 0,
   shipping_method = "",
   onUpdate,
+  disabled = false,
 }) {
   const isFilled = (value) => {
     if (value === null || value === undefined) return false;
@@ -22,6 +23,7 @@ export default function LogisticsSection({
   const validationScore = (filledCount / total) * 100;
 
   const handleNumericChange = (field, e) => {
+    if (disabled) return;
     const raw = e.target.value;
     if (raw === "") {
       onUpdate({ [field]: "" });
@@ -36,6 +38,7 @@ export default function LogisticsSection({
   };
 
   const handleQuantityChange = (e) => {
+    if (disabled) return;
     const raw = e.target.value;
     if (raw === "") {
       onUpdate({ quantity: "" });
@@ -53,9 +56,11 @@ export default function LogisticsSection({
     <ValidationWrapper validationScore={validationScore}>
       <div>
         <div className="flex items-center justify-between mb-4">
-          <label className="block text-black dark:text-gray-100 font-medium">
+          <h2
+            className={`block text-black dark:text-gray-100 font-medium ${disabled && "opacity-50"}`}
+          >
             Logistics
-          </label>
+          </h2>
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {filledCount}/{total} filled
           </span>
@@ -71,7 +76,8 @@ export default function LogisticsSection({
               value={weight === "" ? "" : weight}
               onChange={(e) => handleNumericChange("weight", e)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Shipping weight in kilograms
@@ -87,7 +93,8 @@ export default function LogisticsSection({
               value={quantity === "" ? "" : quantity}
               onChange={handleQuantityChange}
               placeholder="0"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Available stock count
@@ -101,7 +108,8 @@ export default function LogisticsSection({
             <select
               value={shipping_method}
               onChange={(e) => onUpdate({ shipping_method: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <option value="">-- Select a shipping method --</option>
               <option value="RM Tracked 48 (Letters)">
