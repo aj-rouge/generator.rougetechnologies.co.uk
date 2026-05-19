@@ -17,6 +17,7 @@ import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
 import UniversalImportButton from "./import-product/UniversalImportButton";
 import { useState, useEffect } from "react";
+import { CopyToClipboard } from "../../components/CopyToClipboard";
 
 interface MobileProductHeaderProps {
   mode: "edit" | "create" | string;
@@ -67,6 +68,7 @@ export function MobileProductHeader({
     };
   }, [isMenuOpen]);
 
+  const copyValue = title || (isEdit ? "Untitled" : "Create New Product");
   const HomeButton = () => (
     <Link
       href="/"
@@ -100,9 +102,17 @@ export function MobileProductHeader({
           </div>
         </div>
         <div className="mt-2">
-          <h1 className="text-sm font-semibold text-black dark:text-gray-100 truncate">
-            {isEdit ? `Editing: ${title}` : title || "Create New Product"}
-          </h1>
+          <CopyToClipboard
+            value={copyValue}
+            className="flex items-center gap-2 cursor-pointer w-full"
+            showIcon={true}
+            iconSize={14}
+            successMessage="Product title copied"
+          >
+            <h1 className="text-sm font-semibold text-black dark:text-gray-100 truncate">
+              {isEdit ? `Editing: ${title}` : title || "Create New Product"}
+            </h1>
+          </CopyToClipboard>
         </div>
       </div>
 
@@ -136,9 +146,19 @@ export function MobileProductHeader({
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <h1 className="text-sm font-semibold text-black dark:text-gray-100 ">
-                  {isEdit ? `Editing: ${title}` : title || "Create New Product"}
-                </h1>
+                <CopyToClipboard
+                  value={copyValue}
+                  className="flex items-center gap-2 cursor-pointer"
+                  showIcon={true}
+                  iconSize={14}
+                  successMessage="Product title copied"
+                >
+                  <h1 className="text-sm font-semibold text-black dark:text-gray-100">
+                    {isEdit
+                      ? `Editing: ${title}`
+                      : title || "Create New Product"}
+                  </h1>
+                </CopyToClipboard>
                 <UniversalImportButton
                   onImport={onUniversalImport}
                   disabled={!selectedCategory}

@@ -8,6 +8,7 @@ import SaveButton from "./save-product/SaveButton";
 import UpdateShopifyButton from "./UpdateShopifyButton";
 import SyncBaselinkerButton from "./SyncBaselinkerButton";
 import UniversalImportButton from "./import-product/UniversalImportButton";
+import { CopyToClipboard } from "../../components/CopyToClipboard";
 
 interface DesktopProductHeaderProps {
   mode: "edit" | "create" | string;
@@ -45,6 +46,7 @@ export function DesktopProductHeader({
   categoryKeywords,
 }: DesktopProductHeaderProps) {
   const isEdit = mode === "edit";
+  const copyValue = title || (isEdit ? "Untitled" : "Create New Product");
 
   const HomeButton = () => (
     <Link
@@ -61,9 +63,17 @@ export function DesktopProductHeader({
         <div className="py-4">
           <div className="flex flex-wrap justify-between items-center gap-3">
             <HomeButton />
-            <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100 truncate max-w-fit">
-              Editing: {title}
-            </h1>
+            <CopyToClipboard
+              value={copyValue}
+              className="flex items-center gap-2 cursor-pointer"
+              showIcon={true}
+              iconSize={18}
+              successMessage="Product title copied"
+            >
+              <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100 truncate max-w-fit">
+                Editing: {title}
+              </h1>
+            </CopyToClipboard>
             <DeleteButton
               productTitle={title}
               selectedCategory={selectedCategory}
@@ -143,9 +153,17 @@ export function DesktopProductHeader({
           <div className="grid lg:grid-cols-2 gap-2">
             <div className="flex items-center gap-3 justify-start">
               <HomeButton />
-              <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
-                {title || "Create New Product"}
-              </h1>
+              <CopyToClipboard
+                value={copyValue}
+                className="flex items-center gap-2 cursor-pointer"
+                showIcon={true}
+                iconSize={18}
+                successMessage="Product title copied"
+              >
+                <h1 className="text-md lg:text-xl font-bold text-black dark:text-gray-100">
+                  {title || "Create New Product"}
+                </h1>
+              </CopyToClipboard>
             </div>
             <div className="flex flex-row justify-end gap-3">
               <DarkModeToggle />

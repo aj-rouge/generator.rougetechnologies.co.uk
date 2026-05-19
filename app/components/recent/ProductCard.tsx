@@ -15,6 +15,7 @@ import {
   FileText,
 } from "lucide-react";
 import { NoteTooltip } from "./NoteTooltip";
+import { CopyToClipboard } from "../CopyToClipboard";
 
 interface ProductCardProps {
   product: any;
@@ -223,16 +224,10 @@ const CopyBadge = ({
   value: string | number;
   variant?: "blue" | "gray" | "green" | "orange" | "default";
 }) => {
-  const [copied, setCopied] = useState(false);
   const stringValue = String(value);
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigator.clipboard.writeText(stringValue);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const displayValue = stringValue.includes("/")
+    ? stringValue.split("/").pop()
+    : stringValue;
 
   const variants = {
     blue: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/50",
@@ -245,17 +240,15 @@ const CopyBadge = ({
       "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800/50",
   };
 
-  // Safe truncation: get last part after "/" or use full value
-  const displayValue = stringValue.includes("/")
-    ? stringValue.split("/").pop()
-    : stringValue;
-
   return (
-    <button
-      onClick={handleCopy}
-      className={`group/badge flex justify-between h-fit items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium transition-all active:scale-95 ${
+    <CopyToClipboard
+      value={stringValue}
+      className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium transition-all active:scale-95 ${
         variants[variant] || variants.default
       }`}
+      showIcon={true}
+      iconSize={10}
+      successMessage={`${label} copied`}
     >
       <span className="opacity-60 font-bold border-r pr-1 border-current/20">
         {label}
@@ -263,12 +256,7 @@ const CopyBadge = ({
       <span className="font-mono truncate max-w-[60px] sm:max-w-[80px]">
         {displayValue}
       </span>
-      {copied ? (
-        <Check className="w-2.5 h-2.5 text-green-500 animate-in zoom-in" />
-      ) : (
-        <Copy className="w-2.5 h-2.5 opacity-0 group-hover/badge:opacity-100 transition-opacity" />
-      )}
-    </button>
+    </CopyToClipboard>
   );
 };
 
