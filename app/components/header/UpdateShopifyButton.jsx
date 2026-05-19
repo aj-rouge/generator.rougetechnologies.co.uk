@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { RefreshCw, ShoppingBag } from "lucide-react";
+import { useNotification } from "../../context/NotificationContext";
 
 export default function UpdateShopifyButton({
   shopifyId,
@@ -12,110 +13,121 @@ export default function UpdateShopifyButton({
   onSave,
 }) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [notification, setNotification] = useState(null);
+  const { addNotification, updateNotification, removeNotification } =
+    useNotification();
 
   const handleUpdate = async () => {
     if (!shopifyId) {
-      setNotification({
-        type: "error",
+      addNotification({
         message: "No Shopify ID available for this product",
+        type: "error",
+        duration: 3000,
       });
-      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
     setIsProcessing(true);
+    const savingToastId = addNotification({
+      message: "Saving product before updating Shopify...",
+      type: "info",
+      duration: 0, // persistent until we update/remove it
+    });
 
-    // Step 1: Save the product first
+    // Step 1: Save product (via onSave)
     try {
-      setNotification({
+      await onSave();
+      updateNotification(savingToastId, {
+        message: "Product saved. Now updating Shopify description...",
         type: "info",
-        message: "Saving product before updating Shopify...",
       });
-      await onSave(); // wait for save to complete
     } catch (saveError) {
-      console.error("❌ Save failed:", saveError);
-      setNotification({
+      const errorMsg = saveError.message || "Please check the form for errors.";
+      addNotification({
+        message: `Failed to save product: ${errorMsg}`,
         type: "error",
-        message: `Save failed: ${saveError.message || "Please check the form"}`,
+        duration: 6000,
       });
+      removeNotification(savingToastId);
       setIsProcessing(false);
-      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
-    // Step 2: Now update Shopify
+    // Step 2: Update Shopify description
+    const updateToastId = addNotification({
+      message: "Updating Shopify product description...",
+      type: "info",
+      duration: 0,
+    });
+    removeNotification(savingToastId); // replace the saving toast
+
     try {
-      setNotification({
-        type: "info",
-        message: "Updating Shopify product description...",
-      });
       const response = await fetch("/api/shopify-html-description-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shopifyId, productId: uuid }),
       });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error || "Failed to update Shopify description");
 
-      setNotification({
-        type: "success",
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to update Shopify description");
+      }
+
+      updateNotification(updateToastId, {
         message:
           result.message || "Shopify product description updated successfully!",
+        type: "success",
+        duration: 4000,
       });
     } catch (error) {
-      console.error("❌ Shopify Update Error:", error);
-      setNotification({ type: "error", message: `Error: ${error.message}` });
+      console.error("Shopify Update Error:", error);
+      let userMessage = error.message;
+      if (
+        userMessage.includes("rate limit") ||
+        userMessage.includes("too many")
+      ) {
+        userMessage =
+          "Shopify rate limit reached. Please try again in a few seconds.";
+      } else if (userMessage.includes("access token")) {
+        userMessage =
+          "Shopify authentication failed. Please check API credentials.";
+      }
+      updateNotification(updateToastId, {
+        message: `Update failed: ${userMessage}`,
+        type: "error",
+        duration: 5000,
+      });
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setNotification(null), 3000);
+      // The success notification auto‑removes after its duration; for error we leave it a bit longer
+      setTimeout(() => removeNotification(updateToastId), 5000);
     }
   };
 
   return (
-    <div className="relative">
-      <button
-        onClick={handleUpdate}
-        disabled={disabled || isProcessing || !shopifyId}
-        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-          !shopifyId
-            ? "bg-gray-400 cursor-not-allowed text-gray-200"
-            : isProcessing
-              ? "bg-green-400 cursor-wait text-white"
-              : "bg-green-600 hover:bg-green-700 text-white"
-        }`}
-        title={
-          !shopifyId
-            ? "No Shopify ID available"
-            : isProcessing
-              ? "Saving product and updating Shopify..."
-              : "Update Shopify product description"
-        }
-      >
-        <RefreshCw
-          className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`}
-        />
-        <ShoppingBag className="w-4 h-4" />
-        <span className="inline">
-          {isProcessing ? "Processing..." : "Update Shopify Description"}
-        </span>
-      </button>
-
-      {/* Temporary notification tooltip */}
-      {notification && (
-        <div
-          className={`absolute top-full mt-2 right-0 z-50 px-3 py-2 rounded-lg text-sm whitespace-nowrap ${
-            notification.type === "success"
-              ? "bg-green-500 text-white"
-              : notification.type === "error"
-                ? "bg-red-500 text-white"
-                : "bg-blue-500 text-white"
-          }`}
-        >
-          {notification.message}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={handleUpdate}
+      disabled={disabled || isProcessing || !shopifyId}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+        !shopifyId
+          ? "bg-gray-400 cursor-not-allowed text-gray-200"
+          : isProcessing
+            ? "bg-green-400 cursor-wait text-white"
+            : "bg-green-600 hover:bg-green-700 text-white"
+      }`}
+      title={
+        !shopifyId
+          ? "No Shopify ID available"
+          : isProcessing
+            ? "Saving product and updating Shopify..."
+            : "Update Shopify product description"
+      }
+    >
+      <RefreshCw className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`} />
+      <ShoppingBag className="w-4 h-4" />
+      <span>
+        {isProcessing ? "Processing..." : "Update Shopify Description"}
+      </span>
+    </button>
   );
 }

@@ -281,9 +281,9 @@ export default function ProductForm({
 
     setIsSaving(true);
     const toastId = addNotification({
-      message: "Synchronizing R2 Storage Slots...",
+      message: "Preparing product data...",
       type: "info",
-      progress: 40,
+      progress: 10,
     });
 
     try {
@@ -291,7 +291,6 @@ export default function ProductForm({
       const productSlug = generateSeoSlug(formData.title);
       const slug = `${categorySlug}/${productSlug}`;
 
-      // Build payload with sanitised string fields (convert empty strings to null)
       const payload = {
         ...formData,
         slug,
@@ -310,6 +309,11 @@ export default function ProductForm({
         shipping_method: sanitizeField(formData.shipping_method),
       };
 
+      updateNotification(toastId, {
+        message: "Uploading images and saving product data...",
+        progress: 40,
+      });
+
       const response = await fetch("/api/product/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -318,6 +322,11 @@ export default function ProductForm({
 
       const result = await response.json();
       if (!result.success) throw new Error(result.error);
+
+      updateNotification(toastId, {
+        message: "Finalizing product information...",
+        progress: 80,
+      });
 
       console.log("✅ ProductForm: Save API returned ID:", result.id);
 
@@ -332,7 +341,7 @@ export default function ProductForm({
       }
 
       updateNotification(toastId, {
-        message: "Update Successful!",
+        message: "Product saved successfully!",
         type: "success",
         progress: 100,
       });
@@ -401,8 +410,10 @@ export default function ProductForm({
       if (paragraphs.length) updates.paragraphs = paragraphs;
     }
 
+    // Limit imported images to 16
     if (importedData.images && importedData.images.length) {
-      const newImages = importedData.images.map((url: string, idx: number) => ({
+      const limitedImages = importedData.images.slice(0, 16);
+      const newImages = limitedImages.map((url: string, idx: number) => ({
         url,
         altText: importedData.title
           ? `${importedData.title} - image ${idx + 1}`
@@ -413,7 +424,14 @@ export default function ProductForm({
         uploadStatus: "pending" as const,
       }));
       updates.images = newImages;
+      if (importedData.images.length > 16) {
+        addNotification({
+          message: `Only the first 16 images were imported (${importedData.images.length} total).`,
+          type: "warning",
+        });
+      }
     }
+
     if (importedData.features && Array.isArray(importedData.features)) {
       updates.features = importedData.features.map((f) => ({
         title: f.title || "",
