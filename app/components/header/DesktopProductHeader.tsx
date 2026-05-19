@@ -130,7 +130,6 @@ export function DesktopProductHeader({
                 />
               )}
               <SyncBaselinkerButton
-                productTitle={title}
                 disabled={isSaving}
                 uuid={uuid}
                 onSave={onSave}

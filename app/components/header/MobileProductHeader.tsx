@@ -219,7 +219,6 @@ export function MobileProductHeader({
                         />
                       )}
                       <SyncBaselinkerButton
-                        productTitle={title}
                         disabled={isSaving}
                         uuid={uuid}
                         onSave={onSave}
