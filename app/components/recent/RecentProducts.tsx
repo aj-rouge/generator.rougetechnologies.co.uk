@@ -152,6 +152,14 @@ export default function RecentProducts({
     return () => observer.disconnect();
   }, [loading, loadingMore, hasMore, fetchProducts]);
 
+  const handleClearFilters = useCallback(() => {
+    setCategory("");
+    setIdentifierRules({});
+    setSortField("updated_at");
+    setSortOrder("DESC");
+    setLimit(10);
+  }, []);
+
   const formatDate = (timestamp: number) =>
     new Date(timestamp * 1000).toLocaleDateString(undefined, {
       month: "short",
@@ -187,12 +195,12 @@ export default function RecentProducts({
           setLimit={setLimit}
           loading={loading}
           fetchRecent={() => fetchProducts(false)}
-          setShowFilters={() => {}}
           categories={categories}
           category={category}
           setCategory={setCategory}
           identifierRules={identifierRules}
           setIdentifierRules={setIdentifierRules}
+          onClearFilters={handleClearFilters}
         />
       </div>
 

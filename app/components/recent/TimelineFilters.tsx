@@ -1,7 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpDown, RefreshCw, Filter, Clock, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  RefreshCw,
+  Filter,
+  Clock,
+  X,
+  RotateCcw,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { FilterDropdown } from "./FilterDropdown";
 import CategoryFilter from "./CategoryFilter";
@@ -24,7 +31,6 @@ interface TimelineFiltersProps {
   setLimit: (limit: LimitOption) => void;
   loading: boolean;
   fetchRecent: () => void;
-  setShowFilters: (show: boolean) => void;
   categories: any[];
   category: string;
   setCategory: (category: string) => void;
@@ -32,6 +38,7 @@ interface TimelineFiltersProps {
   setIdentifierRules: (
     rules: Partial<Record<IdentifierField, IdentifierRule>>,
   ) => void;
+  onClearFilters: () => void;
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
@@ -65,12 +72,12 @@ export const TimelineFilters = ({
   setLimit,
   loading,
   fetchRecent,
-  setShowFilters,
   categories,
   category,
   setCategory,
   identifierRules,
   setIdentifierRules,
+  onClearFilters,
 }: TimelineFiltersProps) => {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
@@ -142,6 +149,14 @@ export const TimelineFilters = ({
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </motion.button>
+          <motion.button
+            onClick={onClearFilters}
+            className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
+            whileTap={{ scale: 0.95 }}
+            title="Clear all filters"
+          >
+            <RotateCcw className="w-4 h-4" />
           </motion.button>
         </div>
         <IdentifierRulesFilter
@@ -280,9 +295,7 @@ export const TimelineFilters = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Identifier Rules
-                  </label>
+                  
                   <IdentifierRulesFilter
                     value={identifierRules}
                     onChange={setIdentifierRules}
@@ -290,10 +303,19 @@ export const TimelineFilters = ({
                   />
                 </div>
               </div>
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => {
+                    onClearFilters();
+                    setIsMobileFiltersOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition-colors"
+                >
+                  Clear all
+                </button>
                 <button
                   onClick={() => setIsMobileFiltersOpen(false)}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Done
                 </button>
