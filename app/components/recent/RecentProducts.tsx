@@ -33,6 +33,7 @@ export default function RecentProducts({
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
 
+  // Individual filter states
   const [sortField, setSortField] = useState<SortField>(
     (searchParams.get("sortBy") as SortField) || "updated_at",
   );
@@ -56,6 +57,31 @@ export default function RecentProducts({
     }
     return {};
   });
+
+  // Grouped props for TimelineFilters
+  const sort = {
+    field: sortField,
+    order: sortOrder,
+    toggleOrder: () =>
+      setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC")),
+    setField: setSortField,
+  };
+
+  const pagination = {
+    limit,
+    setLimit,
+  };
+
+  const categoryFilter = {
+    categories,
+    selected: category,
+    setSelected: setCategory,
+  };
+
+  const identifierRulesState = {
+    rules: identifierRules,
+    setRules: setIdentifierRules,
+  };
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +156,7 @@ export default function RecentProducts({
     ],
   );
 
+  // Reset and refetch when filters change
   useEffect(() => {
     setOffset(0);
     setProducts([]);
@@ -138,6 +165,7 @@ export default function RecentProducts({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [limit, sortField, sortOrder, category, identifierRules]);
 
+  // Infinite scroll observer
   useEffect(() => {
     if (!sentinelRef.current || loadingMore || !hasMore) return;
     const observer = new IntersectionObserver(
@@ -185,21 +213,12 @@ export default function RecentProducts({
     <div className="w-full max-w-6xl md:px-0">
       <div className="mb-4 space-y-3">
         <TimelineFilters
-          sortField={sortField}
-          setSortField={setSortField}
-          sortOrder={sortOrder}
-          toggleSortOrder={() =>
-            setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC"))
-          }
-          limit={limit}
-          setLimit={setLimit}
+          sort={sort}
+          pagination={pagination}
+          categoryFilter={categoryFilter}
+          identifierRules={identifierRulesState}
           loading={loading}
           fetchRecent={() => fetchProducts(false)}
-          categories={categories}
-          category={category}
-          setCategory={setCategory}
-          identifierRules={identifierRules}
-          setIdentifierRules={setIdentifierRules}
           onClearFilters={handleClearFilters}
         />
       </div>
