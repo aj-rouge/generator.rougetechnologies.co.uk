@@ -96,6 +96,11 @@ CREATE TABLE IF NOT EXISTS products (
   quantity INTEGER DEFAULT 0,
   price_brutto DECIMAL(10,2),
   shipping_method TEXT,
+  image_count INTEGER DEFAULT 0,
+  specs_count INTEGER DEFAULT 0, 
+  paragraphs_count INTEGER DEFAULT 0, 
+  features_count INTEGER DEFAULT 0, 
+  feedbacks_count INTEGER DEFAULT 0,
   FOREIGN KEY (category) REFERENCES categories(slug)
 );
 
@@ -123,8 +128,12 @@ CREATE INDEX IF NOT EXISTS idx_products_baselinker_id ON products(baselinker_id)
 CREATE INDEX IF NOT EXISTS idx_products_shopify_id ON products(shopify_id) WHERE shopify_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_product_specs_product_id ON product_specifications(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_specs_key ON product_specifications(key);
--- For searches where user might paste any type of ID
 CREATE INDEX IF NOT EXISTS idx_products_all_ids ON products(asin, ean, sku, baselinker_id, shopify_id);
+CREATE INDEX IF NOT EXISTS idx_products_image_count ON products(image_count);
+CREATE INDEX IF NOT EXISTS idx_products_specs_count ON products(specs_count);
+CREATE INDEX IF NOT EXISTS idx_products_paragraphs_count ON products(paragraphs_count);
+CREATE INDEX IF NOT EXISTS idx_products_features_count ON products(features_count);
+CREATE INDEX IF NOT EXISTS idx_products_feedbacks_count ON products(feedbacks_count);
 
 -- =====================================================
 -- PAGINATION & FILTERING (for "get recent 10/20/50/100 updated products")
@@ -216,6 +225,10 @@ SELECT
   p.shipping_method,
   p.created_at,
   p.updated_at,
+  p.image_count,
+  p.specs_count,
+  p.paragraphs_count,
+  p.features_count,
   
   (
     SELECT json_group_array(content ORDER BY paragraph_order)
@@ -352,3 +365,105 @@ SELECT
 FROM categories cat
 LEFT JOIN conditions c ON cat.condition_group_id = c.id
 WHERE cat.parent_category IS NULL;
+
+CREATE TRIGGER update_product_image_count_insert AFTER INSERT ON product_images
+BEGIN
+  UPDATE products SET image_count = (
+    SELECT COUNT(*) FROM product_images WHERE product_id = NEW.product_id
+  ) WHERE id = NEW.product_id;
+END;
+
+CREATE TRIGGER update_product_image_count_delete AFTER DELETE ON product_images
+BEGIN
+  UPDATE products SET image_count = (
+    SELECT COUNT(*) FROM product_images WHERE product_id = OLD.product_id
+  ) WHERE id = OLD.product_id;
+END;
+
+-- =====================================================
+-- 5. Triggers to maintain specs_count
+-- =====================================================
+CREATE TRIGGER update_product_specs_count_insert AFTER INSERT ON product_specifications
+BEGIN
+  UPDATE products SET specs_count = (
+    SELECT COUNT(*) FROM product_specifications WHERE product_id = NEW.product_id
+  ) WHERE id = NEW.product_id;
+END;
+
+CREATE TRIGGER update_product_specs_count_delete AFTER DELETE ON product_specifications
+BEGIN
+  UPDATE products SET specs_count = (
+    SELECT COUNT(*) FROM product_specifications WHERE product_id = OLD.product_id
+  ) WHERE id = OLD.product_id;
+END;
+
+-- =====================================================
+-- 6. Triggers to maintain paragraphs_count
+-- =====================================================
+CREATE TRIGGER update_product_paragraphs_count_insert AFTER INSERT ON product_paragraphs
+BEGIN
+  UPDATE products SET paragraphs_count = (
+    SELECT COUNT(*) FROM product_paragraphs WHERE product_id = NEW.product_id
+  ) WHERE id = NEW.product_id;
+END;
+
+CREATE TRIGGER update_product_paragraphs_count_delete AFTER DELETE ON product_paragraphs
+BEGIN
+  UPDATE products SET paragraphs_count = (
+    SELECT COUNT(*) FROM product_paragraphs WHERE product_id = OLD.product_id
+  ) WHERE id = OLD.product_id;
+END;
+
+-- =====================================================
+-- 7. Triggers to maintain features_count
+-- =====================================================
+CREATE TRIGGER update_product_features_count_insert AFTER INSERT ON product_features
+BEGIN
+  UPDATE products SET features_count = (
+    SELECT COUNT(*) FROM product_features WHERE product_id = NEW.product_id
+  ) WHERE id = NEW.product_id;
+END;
+
+CREATE TRIGGER update_product_features_count_delete AFTER DELETE ON product_features
+BEGIN
+  UPDATE products SET features_count = (
+    SELECT COUNT(*) FROM product_features WHERE product_id = OLD.product_id
+  ) WHERE id = OLD.product_id;
+END;
+
+-- =====================================================
+-- 8. Triggers to maintain feedbacks_count
+-- =====================================================
+CREATE TRIGGER update_product_feedbacks_count_insert AFTER INSERT ON product_feedbacks
+BEGIN
+  UPDATE products SET feedbacks_count = (
+    SELECT COUNT(*) FROM product_feedbacks WHERE product_id = NEW.product_id
+  ) WHERE id = NEW.product_id;
+END;
+
+CREATE TRIGGER update_product_feedbacks_count_delete AFTER DELETE ON product_feedbacks
+BEGIN
+  UPDATE products SET feedbacks_count = (
+    SELECT COUNT(*) FROM product_feedbacks WHERE product_id = OLD.product_id
+  ) WHERE id = OLD.product_id;
+END;
+
+UPDATE products SET image_count = (
+  SELECT COUNT(*) FROM product_images WHERE product_id = products.id
+);
+
+UPDATE products SET specs_count = (
+  SELECT COUNT(*) FROM product_specifications WHERE product_id = products.id
+);
+
+UPDATE products SET paragraphs_count = (
+  SELECT COUNT(*) FROM product_paragraphs WHERE product_id = products.id
+);
+
+UPDATE products SET features_count = (
+  SELECT COUNT(*) FROM product_features WHERE product_id = products.id
+);
+
+UPDATE products SET feedbacks_count = (
+  SELECT COUNT(*) FROM product_feedbacks WHERE product_id = products.id
+);
