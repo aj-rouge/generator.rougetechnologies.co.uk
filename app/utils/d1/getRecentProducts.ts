@@ -1,3 +1,4 @@
+// utils/d1/getRecentProducts.ts
 import { executeQuery } from "./execute/executeQuery";
 
 const parseProductJson = (product: any) => {
@@ -32,6 +33,19 @@ export type IdentifierField =
   | "note";
 export type IdentifierRule = "required" | "forbidden" | "ignored";
 
+export interface CountFilter {
+  min?: number;
+  max?: number;
+}
+
+export interface CountFiltersType {
+  image_count?: CountFilter;
+  specs_count?: CountFilter;
+  paragraphs_count?: CountFilter;
+  features_count?: CountFilter;
+  feedbacks_count?: CountFilter;
+}
+
 export const getRecentProducts = async (
   options: {
     limit?: number;
@@ -40,6 +54,7 @@ export const getRecentProducts = async (
     category?: string;
     sortBy?: "created_at" | "updated_at";
     identifierRules?: Partial<Record<IdentifierField, IdentifierRule>>;
+    countFilters?: CountFiltersType;
   } = {},
 ) => {
   const {
@@ -49,6 +64,7 @@ export const getRecentProducts = async (
     category,
     sortBy = "updated_at",
     identifierRules = {},
+    countFilters = {},
   } = options;
 
   let query = `SELECT * FROM v_product_complete`;
@@ -61,13 +77,37 @@ export const getRecentProducts = async (
     params.push(category);
   }
 
+  // Identifier rules
   for (const [field, rule] of Object.entries(identifierRules)) {
     if (rule === "required") {
       conditions.push(`(${field} IS NOT NULL AND ${field} != '')`);
     } else if (rule === "forbidden") {
       conditions.push(`(${field} IS NULL OR ${field} = '')`);
     }
-    // "ignored" adds nothing
+  }
+
+  // Count filters
+  const countFieldMap: Record<keyof CountFiltersType, string> = {
+    image_count: "image_count",
+    specs_count: "specs_count",
+    paragraphs_count: "paragraphs_count",
+    features_count: "features_count",
+    feedbacks_count: "feedbacks_count",
+  };
+
+  for (const [field, filter] of Object.entries(countFilters) as [
+    keyof CountFiltersType,
+    CountFilter,
+  ][]) {
+    const column = countFieldMap[field];
+    if (filter.min !== undefined && filter.min !== null && !isNaN(filter.min)) {
+      conditions.push(`${column} >= ?`);
+      params.push(filter.min);
+    }
+    if (filter.max !== undefined && filter.max !== null && !isNaN(filter.max)) {
+      conditions.push(`${column} <= ?`);
+      params.push(filter.max);
+    }
   }
 
   if (conditions.length) {
@@ -79,16 +119,7 @@ export const getRecentProducts = async (
 
   console.log(`[getRecentProducts] SQL: ${query}`);
   console.log(`[getRecentProducts] Params:`, params);
-  console.log(`[getRecentProducts] Filters:`, {
-    category,
-    identifierRules,
-    sortBy,
-    order,
-    limit,
-    offset,
-  });
 
   const results = await executeQuery(query, params);
-  console.log(`[getRecentProducts] Fetched ${results?.length || 0} products`);
   return (results || []).map(parseProductJson);
 };

@@ -1,3 +1,4 @@
+// components/recent/RecentProducts.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -7,6 +8,7 @@ import { ProductCard } from "./ProductCard";
 import { TimelineFilters } from "./TimelineFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  CountFiltersType,
   IdentifierField,
   IdentifierRule,
 } from "../../utils/d1/getRecentProducts";
@@ -18,11 +20,13 @@ type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 interface RecentProductsProps {
   initialProducts: any[];
   categories?: any[];
+  initialCountFilters?: CountFiltersType;
 }
 
 export default function RecentProducts({
   initialProducts,
   categories = [],
+  initialCountFilters = {},
 }: RecentProductsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,34 +61,45 @@ export default function RecentProducts({
     }
     return {};
   });
-
-  // Grouped props for TimelineFilters
-  const sort = {
-    field: sortField,
-    order: sortOrder,
-    toggleOrder: () =>
-      setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC")),
-    setField: setSortField,
-  };
-
-  const pagination = {
-    limit,
-    setLimit,
-  };
-
-  const categoryFilter = {
-    categories,
-    selected: category,
-    setSelected: setCategory,
-  };
-
-  const identifierRulesState = {
-    rules: identifierRules,
-    setRules: setIdentifierRules,
-  };
+  const [countFilters, setCountFilters] = useState<CountFiltersType>(() => {
+    const minImages = searchParams.get("minImages");
+    const maxImages = searchParams.get("maxImages");
+    const minSpecs = searchParams.get("minSpecs");
+    const maxSpecs = searchParams.get("maxSpecs");
+    const minParagraphs = searchParams.get("minParagraphs");
+    const maxParagraphs = searchParams.get("maxParagraphs");
+    const minFeatures = searchParams.get("minFeatures");
+    const maxFeatures = searchParams.get("maxFeatures");
+    const minFeedbacks = searchParams.get("minFeedbacks");
+    const maxFeedbacks = searchParams.get("maxFeedbacks");
+    return {
+      image_count: {
+        min: minImages ? parseInt(minImages, 10) : undefined,
+        max: maxImages ? parseInt(maxImages, 10) : undefined,
+      },
+      specs_count: {
+        min: minSpecs ? parseInt(minSpecs, 10) : undefined,
+        max: maxSpecs ? parseInt(maxSpecs, 10) : undefined,
+      },
+      paragraphs_count: {
+        min: minParagraphs ? parseInt(minParagraphs, 10) : undefined,
+        max: maxParagraphs ? parseInt(maxParagraphs, 10) : undefined,
+      },
+      features_count: {
+        min: minFeatures ? parseInt(minFeatures, 10) : undefined,
+        max: maxFeatures ? parseInt(maxFeatures, 10) : undefined,
+      },
+      feedbacks_count: {
+        min: minFeedbacks ? parseInt(minFeedbacks, 10) : undefined,
+        max: maxFeedbacks ? parseInt(maxFeedbacks, 10) : undefined,
+      },
+    };
+  });
 
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true); // <-- NEW
 
+  // Update URL only when params actually change
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (limit !== 10) params.set("limit", limit.toString());
@@ -94,8 +109,41 @@ export default function RecentProducts({
     if (Object.keys(identifierRules).length > 0) {
       params.set("identifierRules", JSON.stringify(identifierRules));
     }
-    router.push(`?${params.toString()}`, { scroll: false });
-  }, [limit, sortField, sortOrder, category, identifierRules, router]);
+    if (countFilters.image_count?.min !== undefined)
+      params.set("minImages", countFilters.image_count.min.toString());
+    if (countFilters.image_count?.max !== undefined)
+      params.set("maxImages", countFilters.image_count.max.toString());
+    if (countFilters.specs_count?.min !== undefined)
+      params.set("minSpecs", countFilters.specs_count.min.toString());
+    if (countFilters.specs_count?.max !== undefined)
+      params.set("maxSpecs", countFilters.specs_count.max.toString());
+    if (countFilters.paragraphs_count?.min !== undefined)
+      params.set("minParagraphs", countFilters.paragraphs_count.min.toString());
+    if (countFilters.paragraphs_count?.max !== undefined)
+      params.set("maxParagraphs", countFilters.paragraphs_count.max.toString());
+    if (countFilters.features_count?.min !== undefined)
+      params.set("minFeatures", countFilters.features_count.min.toString());
+    if (countFilters.features_count?.max !== undefined)
+      params.set("maxFeatures", countFilters.features_count.max.toString());
+    if (countFilters.feedbacks_count?.min !== undefined)
+      params.set("minFeedbacks", countFilters.feedbacks_count.min.toString());
+    if (countFilters.feedbacks_count?.max !== undefined)
+      params.set("maxFeedbacks", countFilters.feedbacks_count.max.toString());
+
+    const newUrl = `?${params.toString()}`;
+    const currentUrl = window.location.search;
+    if (newUrl !== currentUrl) {
+      router.push(newUrl, { scroll: false });
+    }
+  }, [
+    limit,
+    sortField,
+    sortOrder,
+    category,
+    identifierRules,
+    countFilters,
+    router,
+  ]);
 
   const fetchProducts = useCallback(
     async (append = false) => {
@@ -119,6 +167,44 @@ export default function RecentProducts({
         if (Object.keys(identifierRules).length > 0) {
           params.append("identifierRules", JSON.stringify(identifierRules));
         }
+        if (countFilters.image_count?.min !== undefined)
+          params.append("minImages", countFilters.image_count.min.toString());
+        if (countFilters.image_count?.max !== undefined)
+          params.append("maxImages", countFilters.image_count.max.toString());
+        if (countFilters.specs_count?.min !== undefined)
+          params.append("minSpecs", countFilters.specs_count.min.toString());
+        if (countFilters.specs_count?.max !== undefined)
+          params.append("maxSpecs", countFilters.specs_count.max.toString());
+        if (countFilters.paragraphs_count?.min !== undefined)
+          params.append(
+            "minParagraphs",
+            countFilters.paragraphs_count.min.toString(),
+          );
+        if (countFilters.paragraphs_count?.max !== undefined)
+          params.append(
+            "maxParagraphs",
+            countFilters.paragraphs_count.max.toString(),
+          );
+        if (countFilters.features_count?.min !== undefined)
+          params.append(
+            "minFeatures",
+            countFilters.features_count.min.toString(),
+          );
+        if (countFilters.features_count?.max !== undefined)
+          params.append(
+            "maxFeatures",
+            countFilters.features_count.max.toString(),
+          );
+        if (countFilters.feedbacks_count?.min !== undefined)
+          params.append(
+            "minFeedbacks",
+            countFilters.feedbacks_count.min.toString(),
+          );
+        if (countFilters.feedbacks_count?.max !== undefined)
+          params.append(
+            "maxFeedbacks",
+            countFilters.feedbacks_count.max.toString(),
+          );
 
         const res = await fetch(`/api/product/recent?${params}`);
         const data = await res.json();
@@ -151,21 +237,26 @@ export default function RecentProducts({
       sortOrder,
       category,
       identifierRules,
+      countFilters,
       offset,
       updateUrlParams,
     ],
   );
 
-  // Reset and refetch when filters change
+  // Reset when filters change – skip first render
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     setOffset(0);
     setProducts([]);
     setHasMore(true);
     fetchProducts(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, sortField, sortOrder, category, identifierRules]);
+  }, [limit, sortField, sortOrder, category, identifierRules, countFilters]);
 
-  // Infinite scroll observer
+  // Infinite scroll observer (unchanged)
   useEffect(() => {
     if (!sentinelRef.current || loadingMore || !hasMore) return;
     const observer = new IntersectionObserver(
@@ -183,6 +274,7 @@ export default function RecentProducts({
   const handleClearFilters = useCallback(() => {
     setCategory("");
     setIdentifierRules({});
+    setCountFilters({});
     setSortField("updated_at");
     setSortOrder("DESC");
     setLimit(10);
@@ -213,10 +305,24 @@ export default function RecentProducts({
     <div className="w-full max-w-6xl md:px-0">
       <div className="mb-4 space-y-3">
         <TimelineFilters
-          sort={sort}
-          pagination={pagination}
-          categoryFilter={categoryFilter}
-          identifierRules={identifierRulesState}
+          sort={{
+            field: sortField,
+            order: sortOrder,
+            toggleOrder: () =>
+              setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC")),
+            setField: setSortField,
+          }}
+          pagination={{ limit, setLimit }}
+          categoryFilter={{
+            categories,
+            selected: category,
+            setSelected: setCategory,
+          }}
+          identifierRules={{
+            rules: identifierRules,
+            setRules: setIdentifierRules,
+          }}
+          countFilters={{ filters: countFilters, setFilters: setCountFilters }}
           loading={loading}
           fetchRecent={() => fetchProducts(false)}
           onClearFilters={handleClearFilters}

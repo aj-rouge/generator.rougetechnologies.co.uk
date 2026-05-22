@@ -1,3 +1,4 @@
+// app/api/product/recent/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import {
   getRecentProducts,
@@ -14,14 +15,40 @@ export async function GET(request: NextRequest) {
   const categoryParam = searchParams.get("category") || undefined;
   const identifierRulesParam = searchParams.get("identifierRules") || "{}";
 
-  console.log(`[API] /api/product/recent called with:`, {
-    limit: limitParam,
-    offset: offsetParam,
-    sortBy: sortByParam,
-    sortOrder: sortOrderParam,
-    category: categoryParam,
-    identifierRules: identifierRulesParam,
-  });
+  // Count filters
+  const minImages = searchParams.get("minImages");
+  const maxImages = searchParams.get("maxImages");
+  const minSpecs = searchParams.get("minSpecs");
+  const maxSpecs = searchParams.get("maxSpecs");
+  const minParagraphs = searchParams.get("minParagraphs");
+  const maxParagraphs = searchParams.get("maxParagraphs");
+  const minFeatures = searchParams.get("minFeatures");
+  const maxFeatures = searchParams.get("maxFeatures");
+  const minFeedbacks = searchParams.get("minFeedbacks");
+  const maxFeedbacks = searchParams.get("maxFeedbacks");
+
+  const countFilters = {
+    image_count: {
+      min: minImages ? parseInt(minImages, 10) : undefined,
+      max: maxImages ? parseInt(maxImages, 10) : undefined,
+    },
+    specs_count: {
+      min: minSpecs ? parseInt(minSpecs, 10) : undefined,
+      max: maxSpecs ? parseInt(maxSpecs, 10) : undefined,
+    },
+    paragraphs_count: {
+      min: minParagraphs ? parseInt(minParagraphs, 10) : undefined,
+      max: maxParagraphs ? parseInt(maxParagraphs, 10) : undefined,
+    },
+    features_count: {
+      min: minFeatures ? parseInt(minFeatures, 10) : undefined,
+      max: maxFeatures ? parseInt(maxFeatures, 10) : undefined,
+    },
+    feedbacks_count: {
+      min: minFeedbacks ? parseInt(minFeedbacks, 10) : undefined,
+      max: maxFeedbacks ? parseInt(maxFeedbacks, 10) : undefined,
+    },
+  };
 
   try {
     const limit = Math.min(Math.max(parseInt(limitParam), 1), 500);
@@ -43,9 +70,9 @@ export async function GET(request: NextRequest) {
       category: categoryParam,
       sortBy,
       identifierRules,
+      countFilters,
     });
 
-    console.log(`[API] Returning ${products.length} products`);
     return NextResponse.json(products);
   } catch (error) {
     console.error("[API] Failed to fetch recent products:", error);

@@ -229,7 +229,7 @@ SELECT
   p.specs_count,
   p.paragraphs_count,
   p.features_count,
-  
+  p.feedbacks_count,
   (
     SELECT json_group_array(content ORDER BY paragraph_order)
     FROM product_paragraphs WHERE product_id = p.id

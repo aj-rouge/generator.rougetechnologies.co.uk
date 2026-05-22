@@ -1,6 +1,18 @@
+// components/recent/MobileFilters.tsx
+"use client";
+
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpDown, ChevronDown, ChevronUp, Clock, Filter, RefreshCw, X } from "lucide-react";
 import {
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Filter,
+  RefreshCw,
+  X,
+} from "lucide-react";
+import {
+  CountFiltersType,
   IdentifierField,
   IdentifierRule,
 } from "../../utils/d1/getRecentProducts";
@@ -8,9 +20,8 @@ import { useState } from "react";
 import CategoryFilter from "./CategoryFilter";
 import { FilterDropdown } from "./FilterDropdown";
 import { IdentifierRulesFilter } from "./IdentifierRulesFilter";
-// ----------------------------------------------------------------------------
-// Types
-// ----------------------------------------------------------------------------
+import { CountFilters } from "./CountFilters";
+
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
 type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
@@ -38,11 +49,17 @@ interface IdentifierRulesState {
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
 
+interface CountFiltersState {
+  filters: CountFiltersType;
+  setFilters: (filters: CountFiltersType) => void;
+}
+
 interface TimelineFiltersProps {
   sort: SortState;
   pagination: PaginationState;
   categoryFilter: CategoryFilterState;
   identifierRules: IdentifierRulesState;
+  countFilters: CountFiltersState;
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
@@ -91,19 +108,16 @@ export const MobileFiltersBar = ({
     </motion.div>
   );
 };
-// Options
+
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
   value: n as LimitOption,
   label: `${n} items`,
 }));
-
 const sortOptions = [
   { value: "updated_at", label: "Updated Date" },
   { value: "created_at", label: "Created Date" },
 ] as const;
-// ----------------------------------------------------------------------------
-// Mobile bottom sheet (receives grouped filtersProps)
-// ----------------------------------------------------------------------------
+
 export const MobileFiltersSheet = ({
   isOpen,
   onClose,
@@ -113,9 +127,14 @@ export const MobileFiltersSheet = ({
   onClose: () => void;
   filtersProps: TimelineFiltersProps;
 }) => {
-  const { sort, pagination, categoryFilter, identifierRules, onClearFilters } =
-    filtersProps;
-
+  const {
+    sort,
+    pagination,
+    categoryFilter,
+    identifierRules,
+    countFilters,
+    onClearFilters,
+  } = filtersProps;
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
@@ -149,7 +168,6 @@ export const MobileFiltersSheet = ({
             </div>
 
             <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* Category */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Category
@@ -161,7 +179,6 @@ export const MobileFiltersSheet = ({
                 />
               </div>
 
-              {/* Sort By */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Sort By
@@ -178,18 +195,13 @@ export const MobileFiltersSheet = ({
                 />
               </div>
 
-              {/* Order toggle */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Order
                 </label>
                 <motion.button
                   onClick={sort.toggleOrder}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
-                    sort.order === "ASC"
-                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"}`}
                   whileTap={{ scale: 0.98 }}
                 >
                   <span>
@@ -204,7 +216,6 @@ export const MobileFiltersSheet = ({
                 </motion.button>
               </div>
 
-              {/* Items per page */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Items per page
@@ -219,7 +230,6 @@ export const MobileFiltersSheet = ({
                 />
               </div>
 
-              {/* Advanced section (collapsible) */}
               <div className="space-y-2">
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
@@ -239,11 +249,16 @@ export const MobileFiltersSheet = ({
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden space-y-4"
                     >
                       <IdentifierRulesFilter
                         value={identifierRules.rules}
                         onChange={identifierRules.setRules}
+                        vertical
+                      />
+                      <CountFilters
+                        value={countFilters.filters}
+                        onChange={countFilters.setFilters}
                         vertical
                       />
                     </motion.div>
@@ -252,7 +267,6 @@ export const MobileFiltersSheet = ({
               </div>
             </div>
 
-            {/* Footer buttons */}
             <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {

@@ -1,8 +1,7 @@
+// components/recent/DesktopFilters.tsx
+"use client";
+
 import { useState } from "react";
-import {
-  IdentifierField,
-  IdentifierRule,
-} from "../../utils/d1/getRecentProducts";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowUpDown,
@@ -13,9 +12,15 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
+import {
+  CountFiltersType,
+  IdentifierField,
+  IdentifierRule,
+} from "../../utils/d1/getRecentProducts";
 import CategoryFilter from "./CategoryFilter";
 import { FilterDropdown } from "./FilterDropdown";
 import { IdentifierRulesFilter } from "./IdentifierRulesFilter";
+import { CountFilters } from "./CountFilters";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -27,6 +32,7 @@ interface SortState {
   toggleOrder: () => void;
   setField: (field: SortField) => void;
 }
+
 interface PaginationState {
   limit: LimitOption;
   setLimit: (limit: LimitOption) => void;
@@ -43,11 +49,17 @@ interface IdentifierRulesState {
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
 
-interface TimelineFiltersProps {
+interface CountFiltersState {
+  filters: CountFiltersType;
+  setFilters: (filters: CountFiltersType) => void;
+}
+
+interface DesktopFiltersProps {
   sort: SortState;
   pagination: PaginationState;
   categoryFilter: CategoryFilterState;
   identifierRules: IdentifierRulesState;
+  countFilters: CountFiltersState;
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
@@ -68,10 +80,11 @@ export const DesktopFilters = ({
   pagination,
   categoryFilter,
   identifierRules,
+  countFilters,
   loading,
   fetchRecent,
   onClearFilters,
-}: TimelineFiltersProps) => {
+}: DesktopFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
@@ -101,11 +114,7 @@ export const DesktopFilters = ({
 
         <motion.button
           onClick={sort.toggleOrder}
-          className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
-            sort.order === "ASC"
-              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-              : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
-          }`}
+          className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"}`}
           whileTap={{ scale: 0.95 }}
           title={sort.order === "DESC" ? "Newest first" : "Oldest first"}
         >
@@ -145,7 +154,6 @@ export const DesktopFilters = ({
           <RotateCcw className="w-4 h-4" />
         </motion.button>
 
-        {/* Advanced toggle button */}
         <motion.button
           onClick={() => setShowAdvanced(!showAdvanced)}
           className="flex items-center gap-1 px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -168,11 +176,17 @@ export const DesktopFilters = ({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+            className="overflow-hidden space-y-4"
           >
             <IdentifierRulesFilter
               value={identifierRules.rules}
               onChange={identifierRules.setRules}
+              vertical={false}
+            />
+            <CountFilters
+              value={countFilters.filters}
+              onChange={countFilters.setFilters}
+              vertical={false}
             />
           </motion.div>
         )}

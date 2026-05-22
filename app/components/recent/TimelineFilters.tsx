@@ -1,7 +1,9 @@
+// components/recent/TimelineFilters.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import {
+  CountFiltersType,
   IdentifierField,
   IdentifierRule,
 } from "../../utils/d1/getRecentProducts";
@@ -38,11 +40,17 @@ interface IdentifierRulesState {
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
 
+interface CountFiltersState {
+  filters: CountFiltersType;
+  setFilters: (filters: CountFiltersType) => void;
+}
+
 interface TimelineFiltersProps {
   sort: SortState;
   pagination: PaginationState;
   categoryFilter: CategoryFilterState;
   identifierRules: IdentifierRulesState;
+  countFilters: CountFiltersState;
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
