@@ -88,84 +88,79 @@ export const DesktopFilters = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
-    <motion.div layout className="flex flex-col gap-3 w-full">
+    <div className="flex flex-col gap-3 w-full">
       {/* Main filter bar */}
-      <div className="flex items-center flex-wrap gap-2">
-        <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full px-2">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full">
           <Clock className="w-5 h-5 text-blue-500" />
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">
             Recent Products
           </h2>
         </div>
-
-        <CategoryFilter
-          value={categoryFilter.selected}
-          onChange={categoryFilter.setSelected}
-          categories={categoryFilter.categories}
-        />
-
-        <FilterDropdown
-          label={sortOptions.find((o) => o.value === sort.field)?.label || ""}
-          options={sortOptions}
-          selectedValue={sort.field}
-          onSelect={sort.setField}
-          Icon={ArrowUpDown}
-        />
-
-        <motion.button
-          onClick={sort.toggleOrder}
-          className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"}`}
-          whileTap={{ scale: 0.95 }}
-          title={sort.order === "DESC" ? "Newest first" : "Oldest first"}
-        >
-          <motion.div
-            animate={{ rotate: sort.order === "ASC" ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
+        <div className="flex items-center flex-wrap gap-2">
+          <CategoryFilter
+            value={categoryFilter.selected}
+            onChange={categoryFilter.setSelected}
+            categories={categoryFilter.categories}
+          />
+          <FilterDropdown
+            label={sortOptions.find((o) => o.value === sort.field)?.label || ""}
+            options={sortOptions}
+            selectedValue={sort.field}
+            onSelect={sort.setField}
+            Icon={ArrowUpDown}
+          />
+          <motion.button
+            onClick={sort.toggleOrder}
+            className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"}`}
+            whileTap={{ scale: 0.95 }}
+            title={sort.order === "DESC" ? "Newest first" : "Oldest first"}
           >
-            <ArrowUpDown className="w-4 h-4" />
-          </motion.div>
-        </motion.button>
-
-        <FilterDropdown
-          label={`${pagination.limit} items`}
-          options={limitOptions}
-          selectedValue={pagination.limit}
-          onSelect={pagination.setLimit}
-          Icon={Filter}
-          width="w-32"
-        />
-
-        <motion.button
-          onClick={fetchRecent}
-          disabled={loading}
-          className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:hover:text-white"
-          whileTap={{ scale: 0.95 }}
-          title="Refresh"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </motion.button>
-
-        <motion.button
-          onClick={onClearFilters}
-          className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
-          whileTap={{ scale: 0.95 }}
-          title="Clear all filters"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </motion.button>
-
-        <motion.button
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-1 px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          whileTap={{ scale: 0.95 }}
-        >
-          <span>Advanced</span>
-          {showAdvanced ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
-          )}
-        </motion.button>
+            <motion.div
+              animate={{ rotate: sort.order === "ASC" ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ArrowUpDown className="w-4 h-4" />
+            </motion.div>
+          </motion.button>
+          <FilterDropdown
+            label={`${pagination.limit} items`}
+            options={limitOptions}
+            selectedValue={pagination.limit}
+            onSelect={pagination.setLimit}
+            Icon={Filter}
+            width="w-32"
+          />
+          <motion.button
+            onClick={fetchRecent}
+            disabled={loading}
+            className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:hover:text-white"
+            whileTap={{ scale: 0.95 }}
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </motion.button>
+          <motion.button
+            onClick={onClearFilters}
+            className="p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
+            whileTap={{ scale: 0.95 }}
+            title="Clear all filters"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </motion.button>
+          <motion.button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1 px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            whileTap={{ scale: 0.95 }}
+          >
+            <span>Advanced</span>
+            {showAdvanced ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </motion.button>
+        </div>
       </div>
 
       {/* Advanced filters (collapsible) */}
@@ -191,6 +186,6 @@ export const DesktopFilters = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };
