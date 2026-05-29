@@ -21,6 +21,14 @@ export type UniversalScrapeResult = {
   specifications?: Array<{ key: string; value: string }>;
 };
 
+// Helper to filter out condition‑related specification keys
+function filterSpecifications(
+  specs: Array<{ key: string; value: string }> | undefined,
+): Array<{ key: string; value: string }> | undefined {
+  if (!specs) return undefined;
+  return specs.filter((spec) => !spec.key.toLowerCase().includes("condition"));
+}
+
 export async function scrapeUniversal(
   identifier: string,
 ): Promise<UniversalScrapeResult> {
@@ -31,12 +39,16 @@ export async function scrapeUniversal(
     const result = await scrapeEbayProduct(identifier);
     if (!result.success) throw new Error(result.error);
     const { product, seller, itemSpecifics } = result.data;
-    const specifications = itemSpecifics
+
+    // Filter out condition keys from specifications
+    const rawSpecs = itemSpecifics
       ? Object.entries(itemSpecifics).map(([key, value]) => ({
           key,
           value: String(value),
         }))
       : [];
+    const specifications = filterSpecifications(rawSpecs);
+
     let rrp: number | undefined = undefined;
     return {
       source: "ebay",
@@ -65,7 +77,6 @@ export async function scrapeUniversal(
     const $ = cheerio.load(html);
 
     let title = metadata.productName || "";
-    // Fallback title from DOM (same as before)
     if (!title) {
       const titleSelectors = [
         "h1.product-name",
@@ -90,7 +101,6 @@ export async function scrapeUniversal(
       if (priceText) price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
     }
 
-    // RRP extraction (was price) – keep your existing logic
     let rrp: number | undefined;
     const wasPriceElem = $('.price-date, [data-test="was-price"]').first();
     if (wasPriceElem.length) {
@@ -98,6 +108,10 @@ export async function scrapeUniversal(
       const match = wasText.match(/Was\s*£([\d,]+(?:\.\d{2})?)/i);
       if (match) rrp = parseFloat(match[1].replace(/,/g, ""));
     }
+
+    // Filter out condition keys from Currys specifications
+    const specifications = filterSpecifications(metadata.specifications);
+
     return {
       source: "currys",
       product: {
@@ -107,7 +121,7 @@ export async function scrapeUniversal(
         images,
         brand: metadata.brand,
       },
-      specifications: metadata.specifications,
+      specifications,
     };
   }
 
@@ -173,17 +187,19 @@ export async function scrapeUniversal(
       description = productData.description;
 
     const brand = productData.brand || productData.product_details?.Brand || "";
-    const specifications: Array<{ key: string; value: string }> = [];
+    let rawSpecs: Array<{ key: string; value: string }> = [];
     if (
       productData.product_details &&
       typeof productData.product_details === "object"
     ) {
       for (const [key, value] of Object.entries(productData.product_details)) {
         if (value && typeof value === "string" && value.trim() !== "") {
-          specifications.push({ key, value });
+          rawSpecs.push({ key, value });
         }
       }
     }
+    // Filter out condition keys from Amazon specifications
+    const specifications = filterSpecifications(rawSpecs);
 
     return {
       source: "amazon",

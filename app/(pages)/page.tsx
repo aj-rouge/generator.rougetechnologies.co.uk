@@ -1,7 +1,8 @@
 // app/page.tsx
-import React from "react";
+
 import Link from "next/link";
 import { Plus, LogOut } from "lucide-react";
+import { Suspense } from "react";
 import { DarkModeToggle } from "../components/header/DarkModeToggle";
 import RecentProducts from "../components/recent/RecentProducts";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
@@ -11,10 +12,32 @@ import { logout } from "../actions/auth";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
+// Metadata for SEO
+export const metadata = {
+  title: "Product Dashboard",
+  description:
+    "Browse and manage your products with advanced filtering and sorting.",
+};
+
+// Helper to safely parse integer from search param
+function parseIntParam(
+  value: string | string[] | undefined,
+  defaultValue: number,
+): number {
+  if (!value) return defaultValue;
+  const parsed =
+    typeof value === "string" ? parseInt(value, 10) : parseInt(value[0], 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
 export default async function Page(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams;
 
-  const limit = Math.min(Math.max(Number(searchParams.limit) || 10, 1), 500);
+  // Parse basic params with safe defaults
+  const limit = Math.min(
+    Math.max(parseIntParam(searchParams.limit, 10), 1),
+    500,
+  );
   const sortBy = (
     searchParams.sortBy === "created_at" ? "created_at" : "updated_at"
   ) as "updated_at" | "created_at";
@@ -26,64 +49,41 @@ export default async function Page(props: { searchParams: SearchParams }) {
       ? searchParams.category
       : undefined;
 
-  // Parse count filters from URL (optional)
-  const minImages = searchParams.minImages
-    ? parseInt(searchParams.minImages as string, 10)
-    : undefined;
-  const maxImages = searchParams.maxImages
-    ? parseInt(searchParams.maxImages as string, 10)
-    : undefined;
-  // ... similarly for other fields
+  // Parse count filters from URL (with NaN protection)
+  const minImages = parseIntParam(searchParams.minImages, undefined);
+  const maxImages = parseIntParam(searchParams.maxImages, undefined);
+  const minSpecs = parseIntParam(searchParams.minSpecs, undefined);
+  const maxSpecs = parseIntParam(searchParams.maxSpecs, undefined);
+  const minParagraphs = parseIntParam(searchParams.minParagraphs, undefined);
+  const maxParagraphs = parseIntParam(searchParams.maxParagraphs, undefined);
+  const minFeatures = parseIntParam(searchParams.minFeatures, undefined);
+  const maxFeatures = parseIntParam(searchParams.maxFeatures, undefined);
+  const minFeedbacks = parseIntParam(searchParams.minFeedbacks, undefined);
+  const maxFeedbacks = parseIntParam(searchParams.maxFeedbacks, undefined);
 
   const countFilters = {
     image_count: { min: minImages, max: maxImages },
-    specs_count: {
-      min: searchParams.minSpecs
-        ? parseInt(searchParams.minSpecs as string, 10)
-        : undefined,
-      max: searchParams.maxSpecs
-        ? parseInt(searchParams.maxSpecs as string, 10)
-        : undefined,
-    },
-    paragraphs_count: {
-      min: searchParams.minParagraphs
-        ? parseInt(searchParams.minParagraphs as string, 10)
-        : undefined,
-      max: searchParams.maxParagraphs
-        ? parseInt(searchParams.maxParagraphs as string, 10)
-        : undefined,
-    },
-    features_count: {
-      min: searchParams.minFeatures
-        ? parseInt(searchParams.minFeatures as string, 10)
-        : undefined,
-      max: searchParams.maxFeatures
-        ? parseInt(searchParams.maxFeatures as string, 10)
-        : undefined,
-    },
-    feedbacks_count: {
-      min: searchParams.minFeedbacks
-        ? parseInt(searchParams.minFeedbacks as string, 10)
-        : undefined,
-      max: searchParams.maxFeedbacks
-        ? parseInt(searchParams.maxFeedbacks as string, 10)
-        : undefined,
-    },
+    specs_count: { min: minSpecs, max: maxSpecs },
+    paragraphs_count: { min: minParagraphs, max: maxParagraphs },
+    features_count: { min: minFeatures, max: maxFeatures },
+    feedbacks_count: { min: minFeedbacks, max: maxFeedbacks },
   };
 
-  const categories = await getCategories();
-
-  const initialProducts = await getRecentProducts({
-    limit,
-    order: sortOrder,
-    category,
-    sortBy,
-    countFilters,
-  });
+  // Fetch data in parallel
+  const [categories, initialProducts] = await Promise.all([
+    getCategories(),
+    getRecentProducts({
+      limit,
+      order: sortOrder,
+      category,
+      sortBy,
+      countFilters,
+    }),
+  ]);
 
   return (
     <div className="flex flex-col items-center gap-4 p-4 min-h-screen transition-colors duration-300">
-      {/* Header unchanged */}
+      {/* Header */}
       <div className="w-full flex justify-between items-center gap-3">
         <form action={logout}>
           <button
@@ -105,12 +105,27 @@ export default async function Page(props: { searchParams: SearchParams }) {
       </div>
 
       <div className="w-full flex flex-col items-center gap-4">
-        <SearchBar />
-        <RecentProducts
-          initialProducts={initialProducts}
-          categories={categories}
-          initialCountFilters={countFilters}
-        />
+        {/* Suspense for search bar (may read search params) */}
+        <Suspense
+          fallback={
+            <div className="h-12 w-full animate-pulse bg-gray-200 dark:bg-gray-800 rounded-lg" />
+          }
+        >
+          <SearchBar />
+        </Suspense>
+
+        {/* Suspense for product list (streams initial data) */}
+        <Suspense
+          fallback={
+            <div className="w-full h-96 animate-pulse bg-gray-100 dark:bg-gray-900 rounded-xl" />
+          }
+        >
+          <RecentProducts
+            initialProducts={initialProducts}
+            categories={categories}
+            initialCountFilters={countFilters}
+          />
+        </Suspense>
       </div>
     </div>
   );
