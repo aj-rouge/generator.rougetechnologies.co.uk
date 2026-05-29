@@ -33,6 +33,8 @@ export async function POST(request) {
       title,
       variants = [],
     } = productData;
+    console.log(productData);
+    console.log("SKU:", productData.variants[0].sku);
 
     // SKU is usually in the first variant
     const sku = variants[0]?.sku || null;
