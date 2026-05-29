@@ -30,7 +30,12 @@ export default function SearchBar() {
     if (debouncedQuery.length >= MIN_CHARS) {
       setLoading(true);
       fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`)
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error(`Search failed: ${res.status}`);
+          }
+          return res.json();
+        })
         .then((data) => {
           setResults(data.results);
           setShowDropdown(true);

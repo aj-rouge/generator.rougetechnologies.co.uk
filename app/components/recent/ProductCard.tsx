@@ -120,12 +120,22 @@ export const ProductCard = ({
             {hasNote && <NoteTooltip note={product.note} />}
           </div>
 
-          {/* Title */}
-          <Link href={`/products/${product.id}`} className="min-w-0 flex-1">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors text-sm sm:text-base">
-              {product.title}
-            </h3>
-          </Link>
+          {/* Title row with copy button */}
+          <div className="flex items-center justify-between gap-1">
+            <Link href={`/products/${product.id}`} className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors text-sm sm:text-base">
+                {product.title}
+              </h3>
+            </Link>
+            <CopyToClipboard
+              value={product.title}
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              successMessage="Title copied"
+              iconSize={14}
+            />
+          </div>
+
+          {/* ID badges */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 items-center">
             {isValidValue(product.sku) && (
               <CopyBadge label="SKU" value={product.sku} variant="orange" />

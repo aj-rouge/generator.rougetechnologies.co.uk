@@ -1,3 +1,4 @@
+// /api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { executeQuery } from "../../utils/d1/execute/executeQuery";
 
@@ -34,17 +35,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Build FTS query with prefix expansion for typeahead
-  const ftsQuery = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((term) => term.length > 0)
-    .map((term) => `${term}*`)
-    .join(" ");
-
-  if (!ftsQuery) {
+  // 2. Build safe FTS query with prefix expansion
+  const words = query.toLowerCase().match(/[a-z0-9]+/g) || [];
+  if (words.length === 0) {
     return NextResponse.json({ results: [] });
   }
+  const ftsQuery = words.map((term) => `${term}*`).join(" ");
 
   // 3. FTS search (title weight 5, sku weight 2)
   const ftsResults = await executeQuery(
