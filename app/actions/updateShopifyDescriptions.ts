@@ -149,6 +149,7 @@ function extractProductDetails(htmlString: string): string {
 }
 
 // Get product IDs from database
+
 const getProductIds = async (options: ProductUpdateOptions = {}) => {
   const {
     limit = 500,
@@ -157,25 +158,29 @@ const getProductIds = async (options: ProductUpdateOptions = {}) => {
     productIds,
   } = options;
 
-  // If specific product IDs are provided, use them
   if (productIds && productIds.length > 0) {
-    const placeholders = productIds.map(() => "?").join(",");
-    const query = `SELECT id, shopify_id FROM products WHERE id IN (${placeholders})`;
-    const results = await executeQuery(query, productIds);
-    return results || [];
+    const allResults: any[] = [];
+    const chunkSize = 100; // safe limit to avoid "too many SQL variables"
+    for (let i = 0; i < productIds.length; i += chunkSize) {
+      const chunk = productIds.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => "?").join(",");
+      const query = `SELECT id, shopify_id FROM products WHERE id IN (${placeholders})`;
+      const results = await executeQuery(query, chunk);
+      if (results && results.length) {
+        allResults.push(...results);
+      }
+    }
+    return allResults;
   }
 
-  // Otherwise fetch all with limit
+  // No productIds provided – fetch all with limit
   let query = `SELECT id, shopify_id FROM products`;
   const params: any[] = [];
-
   query += ` ORDER BY ${sortBy} ${order}`;
-
   if (limit) {
     query += ` LIMIT ?`;
     params.push(limit);
   }
-
   const results = await executeQuery(query, params);
   return results || [];
 };

@@ -247,7 +247,22 @@ async function upsertProductData(
 }
 
 // ----------------------------------------------------------------------
-// API Route Handler
+// Helper: Partial update – only baselinker_id via SKU
+// ----------------------------------------------------------------------
+async function updateBaselinkerId(sku: string, baselinkerId: string | null) {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await executeQuery(
+    `UPDATE products SET baselinker_id = ?, updated_at = ? WHERE sku = ?`,
+    [baselinkerId, now, sku],
+  );
+  if (result && (result as any).changes === 0) {
+    throw new Error(`No product found with SKU: ${sku}`);
+  }
+  return true;
+}
+
+// ----------------------------------------------------------------------
+// API Route Handler – supports full sync (POST) and partial update (PATCH)
 // ----------------------------------------------------------------------
 
 export async function POST(req: Request) {
@@ -255,7 +270,24 @@ export async function POST(req: Request) {
     const newData = await req.json();
     console.log("Incoming newData:", JSON.stringify(newData, null, 2));
 
-    // Clean up "null" strings for all optional fields
+    // Check if this is a partial update request
+    if (newData.partial === true && newData.sku) {
+      // Partial update: only baselinker_id is expected
+      const { sku, baselinker_id } = newData;
+      if (baselinker_id === undefined) {
+        return NextResponse.json(
+          { success: false, error: "Missing baselinker_id for partial update" },
+          { status: 400 },
+        );
+      }
+      await updateBaselinkerId(sku, baselinker_id);
+      return NextResponse.json({
+        success: true,
+        message: `Updated baselinker_id for SKU ${sku}`,
+      });
+    }
+
+    // --- Full product sync (original behaviour) ---
     function sanitizeString(value: any): any {
       if (value === null || value === undefined) return null;
       if (typeof value !== "string") return value;
@@ -340,6 +372,46 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { success: false, error: userMessage },
+      { status: 500 },
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
+// PATCH method – specifically for partial updates (e.g., only baselinker_id)
+// ----------------------------------------------------------------------
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { sku, baselinker_id } = body;
+
+    if (!sku) {
+      return NextResponse.json(
+        { success: false, error: "Missing required field: sku" },
+        { status: 400 },
+      );
+    }
+
+    if (baselinker_id === undefined) {
+      return NextResponse.json(
+        { success: false, error: "Missing field: baselinker_id" },
+        { status: 400 },
+      );
+    }
+
+    await updateBaselinkerId(sku, baselinker_id);
+
+    return NextResponse.json({
+      success: true,
+      message: `Updated baselinker_id for SKU ${sku}`,
+    });
+  } catch (error: any) {
+    console.error("💥 PATCH Error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Failed to update baselinker_id",
+      },
       { status: 500 },
     );
   }

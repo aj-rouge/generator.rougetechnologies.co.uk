@@ -12,6 +12,7 @@ import {
   IdentifierField,
   IdentifierRule,
 } from "../../utils/d1/getRecentProducts";
+import { useNotification } from "../../context/NotificationContext";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -30,14 +31,17 @@ export default function RecentProducts({
 }: RecentProductsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { addNotification, updateNotification, removeNotification } =
+    useNotification();
 
+  // Data state
   const [products, setProducts] = useState<any[]>(initialProducts);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
 
-  // Individual filter states
+  // Filter states
   const [sortField, setSortField] = useState<SortField>(
     (searchParams.get("sortBy") as SortField) || "updated_at",
   );
@@ -97,18 +101,105 @@ export default function RecentProducts({
   });
 
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const isFirstRender = useRef(true); // <-- NEW
+  const isFirstRender = useRef(true);
 
-  // Update URL only when params actually change
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(
+    new Set(),
+  );
+  const [isSyncingSelected, setIsSyncingSelected] = useState(false);
+  const [syncPlatform, setSyncPlatform] = useState<"shopify" | "baselinker">(
+    "shopify",
+  );
+
+  // Helpers
+  const hasShopifyId = (p: any) =>
+    p.shopify_id && p.shopify_id !== "" && p.shopify_id !== null;
+  const hasBaselinkerId = (p: any) =>
+    p.baselinker_id && p.baselinker_id !== "" && p.baselinker_id !== "null";
+
+  const handleSelectAllWithShopifyId = useCallback(() => {
+    const ids = products.filter(hasShopifyId).map((p) => p.id);
+    setSelectedIds(new Set(ids));
+  }, [products]);
+
+  const handleSelectAllWithBaselinkerId = useCallback(() => {
+    const ids = products.filter(hasBaselinkerId).map((p) => p.id);
+    setSelectedIds(new Set(ids));
+  }, [products]);
+
+  const clearSelections = useCallback(() => setSelectedIds(new Set()), []);
+
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionMode) clearSelections();
+    setSelectionMode((prev) => !prev);
+  }, [selectionMode, clearSelections]);
+
+  const handleToggleProduct = useCallback((productId: string | number) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) newSet.delete(productId);
+      else newSet.add(productId);
+      return newSet;
+    });
+  }, []);
+
+  const syncSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setIsSyncingSelected(true);
+    const toastId = addNotification({
+      message: `Syncing ${selectedIds.size} selected product(s) to ${syncPlatform}...`,
+      type: "info",
+      duration: 0,
+    });
+    try {
+      const endpoint =
+        syncPlatform === "shopify"
+          ? "/api/shopify-sync-all"
+          : "/api/baselinker-sync-bulk";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productIds: Array.from(selectedIds) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      updateNotification(toastId, {
+        message:
+          data.message ||
+          `${syncPlatform} sync: ${data.successCount} succeeded, ${data.failureCount} failed.`,
+        type: data.failureCount === 0 ? "success" : "warning",
+        duration: 8000,
+      });
+      clearSelections();
+      setSelectionMode(false);
+    } catch (err: any) {
+      updateNotification(toastId, {
+        message: `Sync failed: ${err.message}`,
+        type: "error",
+        duration: 6000,
+      });
+    } finally {
+      setIsSyncingSelected(false);
+      setTimeout(() => removeNotification(toastId), 10000);
+    }
+  };
+
+  // Toggle order helper
+  const toggleOrder = useCallback(() => {
+    setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC"));
+  }, []);
+
+  // URL sync & fetch logic (unchanged, but keep clearSelections on filter change)
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (limit !== 10) params.set("limit", limit.toString());
     if (sortField !== "updated_at") params.set("sortBy", sortField);
     if (sortOrder !== "DESC") params.set("sortOrder", sortOrder);
     if (category) params.set("category", category);
-    if (Object.keys(identifierRules).length > 0) {
+    if (Object.keys(identifierRules).length > 0)
       params.set("identifierRules", JSON.stringify(identifierRules));
-    }
     if (countFilters.image_count?.min !== undefined)
       params.set("minImages", countFilters.image_count.min.toString());
     if (countFilters.image_count?.max !== undefined)
@@ -129,12 +220,9 @@ export default function RecentProducts({
       params.set("minFeedbacks", countFilters.feedbacks_count.min.toString());
     if (countFilters.feedbacks_count?.max !== undefined)
       params.set("maxFeedbacks", countFilters.feedbacks_count.max.toString());
-
     const newUrl = `?${params.toString()}`;
-    const currentUrl = window.location.search;
-    if (newUrl !== currentUrl) {
+    if (newUrl !== window.location.search)
       router.push(newUrl, { scroll: false });
-    }
   }, [
     limit,
     sortField,
@@ -164,9 +252,8 @@ export default function RecentProducts({
           sortOrder,
         });
         if (category) params.append("category", category);
-        if (Object.keys(identifierRules).length > 0) {
+        if (Object.keys(identifierRules).length > 0)
           params.append("identifierRules", JSON.stringify(identifierRules));
-        }
         if (countFilters.image_count?.min !== undefined)
           params.append("minImages", countFilters.image_count.min.toString());
         if (countFilters.image_count?.max !== undefined)
@@ -209,7 +296,6 @@ export default function RecentProducts({
         const res = await fetch(`/api/product/recent?${params}`);
         const data = await res.json();
         const newProducts = Array.isArray(data) ? data : [];
-
         if (append) {
           setProducts((prev) => [...prev, ...newProducts]);
           setHasMore(newProducts.length === limit);
@@ -218,8 +304,8 @@ export default function RecentProducts({
           setProducts(newProducts);
           setHasMore(newProducts.length === limit);
           setOffset(newProducts.length);
+          clearSelections(); // clear selections when filter changes
         }
-
         if (!append) updateUrlParams();
       } catch (error) {
         console.error("Failed to fetch:", error);
@@ -240,10 +326,10 @@ export default function RecentProducts({
       countFilters,
       offset,
       updateUrlParams,
+      clearSelections,
     ],
   );
 
-  // Reset when filters change – skip first render
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -253,17 +339,22 @@ export default function RecentProducts({
     setProducts([]);
     setHasMore(true);
     fetchProducts(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, sortField, sortOrder, category, identifierRules, countFilters]);
+  }, [
+    limit,
+    sortField,
+    sortOrder,
+    category,
+    identifierRules,
+    countFilters,
+    fetchProducts,
+  ]);
 
-  // Infinite scroll observer (unchanged)
   useEffect(() => {
     if (!sentinelRef.current || loadingMore || !hasMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading && !loadingMore && hasMore) {
+        if (entries[0].isIntersecting && !loading && !loadingMore && hasMore)
           fetchProducts(true);
-        }
       },
       { threshold: 0.1, rootMargin: "200px" },
     );
@@ -288,15 +379,15 @@ export default function RecentProducts({
       minute: "2-digit",
     });
 
-  const buildCategoryNameMap = (categories: any[]): Map<string, string> => {
+  const buildCategoryNameMap = (cats: any[]): Map<string, string> => {
     const map = new Map<string, string>();
-    const traverse = (cats: any[]) => {
-      for (const cat of cats) {
+    const traverse = (c: any[]) => {
+      for (const cat of c) {
         map.set(cat.slug, cat.name);
         if (cat.children && cat.children.length) traverse(cat.children);
       }
     };
-    traverse(categories);
+    traverse(cats);
     return map;
   };
   const categoryNameMap = buildCategoryNameMap(categories);
@@ -308,8 +399,7 @@ export default function RecentProducts({
           sort={{
             field: sortField,
             order: sortOrder,
-            toggleOrder: () =>
-              setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC")),
+            toggleOrder,
             setField: setSortField,
           }}
           pagination={{ limit, setLimit }}
@@ -326,6 +416,15 @@ export default function RecentProducts({
           loading={loading}
           fetchRecent={() => fetchProducts(false)}
           onClearFilters={handleClearFilters}
+          selectionMode={selectionMode}
+          selectedCount={selectedIds.size}
+          onToggleSelectionMode={toggleSelectionMode}
+          onSelectAllWithShopifyId={handleSelectAllWithShopifyId}
+          onSelectAllWithBaselinkerId={handleSelectAllWithBaselinkerId}
+          onSyncSelected={syncSelected}
+          isSyncingSelected={isSyncingSelected}
+          syncPlatform={syncPlatform}
+          setSyncPlatform={setSyncPlatform}
         />
       </div>
 
@@ -370,12 +469,14 @@ export default function RecentProducts({
                   sortField={sortField}
                   formatDate={formatDate}
                   categoryNameMap={categoryNameMap}
+                  selectionMode={selectionMode}
+                  isSelected={selectedIds.has(product.id)}
+                  onToggle={() => handleToggleProduct(product.id)}
                 />
               ))}
             </motion.div>
           )}
         </AnimatePresence>
-
         {!loading && hasMore && products.length > 0 && (
           <div
             ref={sentinelRef}

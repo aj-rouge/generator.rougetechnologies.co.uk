@@ -1,4 +1,3 @@
-// components/recent/MobileFilters.tsx
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +9,10 @@ import {
   Filter,
   RefreshCw,
   X,
+  CheckSquare,
+  ShoppingBag,
+  Package,
+  Loader2,
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -32,28 +35,23 @@ interface SortState {
   toggleOrder: () => void;
   setField: (field: SortField) => void;
 }
-
 interface PaginationState {
   limit: LimitOption;
   setLimit: (limit: LimitOption) => void;
 }
-
 interface CategoryFilterState {
   categories: any[];
   selected: string;
   setSelected: (category: string) => void;
 }
-
 interface IdentifierRulesState {
   rules: Partial<Record<IdentifierField, IdentifierRule>>;
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
-
 interface CountFiltersState {
   filters: CountFiltersType;
   setFilters: (filters: CountFiltersType) => void;
 }
-
 interface TimelineFiltersProps {
   sort: SortState;
   pagination: PaginationState;
@@ -63,6 +61,15 @@ interface TimelineFiltersProps {
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
+  selectionMode?: boolean;
+  selectedCount?: number;
+  onToggleSelectionMode?: () => void;
+  onSelectAllWithShopifyId?: () => void;
+  onSelectAllWithBaselinkerId?: () => void;
+  onSyncSelected?: () => void;
+  isSyncingSelected?: boolean;
+  syncPlatform?: "shopify" | "baselinker";
+  setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
 }
 
 export const MobileFiltersBar = ({
@@ -134,6 +141,15 @@ export const MobileFiltersSheet = ({
     identifierRules,
     countFilters,
     onClearFilters,
+    selectionMode = false,
+    selectedCount = 0,
+    onToggleSelectionMode,
+    onSelectAllWithShopifyId,
+    onSelectAllWithBaselinkerId,
+    onSyncSelected,
+    isSyncingSelected = false,
+    syncPlatform = "shopify",
+    setSyncPlatform,
   } = filtersProps;
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -168,6 +184,75 @@ export const MobileFiltersSheet = ({
             </div>
 
             <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {selectionMode && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Platform
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSyncPlatform?.("shopify")}
+                      className={`flex-1 py-2 rounded-lg border text-sm font-medium ${
+                        syncPlatform === "shopify"
+                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 text-blue-600"
+                          : "bg-white dark:bg-gray-800 border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      Shopify
+                    </button>
+                    <button
+                      onClick={() => setSyncPlatform?.("baselinker")}
+                      className={`flex-1 py-2 rounded-lg border text-sm font-medium ${
+                        syncPlatform === "baselinker"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 text-indigo-600"
+                          : "bg-white dark:bg-gray-800 border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      Baselinker
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={onSyncSelected}
+                      disabled={isSyncingSelected || selectedCount === 0}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg disabled:opacity-50"
+                    >
+                      {isSyncingSelected ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckSquare className="w-4 h-4" />
+                      )}
+                      Sync ({selectedCount})
+                    </button>
+                    <button
+                      onClick={onSelectAllWithShopifyId}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
+                    >
+                      <ShoppingBag className="w-4 h-4" /> All Shopify
+                    </button>
+                    <button
+                      onClick={onSelectAllWithBaselinkerId}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
+                    >
+                      <Package className="w-4 h-4" /> All Baselinker
+                    </button>
+                    <button
+                      onClick={onToggleSelectionMode}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
+                    >
+                      <X className="w-4 h-4" /> Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!selectionMode && (
+                <button
+                  onClick={onToggleSelectionMode}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
+                >
+                  <CheckSquare className="w-4 h-4" /> Select mode
+                </button>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Category
@@ -178,7 +263,6 @@ export const MobileFiltersSheet = ({
                   categories={categoryFilter.categories}
                 />
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Sort By
@@ -194,14 +278,17 @@ export const MobileFiltersSheet = ({
                   width="w-full"
                 />
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Order
                 </label>
                 <motion.button
                   onClick={sort.toggleOrder}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"}`}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
+                    sort.order === "ASC"
+                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                  }`}
                   whileTap={{ scale: 0.98 }}
                 >
                   <span>
@@ -215,7 +302,6 @@ export const MobileFiltersSheet = ({
                   </motion.div>
                 </motion.button>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Items per page
@@ -229,7 +315,6 @@ export const MobileFiltersSheet = ({
                   width="w-full"
                 />
               </div>
-
               <div className="space-y-2">
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
@@ -266,7 +351,6 @@ export const MobileFiltersSheet = ({
                 </AnimatePresence>
               </div>
             </div>
-
             <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {

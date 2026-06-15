@@ -11,6 +11,11 @@ import {
   Filter,
   RefreshCw,
   RotateCcw,
+  Loader2,
+  CheckSquare,
+  X,
+  ShoppingBag,
+  Package,
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -32,28 +37,23 @@ interface SortState {
   toggleOrder: () => void;
   setField: (field: SortField) => void;
 }
-
 interface PaginationState {
   limit: LimitOption;
   setLimit: (limit: LimitOption) => void;
 }
-
 interface CategoryFilterState {
   categories: any[];
   selected: string;
   setSelected: (category: string) => void;
 }
-
 interface IdentifierRulesState {
   rules: Partial<Record<IdentifierField, IdentifierRule>>;
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
-
 interface CountFiltersState {
   filters: CountFiltersType;
   setFilters: (filters: CountFiltersType) => void;
 }
-
 interface DesktopFiltersProps {
   sort: SortState;
   pagination: PaginationState;
@@ -63,13 +63,21 @@ interface DesktopFiltersProps {
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
+  selectionMode?: boolean;
+  selectedCount?: number;
+  onToggleSelectionMode?: () => void;
+  onSelectAllWithShopifyId?: () => void;
+  onSelectAllWithBaselinkerId?: () => void;
+  onSyncSelected?: () => void;
+  isSyncingSelected?: boolean;
+  syncPlatform?: "shopify" | "baselinker";
+  setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
   value: n as LimitOption,
   label: `${n} items`,
 }));
-
 const sortOptions = [
   { value: "updated_at", label: "Updated Date" },
   { value: "created_at", label: "Created Date" },
@@ -84,12 +92,20 @@ export const DesktopFilters = ({
   loading,
   fetchRecent,
   onClearFilters,
+  selectionMode = false,
+  selectedCount = 0,
+  onToggleSelectionMode,
+  onSelectAllWithShopifyId,
+  onSelectAllWithBaselinkerId,
+  onSyncSelected,
+  isSyncingSelected = false,
+  syncPlatform = "shopify",
+  setSyncPlatform,
 }: DesktopFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
     <div className="flex flex-col gap-3 w-full">
-      {/* Main filter bar */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2 bg-white dark:bg-black rounded-full">
           <Clock className="w-5 h-5 text-blue-500" />
@@ -98,6 +114,73 @@ export const DesktopFilters = ({
           </h2>
         </div>
         <div className="flex items-center flex-wrap gap-2">
+          {selectionMode && (
+            <>
+              {/* Platform switcher */}
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-md p-1">
+                <button
+                  onClick={() => setSyncPlatform?.("shopify")}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    syncPlatform === "shopify"
+                      ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  Shopify
+                </button>
+                <button
+                  onClick={() => setSyncPlatform?.("baselinker")}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    syncPlatform === "baselinker"
+                      ? "bg-white dark:bg-gray-700 shadow text-indigo-600 dark:text-indigo-400"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  Baselinker
+                </button>
+              </div>
+              {/* Sync selected button */}
+              <button
+                onClick={onSyncSelected}
+                disabled={isSyncingSelected || selectedCount === 0}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-green-600 hover:bg-green-700 text-white transition-all disabled:opacity-50"
+              >
+                {isSyncingSelected ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckSquare className="w-4 h-4" />
+                )}
+                <span>Sync ({selectedCount})</span>
+              </button>
+              {/* Select‑all buttons */}
+              <button
+                onClick={onSelectAllWithShopifyId}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <ShoppingBag className="w-4 h-4" /> All Shopify
+              </button>
+              <button
+                onClick={onSelectAllWithBaselinkerId}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <Package className="w-4 h-4" /> All Baselinker
+              </button>
+              <button
+                onClick={onToggleSelectionMode}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </button>
+            </>
+          )}
+          {!selectionMode && (
+            <button
+              onClick={onToggleSelectionMode}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <CheckSquare className="w-4 h-4" /> Select
+            </button>
+          )}
           <CategoryFilter
             value={categoryFilter.selected}
             onChange={categoryFilter.setSelected}
@@ -112,7 +195,11 @@ export const DesktopFilters = ({
           />
           <motion.button
             onClick={sort.toggleOrder}
-            className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${sort.order === "ASC" ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"}`}
+            className={`p-1.5 rounded-md border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 ${
+              sort.order === "ASC"
+                ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:text-white"
+            }`}
             whileTap={{ scale: 0.95 }}
             title={sort.order === "DESC" ? "Newest first" : "Oldest first"}
           >
@@ -162,8 +249,6 @@ export const DesktopFilters = ({
           </motion.button>
         </div>
       </div>
-
-      {/* Advanced filters (collapsible) */}
       <AnimatePresence>
         {showAdvanced && (
           <motion.div

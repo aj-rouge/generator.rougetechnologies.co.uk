@@ -23,23 +23,19 @@ interface SortState {
   toggleOrder: () => void;
   setField: (field: SortField) => void;
 }
-
 interface PaginationState {
   limit: LimitOption;
   setLimit: (limit: LimitOption) => void;
 }
-
 interface CategoryFilterState {
   categories: any[];
   selected: string;
   setSelected: (category: string) => void;
 }
-
 interface IdentifierRulesState {
   rules: Partial<Record<IdentifierField, IdentifierRule>>;
   setRules: (rules: Partial<Record<IdentifierField, IdentifierRule>>) => void;
 }
-
 interface CountFiltersState {
   filters: CountFiltersType;
   setFilters: (filters: CountFiltersType) => void;
@@ -54,11 +50,17 @@ interface TimelineFiltersProps {
   loading: boolean;
   fetchRecent: () => void;
   onClearFilters: () => void;
+  selectionMode?: boolean;
+  selectedCount?: number;
+  onToggleSelectionMode?: () => void;
+  onSelectAllWithShopifyId?: () => void;
+  onSelectAllWithBaselinkerId?: () => void;
+  onSyncSelected?: () => void;
+  isSyncingSelected?: boolean;
+  syncPlatform?: "shopify" | "baselinker";
+  setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
 }
 
-// ----------------------------------------------------------------------------
-// useMediaQuery hook
-// ----------------------------------------------------------------------------
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
   useEffect(() => {
@@ -71,9 +73,6 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
-// ----------------------------------------------------------------------------
-// Main TimelineFilters component
-// ----------------------------------------------------------------------------
 export const TimelineFilters = (props: TimelineFiltersProps) => {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);

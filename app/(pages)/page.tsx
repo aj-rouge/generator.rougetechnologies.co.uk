@@ -1,14 +1,8 @@
 // app/page.tsx
-
-import Link from "next/link";
-import { Plus, LogOut } from "lucide-react";
 import { Suspense } from "react";
-import { DarkModeToggle } from "../components/header/DarkModeToggle";
-import RecentProducts from "../components/recent/RecentProducts";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
 import { getCategories } from "../utils/d1/category/getCategories";
-import SearchBar from "../components/search/SearchBar";
-import { logout } from "../actions/auth";
+import ProductsDashboardClient from "../components/ProductsDashboardClient";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -82,51 +76,12 @@ export default async function Page(props: { searchParams: SearchParams }) {
   ]);
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4 min-h-screen transition-colors duration-300">
-      {/* Header */}
-      <div className="w-full flex justify-between items-center gap-3">
-        <form action={logout}>
-          <button
-            type="submit"
-            className="flex items-center gap-2 p-3 sm:px-4 sm:py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-        </form>
-        <DarkModeToggle />
-        <Link
-          href="/create"
-          className="flex items-center gap-2 p-3 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">New Product</span>
-        </Link>
-      </div>
-
-      <div className="w-full flex flex-col items-center gap-4">
-        {/* Suspense for search bar (may read search params) */}
-        <Suspense
-          fallback={
-            <div className="h-12 w-full animate-pulse bg-gray-200 dark:bg-gray-800 rounded-lg" />
-          }
-        >
-          <SearchBar />
-        </Suspense>
-
-        {/* Suspense for product list (streams initial data) */}
-        <Suspense
-          fallback={
-            <div className="w-full h-96 animate-pulse bg-gray-100 dark:bg-gray-900 rounded-xl" />
-          }
-        >
-          <RecentProducts
-            initialProducts={initialProducts}
-            categories={categories}
-            initialCountFilters={countFilters}
-          />
-        </Suspense>
-      </div>
-    </div>
+    <Suspense fallback={<div className="p-4">Loading dashboard...</div>}>
+      <ProductsDashboardClient
+        initialProducts={initialProducts}
+        categories={categories}
+        initialCountFilters={countFilters}
+      />
+    </Suspense>
   );
 }

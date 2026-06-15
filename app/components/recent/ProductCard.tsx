@@ -23,6 +23,9 @@ interface ProductCardProps {
   sortField: string;
   formatDate: (ts: number) => string;
   categoryNameMap: Map<string, string>;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggle?: () => void;
 }
 
 export const ProductCard = ({
@@ -31,6 +34,9 @@ export const ProductCard = ({
   sortField,
   formatDate,
   categoryNameMap,
+  selectionMode = false,
+  isSelected = false,
+  onToggle,
 }: ProductCardProps) => {
   const categoryName = product.category_slug
     ? categoryNameMap.get(product.category_slug)
@@ -85,9 +91,43 @@ export const ProductCard = ({
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03 }}
-      className="group relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md"
+      className={`group relative bg-white dark:bg-gray-800 border rounded-xl transition-all shadow-sm hover:shadow-md ${
+        selectionMode ? "cursor-pointer" : ""
+      } ${
+        isSelected
+          ? "border-blue-500 ring-2 ring-blue-500/20"
+          : "border-gray-200 dark:border-gray-700"
+      }`}
+      onClick={() => selectionMode && onToggle?.()}
     >
       <div className="flex items-start p-3 sm:p-4 gap-3">
+        {selectionMode && (
+          <div className="flex-shrink-0 pt-1">
+            <div
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                isSelected
+                  ? "bg-blue-500 border-blue-500"
+                  : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+              }`}
+            >
+              {isSelected && (
+                <svg
+                  className="w-3 h-3 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              )}
+            </div>
+          </div>
+        )}
         {/* Image */}
         <Link
           href={`/products/${product.id}`}
