@@ -40,7 +40,12 @@ export default function RecentProducts({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(offset);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
   // Filter states
   const [sortField, setSortField] = useState<SortField>(
     (searchParams.get("sortBy") as SortField) || "updated_at",
@@ -232,11 +237,14 @@ export default function RecentProducts({
     countFilters,
     router,
   ]);
+  const isFetching = useRef(false);
 
   const fetchProducts = useCallback(
     async (append = false) => {
-      const currentOffset = append ? offset : 0;
-      const isLoadMore = append && offset > 0;
+      if (isFetching.current) return;
+      isFetching.current = true;
+      const currentOffset = append ? offsetRef.current : 0;
+      const isLoadMore = append && offsetRef.current > 0;
 
       if (isLoadMore) {
         setLoadingMore(true);
@@ -316,6 +324,7 @@ export default function RecentProducts({
           setLoading(false);
         }
       }
+      isFetching.current = false;
     },
     [
       limit,
@@ -324,7 +333,6 @@ export default function RecentProducts({
       category,
       identifierRules,
       countFilters,
-      offset,
       updateUrlParams,
       clearSelections,
     ],
