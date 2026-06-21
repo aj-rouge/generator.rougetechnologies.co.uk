@@ -2,16 +2,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { batchUpdateProductDescriptions } from "../../actions/updateShopifyDescriptions";
 
+// 1. TYPE DEFINITIONS: Explicitly map the optional request body parameters
+interface SyncAllRequestBody {
+  productIds?: (string | number)[];
+}
+
 export async function POST(request: NextRequest) {
   try {
     let productIds: (string | number)[] = [];
+
     try {
-      const body = await request.json();
-      if (body.productIds && Array.isArray(body.productIds)) {
+      // 2. FIXED CAST: Typecast incoming parsed JSON data safely
+      const body = (await request.json()) as SyncAllRequestBody;
+      if (body && body.productIds && Array.isArray(body.productIds)) {
         productIds = body.productIds;
       }
     } catch {
-      // no body – sync all
+      // no body provided or malformed JSON payload – gracefully fall back to sync all
     }
 
     const result = await batchUpdateProductDescriptions(productIds, {

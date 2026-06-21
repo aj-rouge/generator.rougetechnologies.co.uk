@@ -1,8 +1,18 @@
-"use server";
+// app/api/product/delete/route.ts
+
 import { NextResponse } from "next/server";
 import { ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { s3Client } from "../../../utils/images/s3Client";
 import { deleteProductById } from "../../../utils/d1/product/deleteProduct";
+import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- import
+import type { D1Database } from "@cloudflare/workers-types";
+
+// Type definition
+interface DeleteProductRequestBody {
+  slug?: string;
+  category?: string;
+  uuid?: string;
+}
 
 const deleteFolderRecursive = async (prefix: string) => {
   const bucket = process.env.R2_BUCKET_NAME;
@@ -36,8 +46,13 @@ const deleteFolderRecursive = async (prefix: string) => {
 export async function POST(req: Request) {
   console.log("🗑️ [START] Product Delete Request");
 
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB as D1Database;
+
   try {
-    const { slug, category, uuid } = await req.json();
+    const body = (await req.json()) as DeleteProductRequestBody;
+    const { slug, category, uuid } = body;
 
     if (!slug || !category) {
       throw new Error("Missing slug or category for deletion");
@@ -49,14 +64,21 @@ export async function POST(req: Request) {
 
     // 2. PHASE 2: Delete from D1 (Database)
     console.log("📊 [2/3] Syncing removal to D1...");
-    await deleteProductById(uuid);
+    if (uuid) {
+      // Pass `db` to deleteProductById
+      await deleteProductById(uuid, db);
+    } else {
+      console.log(
+        "⚠️ No explicit uuid provided, skipped DB deletion row stage.",
+      );
+    }
 
     // 3. PHASE 3: Cleanup Temp folder
     await deleteFolderRecursive(`temp/${slug}/`);
 
     console.log("🏁 [FINISH] Delete completed successfully!");
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("💥 [DELETE ERROR]:", error.message);
     return NextResponse.json(
       { success: false, error: error.message },

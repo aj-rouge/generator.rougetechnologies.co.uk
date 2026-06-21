@@ -1,15 +1,33 @@
 // app/api/products/shopify-ids/route.ts
 import { NextResponse } from "next/server";
-import { executeQuery } from "../../../utils/d1/execute/executeQuery";
+import { executeQuery } from "../../../utils/d1/execute";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+interface ProductIdRow {
+  id: string;
+}
 
 export async function GET() {
   try {
-    const products = await executeQuery(
+    // Fetch the D1 binding
+    const { env } = await getCloudflareContext({ async: true });
+    const db = (env as any).DB;
+
+    // Fetch only local IDs for products that have a synced Shopify record
+    const products = (await executeQuery(
       `SELECT id FROM products WHERE shopify_id IS NOT NULL AND shopify_id != ''`,
-    );
-    const ids = products.map((p: any) => p.id);
+      [],
+      db, // <-- pass db
+    )) as ProductIdRow[];
+
+    const ids = (products || []).map((p) => p.id);
+
     return NextResponse.json({ ids });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[Shopify IDs Sync Endpoint Error]:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal database connection failure" },
+      { status: 500 },
+    );
   }
 }

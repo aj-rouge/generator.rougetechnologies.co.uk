@@ -1,21 +1,19 @@
+// app/api/images/[identifier]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { executeQuery } from "../../../utils/d1/execute/executeQuery";
+import { executeQuery } from "../../../utils/d1/execute";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-// Helper function to add CORS headers
-function addCorsHeaders(response: NextResponse) {
-  response.headers.set(
-    "Access-Control-Allow-Origin",
-    "https://www.rougetechnologies.co.uk",
-  );
-  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-  response.headers.set("Access-Control-Max-Age", "86400"); // 24 hours cache for preflight
-  return response;
+interface ImageJoinRow {
+  url: string | null;
+  s3_path: string | null;
+  alt_text: string | null;
+  image_order: number | null;
+  product_id: string;
+  product_title: string;
 }
 
-// Handle OPTIONS request for CORS preflight
-export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
+// Helper function to add CORS headers
+function addCorsHeaders(response: NextResponse): NextResponse {
   response.headers.set(
     "Access-Control-Allow-Origin",
     "https://www.rougetechnologies.co.uk",
@@ -26,10 +24,19 @@ export async function OPTIONS() {
   return response;
 }
 
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 204 });
+  return addCorsHeaders(response);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ identifier: string }> },
 ) {
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB;
+
   const { identifier } = await params;
 
   try {
@@ -41,12 +48,12 @@ export async function GET(
       return addCorsHeaders(response);
     }
 
-    console.log(
-      "🔍 Looking up images for identifier:",
-      "gid://shopify/Product/" + identifier,
-    );
+    const numericShopifyId = identifier.includes("gid://")
+      ? identifier.split("/").pop()!
+      : identifier;
 
-    // Single query to get all images with product lookup
+    console.log("🔍 Looking up images for identifier:", identifier);
+
     const query = `
       SELECT 
         pi.url,
@@ -71,19 +78,23 @@ export async function GET(
         pi.image_order ASC
     `;
 
-    // Prepare parameters for all possible identifier fields
-    const params = [
-      identifier, // id
-      "gid://shopify/Product/" + identifier, // shopify_id
-      identifier, // sku
-      identifier, // ean
-      identifier, // asin
-      identifier, // baselinker_id
-      identifier, // id for CASE
-      identifier, // shopify_id for CASE
+    const queryParams = [
+      identifier,
+      numericShopifyId,
+      identifier,
+      identifier,
+      identifier,
+      identifier,
+      identifier,
+      numericShopifyId,
     ];
 
-    const results = await executeQuery(query, params);
+    // 2. Pass db as third argument
+    const results = (await executeQuery(
+      query,
+      queryParams,
+      db,
+    )) as ImageJoinRow[];
 
     if (!results || results.length === 0) {
       console.log("❌ Product not found for identifier:", identifier);
@@ -94,7 +105,6 @@ export async function GET(
       return addCorsHeaders(response);
     }
 
-    // Extract product info from first row
     const productInfo = {
       id: results[0].product_id,
       title: results[0].product_title,
@@ -102,24 +112,14 @@ export async function GET(
 
     console.log("✅ Product found:", productInfo.id, productInfo.title);
 
-    // Filter out null images (in case product exists but has no images)
     const imageUrls = results
-      .filter((row: any) => row.url || row.s3_path)
-      .map((row: any) => row.s3_path || row.url);
+      .filter((row) => row.s3_path || row.url)
+      .map((row) => row.s3_path || row.url);
 
     console.log(
       `📸 Found ${imageUrls.length} images for product ${productInfo.id}`,
     );
-    if (imageUrls.length > 0) {
-      imageUrls.slice(0, 3).forEach((url, i) => {
-        console.log(`  Image ${i + 1}:`, url);
-      });
-      if (imageUrls.length > 3) {
-        console.log(`  ... and ${imageUrls.length - 3} more`);
-      }
-    }
 
-    // Create response with CORS headers
     const response = NextResponse.json(imageUrls, {
       headers: {
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -128,7 +128,7 @@ export async function GET(
     });
 
     return addCorsHeaders(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error fetching product images:", error);
     const response = NextResponse.json(
       { error: "Internal server error" },

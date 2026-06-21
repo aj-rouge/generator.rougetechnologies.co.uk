@@ -1,3 +1,4 @@
+// FieldSelectionTable.tsx (final)
 import { useState } from "react";
 import { IMPORT_FIELDS } from "./UniversalImportModal";
 import { Circle, CheckCircle } from "lucide-react";
@@ -42,6 +43,99 @@ export function FieldSelectionTable({
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Helper: check if a source is fully selected for all fields (that have values)
+  const isSourceFullySelected = (sourceIndex: number): boolean => {
+    for (const field of IMPORT_FIELDS) {
+      const source = sources[sourceIndex];
+      if (!source) return false;
+      const value = getFieldDisplayValue(source, field.key);
+      const hasValue = value !== null && value !== undefined && value !== "";
+
+      if (!hasValue) continue; // field not available, ignore
+
+      if (field.key === "images") {
+        const imagesSel = fieldSelections["images"] as {
+          sourceIndex: number | null;
+          selectedUrls: string[];
+        };
+        if (imagesSel?.sourceIndex !== sourceIndex) return false;
+        // optionally check if all images are selected (up to 16)
+        const allUrls = source.product.images?.slice(0, 16) || [];
+        if (imagesSel?.selectedUrls?.length !== allUrls.length) return false;
+      } else {
+        if (fieldSelections[field.key] !== sourceIndex) return false;
+      }
+    }
+    return true;
+  };
+
+  // Select all fields from a given source
+  const selectAllFromSource = (sourceIndex: number) => {
+    const newSelections: Record<string, any> = { ...fieldSelections };
+
+    for (const field of IMPORT_FIELDS) {
+      const source = sources[sourceIndex];
+      if (!source) continue;
+      const value = getFieldDisplayValue(source, field.key);
+      const hasValue = value !== null && value !== undefined && value !== "";
+
+      if (!hasValue) {
+        // If the source has no value for this field, we leave the current selection unchanged
+        continue;
+      }
+
+      if (field.key === "images") {
+        const allUrls = source.product.images?.slice(0, 16) || [];
+        newSelections["images"] = {
+          sourceIndex,
+          selectedUrls: allUrls,
+        };
+      } else {
+        newSelections[field.key] = sourceIndex;
+      }
+    }
+
+    setFieldSelections(newSelections);
+  };
+
+  // Clear all selections from a given source
+  const clearAllFromSource = (sourceIndex: number) => {
+    const newSelections: Record<string, any> = { ...fieldSelections };
+
+    for (const field of IMPORT_FIELDS) {
+      const source = sources[sourceIndex];
+      if (!source) continue;
+      const value = getFieldDisplayValue(source, field.key);
+      const hasValue = value !== null && value !== undefined && value !== "";
+
+      if (!hasValue) continue;
+
+      if (field.key === "images") {
+        const imagesSel = fieldSelections["images"] as {
+          sourceIndex: number | null;
+          selectedUrls: string[];
+        };
+        if (imagesSel?.sourceIndex === sourceIndex) {
+          newSelections["images"] = { sourceIndex: null, selectedUrls: [] };
+        }
+      } else {
+        if (fieldSelections[field.key] === sourceIndex) {
+          newSelections[field.key] = null;
+        }
+      }
+    }
+
+    setFieldSelections(newSelections);
+  };
+
+  const handleToggleSelectAll = (sourceIndex: number) => {
+    if (isSourceFullySelected(sourceIndex)) {
+      clearAllFromSource(sourceIndex);
+    } else {
+      selectAllFromSource(sourceIndex);
+    }
+  };
+
   const handleRadioSelection = (
     fieldKey: string,
     sourceIndex: number | null,
@@ -77,18 +171,42 @@ export function FieldSelectionTable({
               <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700">
                 Field
               </th>
-              {sources.map((src, idx) => (
-                <th
-                  key={idx}
-                  className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700"
-                >
-                  <span className="capitalize">{src.source}</span>
-                  <div className="text-xs text-gray-400 font-normal mt-1">
-                    {src.identifier?.substring(0, 30)}
-                    {src.identifier?.length > 30 ? "…" : ""}
-                  </div>
-                </th>
-              ))}
+              {sources.map((src, idx) => {
+                const isFullySelected = isSourceFullySelected(idx);
+                return (
+                  <th
+                    key={idx}
+                    className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Toggle icon: Circle or CheckCircle */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectAll(idx)}
+                        className="focus:outline-none"
+                        aria-label={
+                          isFullySelected
+                            ? "Deselect all fields from this source"
+                            : "Select all fields from this source"
+                        }
+                      >
+                        {isFullySelected ? (
+                          <CheckCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                        )}
+                      </button>
+                      <div>
+                        <span className="capitalize">{src.source}</span>
+                        <div className="text-xs text-gray-400 font-normal mt-0.5">
+                          {src.identifier?.substring(0, 30)}
+                          {src.identifier?.length > 30 ? "…" : ""}
+                        </div>
+                      </div>
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">

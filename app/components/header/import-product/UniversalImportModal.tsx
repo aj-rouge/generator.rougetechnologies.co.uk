@@ -6,7 +6,7 @@ import { IdentifierForm } from "./IdentifierForm";
 import { useNotification } from "../../../context/NotificationContext";
 
 // ----------------------------------------------------------------------------
-// Constants
+// Constants & Interfaces
 // ----------------------------------------------------------------------------
 export const IMPORT_FIELDS = [
   { key: "title", label: "Title" },
@@ -17,9 +17,6 @@ export const IMPORT_FIELDS = [
   { key: "specifications", label: "Specifications" },
 ];
 
-// ----------------------------------------------------------------------------
-// Hook: useUniversalImport
-// ----------------------------------------------------------------------------
 interface ScrapedSource {
   source: string; // e.g., "ebay", "amazon", "currys"
   identifier: string;
@@ -27,6 +24,37 @@ interface ScrapedSource {
   specifications?: any[];
 }
 
+// API response types
+interface ScrapeBatchResponse {
+  success: boolean;
+  data: ScrapedSource[];
+  error?: string;
+}
+
+interface SkuGenerationResponse {
+  sku?: string;
+}
+
+interface ParagraphsGenerationResponse {
+  paragraphs?: string[];
+}
+
+interface FeatureItem {
+  title: string;
+  description: string;
+}
+
+interface FeaturesGenerationResponse {
+  features?: FeatureItem[];
+}
+
+interface TitleGenerationResponse {
+  title: string; // AI‑optimised title
+}
+
+// ----------------------------------------------------------------------------
+// Hook: useUniversalImport
+// ----------------------------------------------------------------------------
 function useUniversalImport() {
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -59,7 +87,8 @@ function useUniversalImport() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifiers }),
       });
-      const result = await response.json();
+
+      const result = (await response.json()) as ScrapeBatchResponse;
       if (!result.success) throw new Error(result.error);
       if (result.data.length === 0) {
         setErrorMessage("No valid product data found for any identifier");
@@ -67,6 +96,7 @@ function useUniversalImport() {
         return false;
       }
       setScrapedSources(result.data);
+
       // All fields start as skipped (null for regular fields, object for images)
       const initialSelections: Record<string, any> = {};
       for (const field of IMPORT_FIELDS) {
@@ -217,6 +247,7 @@ export default function UniversalImportModal({
   };
 
   const selectedTitle = getSelectedFieldValue("title");
+  const selectedBrand = getSelectedFieldValue("brand");
   const selectedSpecs = getSelectedFieldValue("specifications") || [];
   const canAiAutofill = !!selectedTitle && !!categoryName && !aiLoading;
 
@@ -237,14 +268,19 @@ export default function UniversalImportModal({
     }
     setAiLoading(true);
     try {
-      async function groqFetch(url, body, maxRetries = 2) {
+      // Generic fetch wrapper with retry
+      async function groqFetch<T>(
+        url: string,
+        body: any,
+        maxRetries = 2,
+      ): Promise<T> {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
-          if (res.ok) return res.json();
+          if (res.ok) return res.json() as Promise<T>;
           if (res.status === 429 && attempt < maxRetries) {
             const retryAfter = parseInt(
               res.headers.get("Retry-After") || "5",
@@ -259,24 +295,51 @@ export default function UniversalImportModal({
         throw new Error("Max retries exceeded");
       }
 
-      const skuRes = await groqFetch("/api/generate-sku", {
-        title: selectedTitle,
-        condition: condition || "New",
-      });
-      const paraRes = await groqFetch("/api/generate-paragraphs", {
-        title: selectedTitle,
-        category: categoryName,
-        specifications: selectedSpecs,
-        features: [],
-        keywords: categoryKeywords,
-      });
-      const featRes = await groqFetch("/api/generate-features", {
-        title: selectedTitle,
-        category: categoryName,
-        specifications: selectedSpecs,
-        keywords: categoryKeywords,
-      });
+      // 1. Generate SKU
+      const skuRes = await groqFetch<SkuGenerationResponse>(
+        "/api/generate-sku",
+        {
+          title: selectedTitle,
+          condition: condition || "New",
+        },
+      );
 
+      // 2. Generate paragraphs
+      const paraRes = await groqFetch<ParagraphsGenerationResponse>(
+        "/api/generate-paragraphs",
+        {
+          title: selectedTitle,
+          category: categoryName,
+          specifications: selectedSpecs,
+          features: [],
+          keywords: categoryKeywords,
+        },
+      );
+
+      // 3. Generate features
+      const featRes = await groqFetch<FeaturesGenerationResponse>(
+        "/api/generate-features",
+        {
+          title: selectedTitle,
+          category: categoryName,
+          specifications: selectedSpecs,
+          keywords: categoryKeywords,
+        },
+      );
+
+      // 4. Generate optimised title (AI‑shortened, SEO‑friendly)
+      const titleRes = await groqFetch<TitleGenerationResponse>(
+        "/api/generate-title",
+        {
+          originalTitle: selectedTitle,
+          categoryName,
+          categoryKeywords,
+          specifications: selectedSpecs,
+          brand: selectedBrand,
+        },
+      );
+
+      // Build final import data
       const finalData: any = {};
       if (skuRes.sku) finalData.sku = skuRes.sku;
       if (paraRes.paragraphs) finalData.paragraphs = paraRes.paragraphs;
@@ -285,13 +348,19 @@ export default function UniversalImportModal({
           title: f.title,
           description: f.description,
         }));
-      finalData.title = selectedTitle;
+
+      // Use AI‑generated title if available, otherwise fallback to original
+      finalData.title = titleRes.title || selectedTitle;
+
       const selectedPrice = getSelectedFieldValue("price");
       if (selectedPrice) finalData.price = selectedPrice;
+
       const selectedImages = getSelectedFieldValue("images");
       if (selectedImages) finalData.images = selectedImages.slice(0, 16);
-      const selectedBrand = getSelectedFieldValue("brand");
-      if (selectedBrand) finalData.brand = selectedBrand;
+
+      const selectedBrandVal = getSelectedFieldValue("brand");
+      if (selectedBrandVal) finalData.brand = selectedBrandVal;
+
       if (selectedSpecs.length) finalData.specifications = selectedSpecs;
 
       onImport(finalData);

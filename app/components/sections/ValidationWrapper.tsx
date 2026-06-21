@@ -1,14 +1,24 @@
+// app/components/forms/sections/ValidationWrapper.tsx
 "use client";
 
+import React from "react";
 import { getBorderColorFromScore } from "../../utils/ui/validationColors";
+
+interface ValidationWrapperProps {
+  children: React.ReactNode;
+  validationScore?: number; // Optional 0-100 percentage
+  borderColor?: string;     // Optional: override with custom color
+  className?: string;
+  showBorder?: boolean;
+}
 
 export function ValidationWrapper({
   children,
-  validationScore, // 0-100 percentage
-  borderColor, // Optional: override with custom color
+  validationScore,
+  borderColor = "",         // Assigned default fallback value
   className = "",
   showBorder = true,
-}) {
+}: ValidationWrapperProps) {
   // Use custom borderColor if provided, otherwise calculate from score
   const borderColorClass =
     borderColor ||

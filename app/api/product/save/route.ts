@@ -8,7 +8,9 @@ import {
   moveExistingToTemp,
   processImages,
 } from "../../../utils/images/productImageService";
-import { executeQuery } from "../../../utils/d1/execute/executeQuery";
+import { executeBatch } from "../../../utils/d1/execute";
+import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- add import
+import type { D1Database } from "@cloudflare/workers-types"; // optional but good
 
 // ----------------------------------------------------------------------
 // Helper to format D1/SQLite errors into user‑friendly messages
@@ -16,12 +18,8 @@ import { executeQuery } from "../../../utils/d1/execute/executeQuery";
 function formatDatabaseError(error: any): string {
   const message = error?.message || String(error);
 
-  // Helper: convert "table.field" or just "field" into a user‑friendly label
   const toUserFriendlyField = (field: string): string => {
-    // Remove table prefix if present (e.g., "products.sku" -> "sku")
     const base = field.includes(".") ? field.split(".").pop()! : field;
-
-    // Common overrides (customize as needed)
     const overrides: Record<string, string> = {
       sku: "SKU",
       ean: "EAN",
@@ -35,15 +33,12 @@ function formatDatabaseError(error: any): string {
     };
 
     if (overrides[base]) return overrides[base];
-
-    // Fallback: capitalise and replace underscores with spaces
     return base
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
   };
 
-  // 1. Extract from D1 API error array
   const d1Match = message.match(/D1 API error:\s*(\[.*\])/);
   if (d1Match) {
     try {
@@ -57,26 +52,21 @@ function formatDatabaseError(error: any): string {
         }
         return inner.split(":")[0] || inner;
       }
-    } catch (e) {
-      // fall through
-    }
+    } catch (e) {}
   }
 
-  // 2. Direct SQLite message
   const uniqueMatch = message.match(/UNIQUE constraint failed:\s*(\S+)/i);
   if (uniqueMatch) {
     const field = toUserFriendlyField(uniqueMatch[1]);
     return `${field} already exists. Please use a different ${field.toLowerCase()}.`;
   }
 
-  // 3. Fallback
   return message.split("\n")[0].replace(/^Error:\s*/, "");
 }
 
 // ----------------------------------------------------------------------
-// D1 Upsert Logic (updated with new fields)
+// Type Definitions
 // ----------------------------------------------------------------------
-
 interface ProductData {
   id?: string;
   slug: string;
@@ -108,171 +98,196 @@ interface FinalizedImage {
   alt_text: string;
 }
 
+interface D1BatchStatement {
+  sql: string;
+  params: any[];
+}
+
 /**
- * Upsert a product and all its related child records.
- * Child tables are cleared and re‑inserted with the new data.
+ * Packs all mutations into a single atomic native D1 transaction block.
+ * Now requires a `db` instance.
  */
 async function upsertProductData(
   productId: string,
   data: ProductData,
   finalizedImages: FinalizedImage[],
   isUpdate: boolean,
+  db: any, // <-- using any
 ) {
   const now = Math.floor(Date.now() / 1000);
+  const queue: D1BatchStatement[] = [];
 
-  // Upsert product with new columns
-  const productQuery = `
-    INSERT INTO products (
-      id, slug, title, sku, ean, asin,
-      baselinker_id, shopify_id, category,
-      condition, note, 
-      vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      slug = excluded.slug,
-      title = excluded.title,
-      sku = excluded.sku,
-      ean = excluded.ean,
-      asin = excluded.asin,
-      baselinker_id = excluded.baselinker_id,
-      shopify_id = excluded.shopify_id,
-      category = excluded.category,
-      condition = excluded.condition,
-      note = excluded.note,
-      vat_rate = excluded.vat_rate,
-      rrp = excluded.rrp,
-      weight = excluded.weight,
-      quantity = excluded.quantity,
-      price_brutto = excluded.price_brutto,
-      shipping_method = excluded.shipping_method,
-      updated_at = excluded.updated_at
-  `;
+  // 1. Master Product Record Upsert
+  queue.push({
+    sql: `
+      INSERT INTO products (
+        id, slug, title, sku, ean, asin,
+        baselinker_id, shopify_id, category,
+        condition, note, 
+        vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        slug = excluded.slug,
+        title = excluded.title,
+        sku = excluded.sku,
+        ean = excluded.ean,
+        asin = excluded.asin,
+        baselinker_id = excluded.baselinker_id,
+        shopify_id = excluded.shopify_id,
+        category = excluded.category,
+        condition = excluded.condition,
+        note = excluded.note,
+        vat_rate = excluded.vat_rate,
+        rrp = excluded.rrp,
+        weight = excluded.weight,
+        quantity = excluded.quantity,
+        price_brutto = excluded.price_brutto,
+        shipping_method = excluded.shipping_method,
+        updated_at = excluded.updated_at
+    `,
+    params: [
+      productId,
+      data.slug,
+      data.title,
+      data.sku || null,
+      data.ean || null,
+      data.asin || null,
+      data.baselinker_id || null,
+      data.shopify_id || null,
+      data.category,
+      data.condition || null,
+      data.note || null,
+      data.vat_rate ?? 0,
+      data.rrp ?? null,
+      data.weight ?? null,
+      data.quantity ?? 0,
+      data.price_brutto ?? null,
+      data.shipping_method ?? null,
+      isUpdate ? null : now,
+      now,
+    ],
+  });
 
-  await executeQuery(productQuery, [
-    productId,
-    data.slug,
-    data.title,
-    data.sku || null,
-    data.ean || null,
-    data.asin || null,
-    data.baselinker_id || null,
-    data.shopify_id || null,
-    data.category,
-    data.condition || null,
-    data.note || null,
-    data.vat_rate ?? 0,
-    data.rrp ?? null,
-    data.weight ?? null,
-    data.quantity ?? 0,
-    data.price_brutto ?? null,
-    data.shipping_method ?? null,
-    isUpdate ? null : now,
-    now,
-  ]);
-
-  // Replace paragraphs
-  await executeQuery("DELETE FROM product_paragraphs WHERE product_id = ?", [
-    productId,
-  ]);
+  // 2. Paragraphs
+  queue.push({
+    sql: "DELETE FROM product_paragraphs WHERE product_id = ?",
+    params: [productId],
+  });
   if (data.paragraphs?.length) {
-    for (let i = 0; i < data.paragraphs.length; i++) {
-      await executeQuery(
-        "INSERT INTO product_paragraphs (product_id, paragraph_order, content, created_at) VALUES (?, ?, ?, ?)",
-        [productId, i + 1, data.paragraphs[i], now],
-      );
-    }
+    data.paragraphs.forEach((content, index) => {
+      queue.push({
+        sql: "INSERT INTO product_paragraphs (product_id, paragraph_order, content, created_at) VALUES (?, ?, ?, ?)",
+        params: [productId, index + 1, content, now],
+      });
+    });
   }
 
-  // Replace features
-  await executeQuery("DELETE FROM product_features WHERE product_id = ?", [
-    productId,
-  ]);
+  // 3. Features
+  queue.push({
+    sql: "DELETE FROM product_features WHERE product_id = ?",
+    params: [productId],
+  });
   if (data.features?.length) {
-    for (let i = 0; i < data.features.length; i++) {
-      const f = data.features[i];
-      await executeQuery(
-        "INSERT INTO product_features (product_id, feature_order, title, description, created_at) VALUES (?, ?, ?, ?, ?)",
-        [productId, i + 1, f.title, f.description, now],
-      );
-    }
+    data.features.forEach((feature, index) => {
+      queue.push({
+        sql: "INSERT INTO product_features (product_id, feature_order, title, description, created_at) VALUES (?, ?, ?, ?, ?)",
+        params: [productId, index + 1, feature.title, feature.description, now],
+      });
+    });
   }
 
-  // Replace specifications
-  await executeQuery(
-    "DELETE FROM product_specifications WHERE product_id = ?",
-    [productId],
-  );
+  // 4. Specifications
+  queue.push({
+    sql: "DELETE FROM product_specifications WHERE product_id = ?",
+    params: [productId],
+  });
   if (data.specifications?.length) {
-    for (let i = 0; i < data.specifications.length; i++) {
-      const spec = data.specifications[i];
-      await executeQuery(
-        `INSERT INTO product_specifications 
-         (product_id, spec_order, key, value, created_at) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [productId, i + 1, spec.key, spec.value, now],
-      );
-    }
+    data.specifications.forEach((spec, index) => {
+      queue.push({
+        sql: "INSERT INTO product_specifications (product_id, spec_order, key, value, created_at) VALUES (?, ?, ?, ?, ?)",
+        params: [productId, index + 1, spec.key, spec.value, now],
+      });
+    });
   }
 
-  // Replace images
-  await executeQuery("DELETE FROM product_images WHERE product_id = ?", [
-    productId,
-  ]);
+  // 5. Images
+  queue.push({
+    sql: "DELETE FROM product_images WHERE product_id = ?",
+    params: [productId],
+  });
   if (finalizedImages.length) {
-    for (let i = 0; i < finalizedImages.length; i++) {
-      const img = finalizedImages[i];
-      await executeQuery(
-        `INSERT INTO product_images
-         (product_id, image_order, url, s3_path, alt_text, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [productId, i + 1, img.s3_path, img.s3_path, img.alt_text, now],
-      );
-    }
+    finalizedImages.forEach((img, index) => {
+      queue.push({
+        sql: "INSERT INTO product_images (product_id, image_order, url, s3_path, alt_text, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        params: [
+          productId,
+          index + 1,
+          img.s3_path,
+          img.s3_path,
+          img.alt_text,
+          now,
+        ],
+      });
+    });
   }
 
-  // Replace feedbacks
-  await executeQuery("DELETE FROM product_feedbacks WHERE product_id = ?", [
-    productId,
-  ]);
+  // 6. Feedbacks
+  queue.push({
+    sql: "DELETE FROM product_feedbacks WHERE product_id = ?",
+    params: [productId],
+  });
   if (data.feedbacks?.length) {
-    for (let i = 0; i < data.feedbacks.length; i++) {
-      const fb = data.feedbacks[i];
-      await executeQuery(
-        "INSERT INTO product_feedbacks (product_id, name, content, count, created_at) VALUES (?, ?, ?, ?, ?)",
-        [productId, fb.name, fb.content, fb.count || 0, now],
-      );
-    }
+    data.feedbacks.forEach((fb, index) => {
+      queue.push({
+        sql: "INSERT INTO product_feedbacks (product_id, name, content, count, created_at) VALUES (?, ?, ?, ?, ?)",
+        params: [productId, fb.name, fb.content, fb.count || 0, now],
+      });
+    });
   }
-}
 
+  // Execute batch – pass db (any)
+  await executeBatch(queue, db);
+}
 // ----------------------------------------------------------------------
 // Helper: Partial update – only baselinker_id via SKU
 // ----------------------------------------------------------------------
-async function updateBaselinkerId(sku: string, baselinkerId: string | null) {
+async function updateBaselinkerId(
+  sku: string,
+  baselinkerId: string | null,
+  db: any, // <-- using any
+) {
   const now = Math.floor(Date.now() / 1000);
-  const result = await executeQuery(
-    `UPDATE products SET baselinker_id = ?, updated_at = ? WHERE sku = ?`,
-    [baselinkerId, now, sku],
+  const result = await executeBatch(
+    [
+      {
+        sql: `UPDATE products SET baselinker_id = ?, updated_at = ? WHERE sku = ?`,
+        params: [baselinkerId, now, sku],
+      },
+    ],
+    db,
   );
-  if (result && (result as any).changes === 0) {
+
+  if (result?.[0]?.meta?.changes === 0) {
     throw new Error(`No product found with SKU: ${sku}`);
   }
   return true;
 }
 
 // ----------------------------------------------------------------------
-// API Route Handler – supports full sync (POST) and partial update (PATCH)
+// API Route Handlers
 // ----------------------------------------------------------------------
-
 export async function POST(req: Request) {
-  try {
-    const newData = await req.json();
-    console.log("Incoming newData:", JSON.stringify(newData, null, 2));
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB;
+  const bucket = (env as any).UPLOADS_BUCKET;
+  const images = (env as any).IMAGES; // <-- get the Images binding
 
-    // Check if this is a partial update request
+  try {
+    const newData = (await req.json()) as any;
+
     if (newData.partial === true && newData.sku) {
-      // Partial update: only baselinker_id is expected
       const { sku, baselinker_id } = newData;
       if (baselinker_id === undefined) {
         return NextResponse.json(
@@ -280,30 +295,26 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      await updateBaselinkerId(sku, baselinker_id);
+      // Pass db to updateBaselinkerId
+      await updateBaselinkerId(sku, baselinker_id, db);
       return NextResponse.json({
         success: true,
         message: `Updated baselinker_id for SKU ${sku}`,
       });
     }
 
-    // --- Full product sync (original behaviour) ---
     function sanitizeString(value: any): any {
       if (value === null || value === undefined) return null;
       if (typeof value !== "string") return value;
       const trimmed = value.trim();
-      if (
-        trimmed === "" ||
+      return trimmed === "" ||
         trimmed === "null" ||
         trimmed === "NULL" ||
         trimmed === "none"
-      ) {
-        return null;
-      }
-      return value;
+        ? null
+        : value;
     }
 
-    // Then apply to all relevant fields
     newData.ean = sanitizeString(newData.ean);
     newData.asin = sanitizeString(newData.asin);
     newData.sku = sanitizeString(newData.sku);
@@ -315,7 +326,6 @@ export async function POST(req: Request) {
     newData.price_brutto = sanitizeString(newData.price_brutto);
     newData.shipping_method = sanitizeString(newData.shipping_method);
 
-    // Extract slugs (the full slug is category/product-slug)
     const productSlug = newData.slug.split("/").pop();
     const categorySlug = newData.slug.split("/")[0];
     newData.category = categorySlug;
@@ -327,13 +337,26 @@ export async function POST(req: Request) {
       );
     }
 
-    const existing = await getProductById(newData.id, {
-      transformToForm: true,
-    });
-    const productId = existing?.id || uuidv4();
+    // 2. Pass db to getProductById
+    // Check if we have an ID to look up
+    let existing = null;
+    let productId: string;
+    if (
+      newData.id &&
+      typeof newData.id === "string" &&
+      newData.id.trim() !== ""
+    ) {
+      existing = await getProductById(newData.id, {
+        db,
+        transformToForm: true,
+      });
+      productId = existing?.id || uuidv4();
+    } else {
+      productId = uuidv4();
+    }
 
     if (existing?.images) {
-      await moveExistingToTemp(productSlug, existing.images);
+      await moveExistingToTemp(productSlug, existing.images, bucket);
     }
 
     const finalizedImages = await processImages(
@@ -341,16 +364,20 @@ export async function POST(req: Request) {
       newData.category,
       productSlug,
       existing?.images || [],
+      bucket,
+      images, // <-- pass it
     );
 
-    // Pass the product slug (without category prefix) to upsert
+    // 3. Pass db to upsertProductData
     await upsertProductData(
       productId,
-      { ...newData, slug: productSlug },
+      { ...newData, slug: productSlug } as ProductData,
       finalizedImages,
       !!existing,
+      db,
     );
-    const updatedImages = finalizedImages.map((img, idx) => ({
+
+    const updatedImages = finalizedImages.map((img) => ({
       url: img.url,
       s3Path: img.s3_path,
       altText: img.alt_text,
@@ -358,7 +385,13 @@ export async function POST(req: Request) {
       needsUpload: false,
       uploadStatus: "completed",
     }));
-    await cleanupImagesFromR2(newData.category, productSlug, finalizedImages);
+
+    await cleanupImagesFromR2(
+      newData.category,
+      productSlug,
+      finalizedImages,
+      bucket,
+    );
 
     return NextResponse.json({
       success: true,
@@ -368,39 +401,34 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("💥 Save Error:", error);
-    const userMessage = formatDatabaseError(error);
-
     return NextResponse.json(
-      { success: false, error: userMessage },
+      { success: false, error: formatDatabaseError(error) },
       { status: 500 },
     );
   }
 }
 
-// ----------------------------------------------------------------------
-// PATCH method – specifically for partial updates (e.g., only baselinker_id)
-// ----------------------------------------------------------------------
 export async function PATCH(req: Request) {
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB as D1Database;
+
   try {
-    const body = await req.json();
+    const body = (await req.json()) as {
+      sku?: string;
+      baselinker_id?: string | null;
+    };
     const { sku, baselinker_id } = body;
 
-    if (!sku) {
+    if (!sku || baselinker_id === undefined) {
       return NextResponse.json(
-        { success: false, error: "Missing required field: sku" },
+        { success: false, error: "Missing required parameters" },
         { status: 400 },
       );
     }
 
-    if (baselinker_id === undefined) {
-      return NextResponse.json(
-        { success: false, error: "Missing field: baselinker_id" },
-        { status: 400 },
-      );
-    }
-
-    await updateBaselinkerId(sku, baselinker_id);
-
+    // Pass db to updateBaselinkerId
+    await updateBaselinkerId(sku, baselinker_id, db);
     return NextResponse.json({
       success: true,
       message: `Updated baselinker_id for SKU ${sku}`,
@@ -408,10 +436,7 @@ export async function PATCH(req: Request) {
   } catch (error: any) {
     console.error("💥 PATCH Error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to update baselinker_id",
-      },
+      { success: false, error: error.message || "Failed to update" },
       { status: 500 },
     );
   }

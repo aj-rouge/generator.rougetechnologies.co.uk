@@ -11,6 +11,31 @@ import {
 dotenv.config();
 
 // ------------------------------------------------------------------
+// Cloudflare Type Interfaces
+// ------------------------------------------------------------------
+interface CloudflareD1Error {
+  code: number;
+  message: string;
+}
+
+interface CloudflareD1Response {
+  success: boolean;
+  errors: CloudflareD1Error[];
+  messages: string[];
+  result: Array<{
+    results: any[] | null;
+    success: boolean;
+    meta: any;
+  }>;
+}
+
+interface ExecuteSQLResult {
+  success: boolean;
+  data: CloudflareD1Response | null;
+  error?: string;
+}
+
+// ------------------------------------------------------------------
 // Configuration
 // ------------------------------------------------------------------
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -49,7 +74,7 @@ const PROTECTED_R2_KEYS = [
 // ------------------------------------------------------------------
 // Helper: ask for confirmation
 // ------------------------------------------------------------------
-function askConfirmation(question) {
+function askConfirmation(question: string): Promise<boolean> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -65,7 +90,7 @@ function askConfirmation(question) {
 // ------------------------------------------------------------------
 // D1 API wrapper
 // ------------------------------------------------------------------
-async function executeSQL(sql) {
+async function executeSQL(sql: string): Promise<ExecuteSQLResult> {
   try {
     const response = await fetch(D1_API_URL, {
       method: "POST",
@@ -76,17 +101,17 @@ async function executeSQL(sql) {
       body: JSON.stringify({ sql }),
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as CloudflareD1Response;
     return { success: data.success === true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
+  } catch (error: any) {
+    return { success: false, data: null, error: error.message };
   }
 }
 
 // ------------------------------------------------------------------
 // Execute SQL from file (handles multi-statement files)
 // ------------------------------------------------------------------
-async function executeSQLFile(filePath) {
+async function executeSQLFile(filePath: string): Promise<boolean> {
   try {
     const content = await fs.readFile(filePath, "utf8");
 
@@ -119,12 +144,12 @@ async function executeSQLFile(filePath) {
         console.error("--------------------------------------------------");
         console.error(sql);
         console.error("--------------------------------------------------");
-        console.error("REASON:", JSON.stringify(result.data.errors, null, 2));
+        console.error("REASON:", JSON.stringify(result.data?.errors, null, 2));
         return false;
       }
     }
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error(`❌ Error reading/executing ${filePath}:`, err.message);
     return false;
   }
@@ -133,10 +158,7 @@ async function executeSQLFile(filePath) {
 // ------------------------------------------------------------------
 // Get all SQL files in order
 // ------------------------------------------------------------------
-// ------------------------------------------------------------------
-// Get all SQL files in order
-// ------------------------------------------------------------------
-async function getMigrationFilesInOrder() {
+async function getMigrationFilesInOrder(): Promise<string[]> {
   try {
     const files = await fs.readdir(MIGRATIONS_FOLDER);
     const sqlFiles = files.filter((file) => file.endsWith(".sql"));
@@ -168,7 +190,7 @@ async function getMigrationFilesInOrder() {
           !schemaFiles.includes(f) &&
           f !== mainSeedFile &&
           !contentChunks.includes(f) &&
-          !f.includes("wipe"),
+          f.includes("wipe") === false,
       )
       .sort((a, b) => {
         const aNum = parseInt(a.match(/^(\d+)/)?.[1] || "999");
@@ -177,7 +199,7 @@ async function getMigrationFilesInOrder() {
       });
 
     // Build ordered list: wipe → schema → main seed → content chunks → other files
-    const orderedFiles = [];
+    const orderedFiles: string[] = [];
     if (wipeFile) orderedFiles.push(wipeFile);
     orderedFiles.push(...schemaFiles);
     if (mainSeedFile) orderedFiles.push(mainSeedFile);
@@ -185,7 +207,7 @@ async function getMigrationFilesInOrder() {
     orderedFiles.push(...otherFiles);
 
     return orderedFiles.map((file) => path.join(MIGRATIONS_FOLDER, file));
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error reading migrations folder:", error.message);
     return [];
   }
@@ -199,20 +221,20 @@ function createR2Client() {
     region: "auto",
     endpoint: R2_ENDPOINT,
     credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      accessKeyId: R2_ACCESS_KEY_ID || "",
+      secretAccessKey: R2_SECRET_ACCESS_KEY || "",
     },
   });
 }
 
-async function listAllR2Objects() {
+async function listAllR2Objects(): Promise<string[]> {
   const client = createR2Client();
-  let allKeys = [];
-  let continuationToken = undefined;
+  let allKeys: string[] = [];
+  let continuationToken: string | undefined = undefined;
 
   try {
     do {
-      const command = new ListObjectsV2Command({
+      const command: ListObjectsV2Command = new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         ContinuationToken: continuationToken,
         MaxKeys: 1000,
@@ -221,20 +243,20 @@ async function listAllR2Objects() {
       const response = await client.send(command);
 
       if (response.Contents) {
-        allKeys = allKeys.concat(response.Contents.map((obj) => obj.Key));
+        allKeys = allKeys.concat(response.Contents.map((obj) => obj.Key || ""));
       }
 
       continuationToken = response.NextContinuationToken;
     } while (continuationToken);
 
     return allKeys;
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Failed to list R2 objects:", error.message);
     return [];
   }
 }
 
-async function deleteR2Objects(keys) {
+async function deleteR2Objects(keys: string[]) {
   if (keys.length === 0) return { deleted: 0, failed: 0 };
 
   const client = createR2Client();
@@ -332,9 +354,9 @@ async function deleteAllR2Data() {
 // ------------------------------------------------------------------
 // Intelligent SQL Splitter
 // ------------------------------------------------------------------
-function splitSql(sql) {
+function splitSql(sql: string): string[] {
   const cleanSql = sql.replace(/\u00A0/g, " ").replace(/\r\n/g, "\n");
-  const statements = [];
+  const statements: string[] = [];
   let current = "";
   let inTrigger = false;
 
@@ -399,7 +421,7 @@ async function main() {
   if (R2_BUCKET_NAME && R2_ACCESS_KEY_ID) {
     await deleteAllR2Data();
   }
-  
+
   // Get all migration files in order
   const migrationFiles = await getMigrationFilesInOrder();
 
@@ -434,9 +456,9 @@ async function main() {
     "SELECT 'Conditions' as table_name, COUNT(*) as count FROM conditions UNION ALL SELECT 'Categories', COUNT(*) FROM categories UNION ALL SELECT 'Category Content', COUNT(*) FROM category_content;",
   );
 
-  if (verify.success && verify.data.result[0]?.results) {
+  if (verify.success && verify.data?.result?.[0]?.results) {
     console.log("\n📊 Final counts:");
-    verify.data.result[0].results.forEach((row) => {
+    verify.data.result[0].results.forEach((row: any) => {
       console.log(`   ${row.table_name}: ${row.count}`);
     });
   }

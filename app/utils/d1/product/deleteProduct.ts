@@ -1,52 +1,70 @@
-import { executeQuery } from "../execute/executeQuery";
+// utils/d1/product/deleteProduct.ts
+
+import { executeQuery } from "../execute";
+import type { D1Database } from "@cloudflare/workers-types";
+
+export type AllowedProductLookupFields =
+  | "id"
+  | "slug"
+  | "sku"
+  | "ean"
+  | "asin"
+  | "baselinker_id"
+  | "shopify_id";
 
 /**
  * Delete a product by any unique identifier field.
  *
  * IMPORTANT: This leverages database-level CASCADE DELETE.
  * When a product is deleted from the 'products' table, all related records in:
- *   - product_paragraphs
- *   - product_features
- *   - product_images
- *   - product_feedbacks
+ * - product_paragraphs
+ * - product_features
+ * - product_images
+ * - product_feedbacks
  * will be automatically deleted by the database due to FOREIGN KEY constraints
  * defined with ON DELETE CASCADE in the schema.
  *
  * No manual cleanup of child tables is needed.
  *
- * @param field - Field name ('id', 'slug', 'sku', 'ean', 'asin', 'baselinker_id', 'shopify_id')
+ * @param field - Validated field name ('id', 'slug', 'sku', 'ean', 'asin', 'baselinker_id', 'shopify_id')
  * @param value - The value to match
+ * @param db - D1Database instance (required)
  * @returns Object with success boolean and number of rows affected (should be 1 if deleted)
- *
- * @requires PRAGMA foreign_keys = ON; - Must be enabled for cascading to work
- * @see schema.sql - See FOREIGN KEY definitions with ON DELETE CASCADE
  */
-export const deleteProductByField = async (
-  field: string,
+const deleteProductByField = async (
+  field: AllowedProductLookupFields,
   value: string,
+  db: D1Database,
 ): Promise<{ success: boolean; changes: number }> => {
-  // Single DELETE statement - cascading handled automatically by the database
-  // because child tables reference products.id with ON DELETE CASCADE
+  // Single DELETE statement - cascading handled automatically by D1
   const sql = `DELETE FROM products WHERE ${field} = ?`;
-  const result = await executeQuery(sql, [value]);
+  const result = await executeQuery(sql, [value], db);
 
-  // result.changes will be 1 if a product was deleted, 0 if no product matched the criteria
-  // Even though child records may be deleted (cascade), changes only reflects the main product delete
+  // result.changes will be 1 if a product was deleted, 0 if no product matched
   return { success: true, changes: result.changes || 0 };
 };
 
-// Convenience wrappers for each identifier
-// These all use the same cascading delete behavior
-export const deleteProductById = (id: string) => deleteProductByField("id", id);
-export const deleteProductBySlug = (slug: string) =>
-  deleteProductByField("slug", slug);
-export const deleteProductBySku = (sku: string) =>
-  deleteProductByField("sku", sku);
-export const deleteProductByEan = (ean: string) =>
-  deleteProductByField("ean", ean);
-export const deleteProductByAsin = (asin: string) =>
-  deleteProductByField("asin", asin);
-export const deleteProductByBaselinkerId = (baselinkerId: string) =>
-  deleteProductByField("baselinker_id", baselinkerId);
-export const deleteProductByShopifyId = (shopifyId: string) =>
-  deleteProductByField("shopify_id", shopifyId);
+// --- Convenience typed wrappers for each identifier ---
+
+export const deleteProductById = (id: string, db: D1Database) =>
+  deleteProductByField("id", id, db);
+
+export const deleteProductBySlug = (slug: string, db: D1Database) =>
+  deleteProductByField("slug", slug, db);
+
+export const deleteProductBySku = (sku: string, db: D1Database) =>
+  deleteProductByField("sku", sku, db);
+
+export const deleteProductByEan = (ean: string, db: D1Database) =>
+  deleteProductByField("ean", ean, db);
+
+export const deleteProductByAsin = (asin: string, db: D1Database) =>
+  deleteProductByField("asin", asin, db);
+
+export const deleteProductByBaselinkerId = (
+  baselinkerId: string,
+  db: D1Database,
+) => deleteProductByField("baselinker_id", baselinkerId, db);
+
+export const deleteProductByShopifyId = (shopifyId: string, db: D1Database) =>
+  deleteProductByField("shopify_id", shopifyId, db);

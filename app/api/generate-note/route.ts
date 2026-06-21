@@ -4,9 +4,27 @@ import { NextResponse } from "next/server";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = "openai/gpt-oss-20b";
 
+// 1. TYPE DEFINITIONS: Map incoming body elements and the choices block returned by Groq
+interface NoteRequestBody {
+  description?: string;
+  title?: string;
+  category?: string;
+}
+
+interface GroqNoteApiResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  [key: string]: any;
+}
+
 export async function POST(request: Request) {
   try {
-    const { description, title, category } = await request.json();
+    // 2. FIXED CAST: Typecast incoming parsed JSON data body properties cleanly
+    const body = (await request.json()) as NoteRequestBody;
+    const { description, title, category } = body;
 
     if (!description || typeof description !== "string") {
       return NextResponse.json(
@@ -91,7 +109,8 @@ ${cleaned}
       throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    // 3. FIXED CAST: Map response data layout to safe inference bounds
+    const data = (await response.json()) as GroqNoteApiResponse;
     console.log("Groq API response (Note):", JSON.stringify(data, null, 2));
 
     let note = data.choices?.[0]?.message?.content?.trim() || "";

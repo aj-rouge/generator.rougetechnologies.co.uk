@@ -3,8 +3,7 @@
 import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import bcrypt from "bcrypt";
-
+import bcrypt from "bcryptjs";
 // ---------- Your static users ----------
 const users = [
   {

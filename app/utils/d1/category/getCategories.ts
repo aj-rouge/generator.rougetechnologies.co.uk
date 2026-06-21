@@ -1,6 +1,8 @@
-import { executeQuery } from "../execute/executeQuery";
+// utils/d1/category/getCategories.ts
 
-// Helper to safely parse JSON
+import { executeQuery } from "../execute";
+import type { D1Database } from "@cloudflare/workers-types";
+
 function safeJSONParse<T>(value: any, fallback: T): T {
   if (!value) return fallback;
   if (typeof value === "string") {
@@ -10,10 +12,9 @@ function safeJSONParse<T>(value: any, fallback: T): T {
       return fallback;
     }
   }
-  return value; // already parsed
+  return value;
 }
 
-// Recursively parse a category object
 function parseCategory(cat: any): any {
   const parsed = {
     ...cat,
@@ -28,26 +29,45 @@ function parseCategory(cat: any): any {
     const parsedChildren = childrenArray.map((child: any) =>
       parseCategory(child),
     );
-
-    // Only add children property if there are actual children
     if (parsedChildren.length > 0) {
       parsed.children = parsedChildren;
     }
-    // If no children, don't add the children property at all
   }
-  // If no children property was added, the children array won't exist
 
   return parsed;
 }
 
-export async function getCategories() {
-  const rawCategories = await executeQuery(`
-    SELECT * FROM v_category_tree
-    ORDER BY id ASC
-  `);
+/**
+ * Retrieves the entire hierarchical category tree.
+ * @param options - Required: db instance
+ */
+export async function getCategories(options: { db: D1Database }) {
+  const { db } = options;
 
-  // Parse all categories
-  return (rawCategories || []).map(parseCategory);
+  const rawCategories = await executeQuery(
+    `SELECT * FROM v_category_tree ORDER BY id ASC`,
+    [],
+    db, // <-- pass the db instance
+  );
+
+  console.log(
+    `[getCategories] Raw categories count: ${rawCategories?.length || 0}`,
+  );
+
+  const parsed = (rawCategories || []).map((cat, index) => {
+    try {
+      return parseCategory(cat);
+    } catch (err) {
+      console.error(`[getCategories] Parse error at index ${index}:`, err);
+      console.error(`[getCategories] Raw category:`, cat);
+      throw err;
+    }
+  });
+
+  console.log(
+    `[getCategories] Successfully parsed ${parsed.length} categories`,
+  );
+  return parsed;
 }
 
 // 📂 Parsed categories: [

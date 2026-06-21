@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
-import { extractEANFromProduct, fetchProductByASIN, searchAmazonByQuery } from "../../utils/scrape/amazon";
+import {
+  extractEANFromProduct,
+  fetchProductByASIN,
+  searchAmazonByQuery,
+} from "../../utils/scrape/amazon";
+
+
+// 1. TYPE DEFINITIONS: Explicitly structure incoming body data parameters
+interface ScrapeRequestBody {
+  identifier?: string;
+  query?: string;
+  domain?: string;
+}
 
 export async function POST(req: Request) {
   try {
-    const { identifier, query, domain = "co.uk" } = await req.json();
+    // 2. FIXED CAST: Typecast incoming parsed JSON data body cleanly
+    const body = (await req.json()) as ScrapeRequestBody;
+    const { identifier, query, domain = "co.uk" } = body;
 
     if (identifier && identifier.includes("currys.co.uk")) {
       return NextResponse.json({

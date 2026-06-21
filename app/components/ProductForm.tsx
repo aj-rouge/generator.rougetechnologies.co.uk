@@ -26,10 +26,67 @@ import PricingSection from "./sections/PricingSection";
 import ProductIdentifiersSection from "./sections/ProductIdentifiersSection";
 import ExternalPlatformIdsSection from "./sections/ExternalPlatformIdsSection";
 
+// ----------------------------------------------------------------------------
+// Type Interfaces
+// ----------------------------------------------------------------------------
+interface ProductImage {
+  url: string;
+  s3Path: string | null;
+  altText: string;
+  isUploaded: boolean;
+  needsUpload: boolean;
+  uploadStatus: "pending" | "completed";
+}
+
+interface ProductFormState {
+  id?: string;
+  sku: string;
+  title: string;
+  condition: string;
+  paragraphs: string[];
+  features: { title: string; description: string }[];
+  seoSectionData: { name: string; sections: any[] };
+  selectedCategory: string;
+  note: string | null;
+  feedbacks: any;
+  images: ProductImage[];
+  asin: string;
+  ean: string;
+  baselinker_id: string;
+  shopify_id: string;
+  ebayLink: string;
+  specifications: any[];
+  vat_rate: number | "";
+  rrp: number | "";
+  weight: number | "";
+  quantity: number | "";
+  price_brutto: number | "";
+  shipping_method: string;
+  category?: string;
+}
+
+interface SaveProductApiResponse {
+  success: boolean;
+  id: string;
+  error?: string;
+  updatedImages?: Array<{
+    url: string;
+    s3Path: string | null;
+    altText: string;
+  }>;
+}
+
+interface ProductFormProps {
+  mode?: "create" | "edit";
+  categories?: any[];
+  initialData?: Record<string, any> | null;
+  categoryContent?: any;
+}
+
 // Helper to sanitise a value: convert empty string or placeholder strings to null
-const sanitizeField = (value) => {
+const sanitizeField = (value: any): string | null => {
   if (value === null || value === undefined) return null;
-  if (typeof value !== "string") return value;
+  if (typeof value !== "string") return String(value);
   const trimmed = value.trim();
   if (
     trimmed === "" ||
@@ -42,7 +99,15 @@ const sanitizeField = (value) => {
   return value;
 };
 
-const INITIAL_FORM_STATE = {
+// Helper to sanitize specifically for incoming custom form numeric types (number | "")
+const sanitizeNumericField = (value: any): number | "" => {
+  const sanitized = sanitizeField(value);
+  if (sanitized === null) return "";
+  const parsed = parseFloat(sanitized);
+  return isNaN(parsed) ? "" : parsed;
+};
+
+const INITIAL_FORM_STATE: ProductFormState = {
   sku: "",
   title: "",
   condition: "",
@@ -72,20 +137,22 @@ export default function ProductForm({
   categories = [],
   initialData = null,
   categoryContent = null,
-}) {
+}: ProductFormProps) {
   const router = useRouter();
   const { addNotification, updateNotification, removeNotification } =
     useNotification();
-  const [formData, setFormData] = useState(() => {
+
+  const [formData, setFormData] = useState<ProductFormState>(() => {
     if (mode === "create") return INITIAL_FORM_STATE;
     if (initialData) {
       return {
+        ...INITIAL_FORM_STATE,
         ...initialData,
         vat_rate: initialData.vat_rate ?? 0,
-        rrp: sanitizeField(initialData.rrp) ?? "",
-        weight: sanitizeField(initialData.weight) ?? "",
+        rrp: sanitizeNumericField(initialData.rrp),
+        weight: sanitizeNumericField(initialData.weight),
         quantity: initialData.quantity ?? 0,
-        price_brutto: sanitizeField(initialData.price_brutto) ?? "",
+        price_brutto: sanitizeNumericField(initialData.price_brutto),
         shipping_method: sanitizeField(initialData.shipping_method) ?? "",
         note: sanitizeField(initialData.note),
         asin: sanitizeField(initialData.asin) ?? "",
@@ -93,13 +160,13 @@ export default function ProductForm({
         baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
         shopify_id: sanitizeField(initialData.shopify_id) ?? "",
         sku: sanitizeField(initialData.sku) ?? "",
-        images: (initialData.images || []).map((img) => ({
+        images: (initialData.images || []).map((img: any) => ({
           url: img.url,
           s3Path: img.s3Path,
           altText: img.altText,
           isUploaded: !!img.s3Path,
           needsUpload: false,
-          uploadStatus: "completed",
+          uploadStatus: "completed" as const,
         })),
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {
@@ -116,20 +183,27 @@ export default function ProductForm({
   useEffect(() => {
     if (mode === "edit" && initialData) {
       setFormData({
+        ...INITIAL_FORM_STATE,
         ...initialData,
+        vat_rate: initialData.vat_rate ?? 0,
+        rrp: sanitizeNumericField(initialData.rrp),
+        weight: sanitizeNumericField(initialData.weight),
+        quantity: initialData.quantity ?? 0,
+        price_brutto: sanitizeNumericField(initialData.price_brutto),
+        shipping_method: sanitizeField(initialData.shipping_method) ?? "",
         note: sanitizeField(initialData.note),
         asin: sanitizeField(initialData.asin) ?? "",
         ean: sanitizeField(initialData.ean) ?? "",
         baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
         shopify_id: sanitizeField(initialData.shopify_id) ?? "",
         sku: sanitizeField(initialData.sku) ?? "",
-        images: (initialData.images || []).map((img) => ({
+        images: (initialData.images || []).map((img: any) => ({
           url: img.url,
           s3Path: img.s3Path,
           altText: img.altText,
           isUploaded: !!img.s3Path,
           needsUpload: false,
-          uploadStatus: "completed",
+          uploadStatus: "completed" as const,
         })),
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {
@@ -141,9 +215,7 @@ export default function ProductForm({
     }
   }, [initialData, mode]);
 
-  // ---------------------------------------------------------------------
   // Derived values from selected category
-  // ---------------------------------------------------------------------
   const selectedCategoryObj = useMemo(
     () => findCategoryBySlug(categories, formData.selectedCategory),
     [categories, formData.selectedCategory],
@@ -159,20 +231,16 @@ export default function ProductForm({
     [selectedCategoryObj, formData.selectedCategory],
   );
 
-  // ---------------------------------------------------------------------
-  // UI state
-  // ---------------------------------------------------------------------
   const [isSaving, setIsSaving] = useState(false);
 
-  // ---------------------------------------------------------------------
   // Validation and change detection
-  // ---------------------------------------------------------------------
-  const isFormValid =
-    formData.title?.trim() && formData.selectedCategory?.trim();
+  const isFormValid = !!(
+    formData.title?.trim() && formData.selectedCategory?.trim()
+  );
 
   const hasChanges = useMemo(() => {
     if (mode !== "edit" || !initialData) return false;
-    const getNormalizedData = (data, isInitial = false) => ({
+    const getNormalizedData = (data: any, isInitial = false) => ({
       title: data?.title || "",
       condition: data?.condition || "",
       paragraphs: data?.paragraphs || [],
@@ -185,7 +253,7 @@ export default function ProductForm({
       selectedCategory: isInitial
         ? data?.category || ""
         : data?.selectedCategory || "",
-      images: (data?.images || []).map((img) => ({
+      images: (data?.images || []).map((img: any) => ({
         url: img.url,
         s3Path: img.s3Path,
         altText: img.altText,
@@ -198,21 +266,23 @@ export default function ProductForm({
     return isDifferent || hasPendingUploads;
   }, [formData, initialData, mode]);
 
-  // Should the save button be shown?
   const shouldShowSave = useMemo(() => {
     if (mode === "create") return isFormValid;
-    // For edit: show only if there are changes or pending uploads
     return hasChanges && isFormValid;
   }, [mode, isFormValid, hasChanges]);
 
-  // ---------------------------------------------------------------------
   // Update helper
-  // ---------------------------------------------------------------------
-  const updateForm = (updates) => {
-    setFormData((prev) => {
-      const processed = {};
-      for (const key in updates) {
-        const value = updates[key];
+  const updateForm = (
+    updates:
+      | Partial<ProductFormState>
+      | ((prev: ProductFormState) => Partial<ProductFormState>),
+  ) => {
+    setFormData((prev: any) => {
+      const processed: Record<string, any> = {};
+      const actualUpdates =
+        typeof updates === "function" ? updates(prev) : updates;
+      for (const key in actualUpdates) {
+        const value = (actualUpdates as any)[key];
         processed[key] = typeof value === "function" ? value(prev[key]) : value;
       }
       return { ...prev, ...processed };
@@ -320,7 +390,7 @@ export default function ProductForm({
         body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as SaveProductApiResponse;
       if (!result.success) throw new Error(result.error);
 
       updateNotification(toastId, {
@@ -335,7 +405,7 @@ export default function ProductForm({
           ...img,
           isUploaded: true,
           needsUpload: false,
-          uploadStatus: "completed",
+          uploadStatus: "completed" as const,
         }));
         setFormData((prev) => ({ ...prev, images: syncedImages }));
       }
@@ -353,7 +423,7 @@ export default function ProductForm({
       }
 
       return result.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Save Error:", error);
       updateNotification(toastId, {
         message: `Error: ${error.message}`,
@@ -368,7 +438,7 @@ export default function ProductForm({
   };
 
   const handleUniversalBatchImport = (importedData: any) => {
-    const updates: Partial<typeof INITIAL_FORM_STATE> = {};
+    const updates: Partial<ProductFormState> = {};
 
     if (importedData.title) updates.title = importedData.title;
 
@@ -406,7 +476,7 @@ export default function ProductForm({
     ) {
       const paragraphs = importedData.description
         .split(/\r?\n/)
-        .filter((p) => p.trim());
+        .filter((p: string) => p.trim());
       if (paragraphs.length) updates.paragraphs = paragraphs;
     }
 
@@ -433,7 +503,7 @@ export default function ProductForm({
     }
 
     if (importedData.features && Array.isArray(importedData.features)) {
-      updates.features = importedData.features.map((f) => ({
+      updates.features = importedData.features.map((f: any) => ({
         title: f.title || "",
         description: f.description || "",
       }));
@@ -589,11 +659,18 @@ export default function ProductForm({
                 Live Preview:
               </h3>
               <LivePreview
-                {...formData}
-                categoryName={`${categoryName} at Rouge Technologies`}
-                seoSectionData={categories}
+                title={formData.title}
+                condition={formData.condition}
+                images={formData.images}
+                paragraphs={formData.paragraphs}
+                features={formData.features.map((f) => ({
+                  name: f.title,
+                  value: f.description,
+                }))}
+                note={formData.note || undefined}
+                feedbacks={formData.feedbacks}
                 categoryContent={categoryContent}
-                ebayLink={formData.ebayLink}
+                categoryName={`${categoryName} at Rouge Technologies`}
               />
             </div>
           ) : (

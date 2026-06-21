@@ -1,8 +1,8 @@
 import localFont from "next/font/local";
-import "../globals.css";
 import { ThemeProvider } from "next-themes";
 import { NotificationProvider } from "../context/NotificationContext";
 import DotGridBackground from "../components/DotGridBackground";
+import "../globals.css";
 
 const geistSans = localFont({
   src: "../fonts/GeistVF.woff",
@@ -21,7 +21,12 @@ export const metadata = {
   description: "Generated eBay HTML Descriptions for your listings in seconds.",
 };
 
-export default function RootLayout({ children }) {
+// Added explicit typing to children
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -29,11 +34,9 @@ export default function RootLayout({ children }) {
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <div className="flex max-h-screen h-screen bg-gray-100 dark:bg-black overflow-hidden relative">
-            {/* Background component - now in layout */}
             <DotGridBackground />
-
             <div className="flex-1 flex flex-col overflow-auto relative z-10">
-              <NotificationProvider>{children}</NotificationProvider>{" "}
+              <NotificationProvider>{children}</NotificationProvider>
             </div>
           </div>
         </ThemeProvider>

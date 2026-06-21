@@ -1,7 +1,34 @@
+// app/api/products/bulk-match/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { executeQuery } from "../../../utils/d1/execute/executeQuery";
+import { executeBatch, executeQuery } from "../../../utils/d1/execute";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
 const SHOPIFY_API_VERSION = "2026-01";
-const CHUNK_SIZE = 100; // D1 safe limit for SQL variables
+const DB_CHUNK_SIZE = 100;
+const SHOPIFY_PARALLEL_LIMIT = 5;
+
+interface BulkMatchRequestBody {
+  action?: "preview" | "apply";
+  productIds?: string[];
+  matches?: Array<{
+    productId: string;
+    shopify_id: string;
+  }>;
+}
+
+interface ShopifyGraphQLResponse {
+  data?: {
+    products?: {
+      edges?: Array<{
+        node?: {
+          id: string;
+          title: string;
+        };
+      }>;
+    };
+  };
+  errors?: any[];
+}
 
 async function matchSingleProduct(product: {
   id: string;
@@ -32,28 +59,35 @@ async function matchSingleProduct(product: {
         }
       }
     `;
-    const response = await fetch(
-      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
+
+    try {
+      const response = await fetch(
+        `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Shopify-Access-Token": accessToken,
+          },
+          body: JSON.stringify({
+            query: graphqlQuery,
+            variables: { queryString: query },
+          }),
         },
-        body: JSON.stringify({
-          query: graphqlQuery,
-          variables: { queryString: query },
-        }),
-      },
-    );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = await response.json();
-    if (result.errors)
-      throw new Error(`GraphQL error: ${JSON.stringify(result.errors)}`);
-    return result.data?.products?.edges?.[0]?.node || null;
+      );
+
+      if (!response.ok) return null;
+
+      const result = (await response.json()) as ShopifyGraphQLResponse;
+      if (result.errors) return null;
+
+      return result.data?.products?.edges?.[0]?.node || null;
+    } catch {
+      return null;
+    }
   }
 
-  // 1. Search by SKU
+  // Search by SKU
   if (sku) {
     const productNode = await searchShopify(`sku:${sku}`);
     if (productNode) {
@@ -68,30 +102,17 @@ async function matchSingleProduct(product: {
     }
   }
 
-  // 2. Fallback to title exact match (case‑insensitive)
+  // Fallback to Title Exact Match
   if (title) {
     const productNode = await searchShopify(`title:${title}`);
-    if (
-      productNode &&
-      productNode.title.toLowerCase() === title.toLowerCase()
-    ) {
-      const shopifyId = productNode.id.split("/").pop();
-      return {
-        productId: id,
-        success: true,
-        shopify_id: shopifyId,
-        matchMethod: "exact title",
-        title: productNode.title,
-      };
-    }
-    // optional fuzzy match – just return the first result
     if (productNode) {
       const shopifyId = productNode.id.split("/").pop();
+      const isExact = productNode.title.toLowerCase() === title.toLowerCase();
       return {
         productId: id,
         success: true,
         shopify_id: shopifyId,
-        matchMethod: "fuzzy title",
+        matchMethod: isExact ? "exact title" : "fuzzy title",
         title: productNode.title,
       };
     }
@@ -105,9 +126,13 @@ async function matchSingleProduct(product: {
 }
 
 export async function POST(request: NextRequest) {
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB;
+
   try {
-    const body = await request.json();
-    const { action, productIds } = body;
+    const body = (await request.json()) as BulkMatchRequestBody;
+    const { action, productIds, matches } = body;
 
     if (!action) {
       return NextResponse.json(
@@ -116,7 +141,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---------- PREVIEW: find matches without updating DB ----------
+    // ==========================================
+    // ACTION: PREVIEW
+    // ==========================================
     if (action === "preview") {
       if (
         !productIds ||
@@ -129,14 +156,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Fetch product details from DB in chunks to avoid too many SQL variables
       const products: any[] = [];
-      for (let i = 0; i < productIds.length; i += CHUNK_SIZE) {
-        const chunk = productIds.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < productIds.length; i += DB_CHUNK_SIZE) {
+        const chunk = productIds.slice(i, i + DB_CHUNK_SIZE);
         const placeholders = chunk.map(() => "?").join(",");
         const chunkProducts = await executeQuery(
           `SELECT id, sku, title FROM products WHERE id IN (${placeholders}) AND (shopify_id IS NULL OR shopify_id = '')`,
           chunk,
+          db, // <-- pass db
         );
         products.push(...chunkProducts);
       }
@@ -145,18 +172,23 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ results: [] });
       }
 
-      // Match each product sequentially (rate limiting friendly)
       const results = [];
-      for (const product of products) {
-        const match = await matchSingleProduct(product);
-        results.push(match);
+      for (let i = 0; i < products.length; i += SHOPIFY_PARALLEL_LIMIT) {
+        const parallelChunk = products.slice(i, i + SHOPIFY_PARALLEL_LIMIT);
+        const chunkPromises = parallelChunk.map((product) =>
+          matchSingleProduct(product),
+        );
+        const chunkResults = await Promise.all(chunkPromises);
+        results.push(...chunkResults);
       }
+
       return NextResponse.json({ results });
     }
 
-    // ---------- APPLY: update DB for accepted matches ----------
+    // ==========================================
+    // ACTION: APPLY
+    // ==========================================
     if (action === "apply") {
-      const { matches } = body;
       if (!matches || !Array.isArray(matches)) {
         return NextResponse.json(
           { error: "matches array required" },
@@ -164,26 +196,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = [];
-      for (let i = 0; i < matches.length; i += CHUNK_SIZE) {
-        const chunk = matches.slice(i, i + CHUNK_SIZE);
-        for (const m of chunk) {
-          const { productId, shopify_id } = m;
-          if (!productId || !shopify_id) continue;
-          await executeQuery(
-            `UPDATE products SET shopify_id = ?, updated_at = unixepoch() WHERE id = ?`,
-            [shopify_id, productId],
-          );
-          updated.push({ productId, shopify_id });
-        }
+      const statementsQueue: Array<{ sql: string; params: any[] }> = [];
+      const updatedTrackingList: Array<{
+        productId: string;
+        shopify_id: string;
+      }> = [];
+
+      for (const m of matches) {
+        const { productId, shopify_id } = m;
+        if (!productId || !shopify_id) continue;
+
+        statementsQueue.push({
+          sql: `UPDATE products SET shopify_id = ?, updated_at = unixepoch() WHERE id = ?`,
+          params: [shopify_id, productId],
+        });
+
+        updatedTrackingList.push({ productId, shopify_id });
       }
-      return NextResponse.json({ success: true, updated });
+
+      if (statementsQueue.length > 0) {
+        await executeBatch(statementsQueue, db); // <-- pass db
+      }
+
+      return NextResponse.json({ success: true, updated: updatedTrackingList });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: any) {
-    console.error("Bulk match error:", error);
-    // Return a valid structure so frontend doesn't break
+    console.error("Bulk match runtime error:", error);
     return NextResponse.json(
       { error: error.message, results: [] },
       { status: 500 },

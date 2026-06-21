@@ -18,6 +18,11 @@ interface DownloadButtonProps {
   buttonText?: string;
 }
 
+// Added interface for handling standardized error responses from your backend API
+interface ApiErrorResponse {
+  error?: string;
+}
+
 export default function DownloadButton({
   images,
   productTitle,
@@ -63,8 +68,9 @@ export default function DownloadButton({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Download failed");
+        // Cast the parsed error response to your ApiErrorResponse type
+        const errorData = (await response.json()) as ApiErrorResponse;
+        throw new Error(errorData.error || "Download failed");
       }
 
       // Trigger browser download

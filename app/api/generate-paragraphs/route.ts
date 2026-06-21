@@ -4,10 +4,35 @@ import { NextResponse } from "next/server";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
+// 1. TYPE DEFINITIONS: Map incoming parameters and the response choices block returned by Groq
+interface ParagraphsRequestBody {
+  title?: string;
+  category?: string;
+  specifications?: Array<{ key: string; value: string }>;
+  features?: Array<{ title: string; description: string }>;
+  keywords?: string[];
+}
+
+interface GroqParagraphsApiResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  [key: string]: any;
+}
+
 export async function POST(request: Request) {
   try {
-    const { title, category, specifications, features, keywords } =
-      await request.json();
+    // 2. FIXED CAST: Explicitly typecast incoming parsed request body object properties cleanly
+    const body = (await request.json()) as ParagraphsRequestBody;
+    const {
+      title,
+      category,
+      specifications = [],
+      features = [],
+      keywords = [],
+    } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -16,15 +41,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const specsList = (specifications || [])
+    const specsList = specifications
       .map((s: any) => `${s.key}: ${s.value}`)
       .join("\n");
 
-    const featuresList = (features || [])
+    const featuresList = features
       .map((f: any) => `${f.title}: ${f.description}`)
       .join("\n");
 
-    const keywordsList = (keywords || []).join(", ");
+    const keywordsList = keywords.join(", ");
 
     const prompt = `You are a professional product copywriter for an e‑commerce store.
 
@@ -32,13 +57,13 @@ export async function POST(request: Request) {
 
 ---
 **Product Title**: "${title}"
-**Category**: "${category}"
+**Category**: "${category || "General"}"
 **SEO Keywords to include naturally**: ${keywordsList || "none"}
 **Technical Specifications (for reference, do NOT list them verbatim)**:
-${specsList}
+${specsList || "none"}
 
 **Key Features (highlight important ones)**:
-${featuresList}
+${featuresList || "none"}
 ---
 
 **CRITICAL RULES (Follow Exactly)**:
@@ -90,7 +115,8 @@ ${featuresList}
       throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    // 3. FIXED CAST: Map response layout properties to pass the TypeScript compiler
+    const data = (await response.json()) as GroqParagraphsApiResponse;
     console.log(
       "Groq API response (Paragraphs):",
       JSON.stringify(data, null, 2),

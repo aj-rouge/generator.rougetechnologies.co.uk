@@ -1,8 +1,19 @@
 // utils/d1/category/getCategoryContent.ts
 
-import { executeQuery } from "./execute/executeQuery";
+import { executeQuery } from "./execute";
+import type { D1Database } from "@cloudflare/workers-types";
 
-export async function getCategoryContent(categorySlug: string) {
+/**
+ * Retrieves category content (eBay store link, content sections) for a given category slug.
+ * @param categorySlug - The slug of the category
+ * @param options - Required: db instance
+ */
+export async function getCategoryContent(
+  categorySlug: string,
+  options: { db: D1Database },
+) {
+  const { db } = options;
+
   if (!categorySlug) return null;
 
   const result = await executeQuery(
@@ -25,6 +36,7 @@ export async function getCategoryContent(categorySlug: string) {
     WHERE c.slug = ?
   `,
     [categorySlug],
+    db, // <-- pass the db instance
   );
 
   if (!result || result.length === 0) return null;

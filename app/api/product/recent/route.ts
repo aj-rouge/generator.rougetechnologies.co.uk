@@ -5,8 +5,13 @@ import {
   IdentifierField,
   IdentifierRule,
 } from "../../../utils/d1/getRecentProducts";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function GET(request: NextRequest) {
+  // Fetch the D1 binding
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB;
+
   const searchParams = request.nextUrl.searchParams;
   const limitParam = searchParams.get("limit") || "10";
   const offsetParam = searchParams.get("offset") || "0";
@@ -15,7 +20,6 @@ export async function GET(request: NextRequest) {
   const categoryParam = searchParams.get("category") || undefined;
   const identifierRulesParam = searchParams.get("identifierRules") || "{}";
 
-  // Count filters
   const minImages = searchParams.get("minImages");
   const maxImages = searchParams.get("maxImages");
   const minSpecs = searchParams.get("minSpecs");
@@ -63,6 +67,7 @@ export async function GET(request: NextRequest) {
       console.warn("Invalid identifierRules JSON, using empty object");
     }
 
+    // Pass `db` to getRecentProducts
     const products = await getRecentProducts({
       limit,
       offset,
@@ -71,6 +76,7 @@ export async function GET(request: NextRequest) {
       sortBy,
       identifierRules,
       countFilters,
+      db, // <-- pass db
     });
 
     return NextResponse.json(products);

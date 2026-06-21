@@ -1,8 +1,13 @@
-// /api/search/route.ts
+// app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { executeQuery } from "../../utils/d1/execute/executeQuery";
+import { executeQuery } from "../../utils/d1/execute";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function GET(request: NextRequest) {
+  // 1. Fetch the D1 binding at the start
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB;
+
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q")?.trim();
 
@@ -13,7 +18,7 @@ export async function GET(request: NextRequest) {
   // Heuristic for pasted IDs: length >= 6 and no spaces
   const looksLikePaste = (q: string): boolean => q.length >= 6 && !/\s/.test(q);
 
-  // 1. Exact match path (for identifiers)
+  // 1. Exact match path (for direct barcode scans or pasted tracking identifiers)
   if (looksLikePaste(query)) {
     const exact = await executeQuery(
       `
@@ -28,6 +33,7 @@ export async function GET(request: NextRequest) {
       LIMIT 20
       `,
       [query, query, query, query, query, query],
+      db, // <-- pass db
     );
 
     if (exact && exact.length > 0) {
@@ -35,14 +41,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 2. Build safe FTS query with prefix expansion
+  // 2. Build safe FTS query with prefix expansion (* suffix for autocomplete support)
   const words = query.toLowerCase().match(/[a-z0-9]+/g) || [];
   if (words.length === 0) {
     return NextResponse.json({ results: [] });
   }
   const ftsQuery = words.map((term) => `${term}*`).join(" ");
 
-  // 3. FTS search (title weight 5, sku weight 2)
+  // 3. Native Edge FTS search (title weighted at 5.0, sku weighted at 2.0)
   const ftsResults = await executeQuery(
     `
     SELECT p.id, p.slug, p.title, p.sku, p.ean, p.asin, p.baselinker_id, p.shopify_id, p.category, p.updated_at,
@@ -50,10 +56,11 @@ export async function GET(request: NextRequest) {
     FROM products_search
     JOIN products p ON p.id = products_search.product_id
     WHERE products_search MATCH ?
-    ORDER BY score, p.updated_at DESC
+    ORDER BY score ASC, p.updated_at DESC
     LIMIT 20
     `,
     [ftsQuery],
+    db, // <-- pass db
   );
 
   return NextResponse.json({ results: ftsResults || [] });

@@ -1,18 +1,12 @@
-import { s3Client } from "./s3Client";
-import {
-  CopyObjectCommand,
-  DeleteObjectCommand,
-  ListObjectsV2Command,
-} from "@aws-sdk/client-s3";
-import { uploadToR2FromUrl } from "./r2Upload";
+// utils/images/productImageService.ts
+import type { R2Bucket } from "@cloudflare/workers-types";
+import { uploadToR2FromUrl, uploadBufferToR2 } from "./r2Upload";
 import { generateSeoFileName } from "./seoGenerator";
-
-const BUCKET = process.env.R2_BUCKET_NAME!;
-const PUBLIC_DOMAIN = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN;
 
 export async function moveExistingToTemp(
   productSlug: string,
   oldImages: any[],
+  bucket: any, // <-- added
 ) {
   for (const img of oldImages) {
     const s3Path = img.s3_path || img.s3Path;
@@ -24,16 +18,13 @@ export async function moveExistingToTemp(
     const filename = pathOnly.split("/").pop();
     const tempKey = `temp/${productSlug}/${filename}`;
 
-    await s3Client.send(
-      new CopyObjectCommand({
-        Bucket: BUCKET,
-        CopySource: `${BUCKET}/${pathOnly}`,
-        Key: tempKey,
-      }),
-    );
-    await s3Client.send(
-      new DeleteObjectCommand({ Bucket: BUCKET, Key: pathOnly }),
-    );
+    const object = await bucket.get(pathOnly);
+    if (object) {
+      await bucket.put(tempKey, await object.arrayBuffer(), {
+        httpMetadata: object.httpMetadata,
+      });
+      await bucket.delete(pathOnly);
+    }
   }
 }
 
@@ -42,54 +33,51 @@ export async function processImages(
   category: string,
   productSlug: string,
   oldImages: any[],
+  bucket: any,
+  images?: any, // <-- added
 ) {
   const finalized = [];
-  const BUCKET = process.env.R2_BUCKET_NAME!;
   const PUBLIC_DOMAIN = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN!;
 
   for (let i = 0; i < uiImages.length; i++) {
     const img = uiImages[i];
     const targetS3Path = generateSeoFileName(category, productSlug, i + 1);
     let finalUrl = "";
-    let stagingKey: string | null = null;
 
     if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
-      // Extract staging key from URL (remove domain)
       const urlWithoutDomain = img.url.replace(PUBLIC_DOMAIN, "");
-      stagingKey = urlWithoutDomain.startsWith("/")
+      const stagingKey = urlWithoutDomain.startsWith("/")
         ? urlWithoutDomain.slice(1)
         : urlWithoutDomain;
 
-      // Copy from staging to final location
-      await s3Client.send(
-        new CopyObjectCommand({
-          Bucket: BUCKET,
-          CopySource: `${BUCKET}/${stagingKey}`,
-          Key: targetS3Path,
-        }),
-      );
-      await s3Client.send(
-        new DeleteObjectCommand({ Bucket: BUCKET, Key: stagingKey }),
-      );
+      const object = await bucket.get(stagingKey);
+      if (object) {
+        const buffer = await object.arrayBuffer();
+        await uploadBufferToR2(buffer, targetS3Path, bucket, images);
+        await bucket.delete(stagingKey);
+      }
       finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
     } else if (img.needsUpload) {
-      // External URL upload
-      const result = await uploadToR2FromUrl(img.url, targetS3Path);
+      const result = await uploadToR2FromUrl(
+        img.url,
+        targetS3Path,
+        bucket,
+        images,
+      );
       finalUrl = result.url;
     } else {
-      // Restore from temp folder (edit mode)
+      // Restore from temp (edit mode)
       const prev = oldImages.find(
         (old) => old.url === img.url || old.s3_path === img.s3Path,
       );
       if (prev) {
         const filename = (prev.s3_path || prev.s3Path).split("/").pop();
-        await s3Client.send(
-          new CopyObjectCommand({
-            Bucket: BUCKET,
-            CopySource: `${BUCKET}/temp/${productSlug}/${filename}`,
-            Key: targetS3Path,
-          }),
-        );
+        const tempKey = `temp/${productSlug}/${filename}`;
+        const object = await bucket.get(tempKey);
+        if (object) {
+          const buffer = await object.arrayBuffer();
+          await uploadBufferToR2(buffer, targetS3Path, bucket, images);
+        }
         finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
       }
     }
@@ -107,33 +95,22 @@ export async function cleanupImagesFromR2(
   category: string,
   productSlug: string,
   finalizedImages: any[],
+  bucket: any, // <-- added
 ) {
   const prefix = `${category.toLowerCase()}/${productSlug}/`;
-  const list = await s3Client.send(
-    new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix }),
-  );
-  if (!list.Contents) return;
-
-  for (const obj of list.Contents) {
+  const list = await bucket.list({ prefix });
+  for (const obj of list.objects) {
     const isNeeded = finalizedImages.some((img) =>
-      img.s3_path.endsWith(obj.Key!),
+      img.s3_path.endsWith(obj.key),
     );
     if (!isNeeded) {
-      await s3Client.send(
-        new DeleteObjectCommand({ Bucket: BUCKET, Key: obj.Key! }),
-      );
+      await bucket.delete(obj.key);
     }
   }
-  // Also delete the temp folder
-  const tempList = await s3Client.send(
-    new ListObjectsV2Command({
-      Bucket: BUCKET,
-      Prefix: `temp/${productSlug}/`,
-    }),
-  );
-  for (const obj of tempList.Contents || []) {
-    await s3Client.send(
-      new DeleteObjectCommand({ Bucket: BUCKET, Key: obj.Key! }),
-    );
+
+  const tempPrefix = `temp/${productSlug}/`;
+  const tempList = await bucket.list({ prefix: tempPrefix });
+  for (const obj of tempList.objects) {
+    await bucket.delete(obj.key);
   }
 }

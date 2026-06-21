@@ -1,8 +1,20 @@
-/** @type {import('next').NextConfig} */
+// next.config.js
 const nextConfig = {
   serverExternalPackages: ["sharp"],
   images: {
-    remotePatterns: [new URL("https://cdn.rougetechnologies.co.uk/**")],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.rougetechnologies.co.uk",
+        pathname: "/**",
+      },
+    ],
+  },
+  experimental: {
+    turbo: false,
+    serverActions: {
+      allowedOrigins: ['127.0.0.1:8787', 'localhost:8787'],
+    },
   },
 };
 

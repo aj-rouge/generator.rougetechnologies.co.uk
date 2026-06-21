@@ -1,8 +1,10 @@
+// app/actions/updateShopifyDescriptions.ts
 "use server";
 
-import * as cheerio from "cheerio";
-import { executeQuery } from "../utils/d1/execute/executeQuery";
+import { executeQuery } from "../utils/d1/execute";
 import { generateProductHTML } from "../utils/htmlGenerator/generateProductHTML";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import type { D1Database } from "@cloudflare/workers-types";
 
 const SHOPIFY_API_VERSION = "2026-01";
 
@@ -22,7 +24,6 @@ const UPDATE_PRODUCT_DESCRIPTION_MUTATION = `
   }
 `;
 
-// Types
 export interface ProductUpdateOptions {
   limit?: number;
   order?: "ASC" | "DESC";
@@ -54,27 +55,76 @@ export interface UpdateProductsResponse {
   };
 }
 
-// Helper to convert Shopify ID to GID format
-function toShopifyProductGid(shopifyId: string | number): string {
-  const idStr = String(shopifyId);
-  if (idStr.startsWith("gid://shopify/Product/")) {
-    return idStr;
-  }
-  return `gid://shopify/Product/${idStr}`;
+interface ProductDbRow {
+  id: string | number;
+  shopify_id: string | null;
 }
 
-// Function to update product description via Shopify GraphQL
+interface ShopifyGraphQLResponse {
+  errors?: Array<{
+    message: string;
+    locations?: Array<{ line: number; column: number }>;
+    path?: string[];
+  }>;
+  data?: {
+    productUpdate?: {
+      product: {
+        id: string;
+        title: string;
+        descriptionHtml: string;
+      };
+      userErrors: Array<{
+        field: string[];
+        message: string;
+      }>;
+    };
+  };
+}
+
+function toShopifyProductGid(shopifyId: string | number): string {
+  const idStr = String(shopifyId);
+  return idStr.startsWith("gid://shopify/Product/")
+    ? idStr
+    : `gid://shopify/Product/${idStr}`;
+}
+
+function extractProductDetails(htmlString: string): string {
+  try {
+    const targetClass = 'class="rouge-technologies-details"';
+    const startIndex = htmlString.indexOf(targetClass);
+
+    if (startIndex === -1) return htmlString;
+
+    const openDivIndex = htmlString.lastIndexOf("<div", startIndex);
+    if (openDivIndex === -1) return htmlString;
+
+    const endDivIndex = htmlString.indexOf("</div>", startIndex);
+    if (endDivIndex === -1) return htmlString;
+
+    const rawContainer = htmlString.slice(openDivIndex, endDivIndex + 6);
+
+    return rawContainer.replace(
+      /<span class="rouge-technologies-details__checkmark">.*?<\/span>/g,
+      "",
+    );
+  } catch (error) {
+    console.warn(
+      "⚠️ Fallback triggered during string extraction processing:",
+      error,
+    );
+    return htmlString;
+  }
+}
+
 async function updateShopifyProductDescription(
   shopifyProductGid: string,
   htmlDescription: string,
-) {
+): Promise<{ id: string; title: string; descriptionHtml: string }> {
   const shopDomain = process.env.SHOPIFY_STORE_DOMAIN;
   const accessToken = process.env.SHOPIFY_ADMIN_API_ACCESS_TOKEN;
 
   if (!shopDomain || !accessToken) {
-    throw new Error(
-      "Missing SHOPIFY_STORE_DOMAIN or SHOPIFY_ADMIN_API_ACCESS_TOKEN",
-    );
+    throw new Error("Missing Shopify environment authorization tokens");
   }
 
   const response = await fetch(
@@ -97,60 +147,39 @@ async function updateShopifyProductDescription(
     },
   );
 
-  const json = await response.json();
+  const json = (await response.json()) as ShopifyGraphQLResponse;
 
   if (!response.ok) {
-    throw new Error(
-      `Shopify GraphQL HTTP error ${response.status}: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`HTTP network error wrapper failure: ${response.status}`);
   }
 
   if (json.errors) {
-    throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
+    throw new Error(
+      `Shopify mutation compilation exception: ${JSON.stringify(json.errors)}`,
+    );
   }
 
   const payload = json.data?.productUpdate;
   if (!payload) {
-    throw new Error(`Missing productUpdate payload: ${JSON.stringify(json)}`);
+    throw new Error(
+      "Empty execution payload response state returned from destination GraphQL boundary",
+    );
   }
 
   if (payload.userErrors && payload.userErrors.length > 0) {
     throw new Error(
-      `Shopify user errors: ${payload.userErrors.map((e: any) => e.message).join(", ")}`,
+      `Shopify explicit client error context: ${payload.userErrors.map((e) => e.message).join(", ")}`,
     );
   }
 
   return payload.product;
 }
 
-// Function to extract only the product details section from the full HTML
-function extractProductDetails(htmlString: string): string {
-  try {
-    const $ = cheerio.load(htmlString);
-
-    // Find the details div
-    const detailsDiv = $(".rouge-technologies-details");
-
-    if (detailsDiv.length === 0) {
-      return htmlString; // Return full HTML if not found
-    }
-
-    // Remove all checkmark spans
-    detailsDiv.find("span.rouge-technologies-details__checkmark").remove();
-
-    // Get the HTML of the details div
-    const cleanedDetailsHtml = $.html(detailsDiv);
-
-    return cleanedDetailsHtml;
-  } catch (error: any) {
-    console.error(`Error extracting details: ${error.message}`);
-    return htmlString; // Return full HTML on error
-  }
-}
-
-// Get product IDs from database
-
-const getProductIds = async (options: ProductUpdateOptions = {}) => {
+// getProductIds now requires db
+const getProductIds = async (
+  options: ProductUpdateOptions = {},
+  db: D1Database,
+): Promise<ProductDbRow[]> => {
   const {
     limit = 500,
     order = "DESC",
@@ -159,13 +188,13 @@ const getProductIds = async (options: ProductUpdateOptions = {}) => {
   } = options;
 
   if (productIds && productIds.length > 0) {
-    const allResults: any[] = [];
-    const chunkSize = 100; // safe limit to avoid "too many SQL variables"
+    const allResults: ProductDbRow[] = [];
+    const chunkSize = 100;
     for (let i = 0; i < productIds.length; i += chunkSize) {
       const chunk = productIds.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => "?").join(",");
       const query = `SELECT id, shopify_id FROM products WHERE id IN (${placeholders})`;
-      const results = await executeQuery(query, chunk);
+      const results = (await executeQuery(query, chunk, db)) as ProductDbRow[];
       if (results && results.length) {
         allResults.push(...results);
       }
@@ -173,7 +202,6 @@ const getProductIds = async (options: ProductUpdateOptions = {}) => {
     return allResults;
   }
 
-  // No productIds provided – fetch all with limit
   let query = `SELECT id, shopify_id FROM products`;
   const params: any[] = [];
   query += ` ORDER BY ${sortBy} ${order}`;
@@ -181,28 +209,26 @@ const getProductIds = async (options: ProductUpdateOptions = {}) => {
     query += ` LIMIT ?`;
     params.push(limit);
   }
-  const results = await executeQuery(query, params);
-  return results || [];
+  return (await executeQuery(query, params, db)) as ProductDbRow[];
 };
 
-// Main action to update product descriptions
 export async function updateProductDescriptions(
   options: ProductUpdateOptions = {},
 ): Promise<UpdateProductsResponse> {
+  // 1. Fetch the D1 binding
+  const { env } = await getCloudflareContext({ async: true });
+  const db = (env as any).DB as D1Database;
+
   const startedAt = new Date().toISOString();
-  console.log("🚀 Starting Shopify description auto-update process...");
-  console.log(`⏰ Started at: ${startedAt}`);
 
   try {
-    // Get product IDs
-    console.log("📋 Fetching product IDs from database...");
-    const products = await getProductIds(options);
+    // 2. Pass db to getProductIds
+    const products = await getProductIds(options, db);
 
     if (!products || products.length === 0) {
-      console.log("❌ No products found in database");
       return {
         success: false,
-        message: "No products found",
+        message: "Empty index scope target set evaluated. No updates deployed.",
         results: [],
         errors: [],
         stats: {
@@ -215,55 +241,32 @@ export async function updateProductDescriptions(
       };
     }
 
-    console.log(`✅ Retrieved ${products.length} products from database`);
-
     const results: ProductUpdateResult[] = [];
     const errors: ProductUpdateResult[] = [];
     let processedCount = 0;
 
-    // Update each product
     for (const product of products) {
       processedCount++;
-      console.log(
-        `\n🔄 Processing product ${processedCount}/${products.length}`,
-      );
-
       try {
         if (!product.shopify_id) {
-          console.log(
-            `⚠️  Product ${product.id} has no shopify_id, skipping...`,
-          );
           errors.push({
             productId: product.id,
-            shopifyId: product.shopify_id,
+            shopifyId: null,
             success: false,
-            error: "No shopify_id found",
+            error: "No shopify_id key relation mapped to row layout instance",
           });
           continue;
         }
 
-        console.log(`📝 Generating HTML for product ${product.id}...`);
-        const fullHtmlString = await generateProductHTML(product.id);
-
-        // Extract only the product details section
+        const fullHtmlString = await generateProductHTML(String(product.id));
         const htmlString = extractProductDetails(fullHtmlString);
-
-        // Build Shopify product GID from product.shopify_id
         const shopifyProductGid = toShopifyProductGid(product.shopify_id);
 
-        console.log(
-          `📤 Sending update to Shopify for product ${shopifyProductGid}...`,
-        );
-
-        // Call Shopify Admin GraphQL to update descriptionHtml
         const updatedProduct = await updateShopifyProductDescription(
           shopifyProductGid,
           htmlString,
         );
 
-        console.log(
-          `✅ Successfully updated product ${product.id} on Shopify: ${updatedProduct.title}`,
-        );
         results.push({
           productId: product.id,
           shopifyId: product.shopify_id,
@@ -272,35 +275,24 @@ export async function updateProductDescriptions(
           title: updatedProduct.title,
         });
 
-        // Optional delay to avoid rate limiting
-        const delayMs = options.delayMs || 100;
+        const delayMs = options.delayMs ?? 100;
         if (delayMs > 0 && processedCount < products.length) {
-          console.log(`⏳ Waiting ${delayMs}ms before next request...`);
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       } catch (error: any) {
-        console.log(
-          `❌ Error processing product ${product.id}:`,
-          error.message,
-        );
         errors.push({
           productId: product.id,
-          shopifyId: product.shopify_id,
+          shopifyId: product.shopify_id ?? undefined,
           success: false,
-          error: error.message,
+          error:
+            error.message || "Failed processing item node transformation chain",
         });
       }
     }
 
-    const finishedAt = new Date().toISOString();
-    console.log(`\n🎉 Update process completed!`);
-    console.log(`✅ Successfully updated: ${results.length} products`);
-    console.log(`❌ Failed updates: ${errors.length} products`);
-    console.log(`⏰ Finished at: ${finishedAt}`);
-
     return {
       success: true,
-      message: `Updated ${results.length} products, ${errors.length} failed`,
+      message: `Processed bulk synchronization modification payload sweep sequence completed successfully`,
       results,
       errors,
       stats: {
@@ -308,22 +300,17 @@ export async function updateProductDescriptions(
         successful: results.length,
         failed: errors.length,
         startedAt,
-        finishedAt,
+        finishedAt: new Date().toISOString(),
       },
     };
   } catch (error: any) {
-    console.error("💥 Shopify HTML Update Error:", error);
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message ||
+        "Fatal sub-system process worker task crash execution fault",
       results: [],
-      errors: [
-        {
-          productId: "system",
-          success: false,
-          error: error.message,
-        },
-      ],
+      errors: [{ productId: "system", success: false, error: error.message }],
       stats: {
         total: 0,
         successful: 0,
@@ -335,7 +322,6 @@ export async function updateProductDescriptions(
   }
 }
 
-// Single product update action
 export async function updateSingleProductDescription(
   productId: string | number,
   options: Omit<ProductUpdateOptions, "productIds"> = {},
@@ -345,36 +331,22 @@ export async function updateSingleProductDescription(
       ...options,
       productIds: [productId],
     });
-
-    if (result.results.length > 0) {
-      return result.results[0];
-    }
-
-    if (result.errors.length > 0) {
-      return result.errors[0];
-    }
-
-    return {
-      productId,
-      success: false,
-      error: "Product not found or could not be updated",
-    };
+    return (
+      result.results[0] ||
+      result.errors[0] || {
+        productId,
+        success: false,
+        error: "Unknown missing execution state error",
+      }
+    );
   } catch (error: any) {
-    return {
-      productId,
-      success: false,
-      error: error.message,
-    };
+    return { productId, success: false, error: error.message };
   }
 }
 
-// Batch update action
 export async function batchUpdateProductDescriptions(
   productIds: (string | number)[],
   options: Omit<ProductUpdateOptions, "productIds"> = {},
 ): Promise<UpdateProductsResponse> {
-  return updateProductDescriptions({
-    ...options,
-    productIds,
-  });
+  return updateProductDescriptions({ ...options, productIds });
 }

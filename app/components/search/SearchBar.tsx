@@ -1,3 +1,4 @@
+// components/search/SearchBar.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -10,6 +11,11 @@ import SearchDropdown from "./SearchDropdown";
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
+
+// Explicitly define the expected format from your search endpoint
+interface SearchApiResponse {
+  results: any[];
+}
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
@@ -36,7 +42,8 @@ export default function SearchBar() {
           }
           return res.json();
         })
-        .then((data) => {
+        // Cast the resolved data to our interface
+        .then((data: SearchApiResponse) => {
           setResults(data.results);
           setShowDropdown(true);
         })

@@ -4,9 +4,28 @@ import { NextResponse } from "next/server";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
+// 1. TYPE DEFINITIONS: Map incoming payload structure and Groq's chat completion responses
+interface FeatureRequestBody {
+  title?: string;
+  category?: string;
+  specifications?: Array<{ key: string; value: string }>;
+  keywords?: string[];
+}
+
+interface GroqApiResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  [key: string]: any;
+}
+
 export async function POST(request: Request) {
   try {
-    const { title, category, specifications, keywords } = await request.json();
+    // 2. FIXED CAST: Explicitly typecast incoming raw request payload object
+    const body = (await request.json()) as FeatureRequestBody;
+    const { title, category, specifications = [], keywords = [] } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -15,11 +34,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const specsList = (specifications || [])
+    const specsList = specifications
       .map((s: any) => `${s.key}: ${s.value}`)
       .join("\n");
 
-    const keywordsList = (keywords || []).join(", ");
+    const keywordsList = keywords.join(", ");
 
     const prompt = `You are a product listing specialist for an e‑commerce store.
 
@@ -27,10 +46,10 @@ export async function POST(request: Request) {
 
 ---
 **Product Title**: "${title}"
-**Category**: "${category}"
+**Category**: "${category || "General"}"
 **SEO Keywords** (use only where they fit naturally): ${keywordsList || "none"}
 **Technical Specifications** (include the most important ones):
-${specsList}
+${specsList || "none"}
 ---
 
 **STRICT RULES**:
@@ -80,7 +99,8 @@ ${specsList}
       throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    // 3. FIXED CAST: Map the response payload structure to satisfy properties on choice selection
+    const data = (await response.json()) as GroqApiResponse;
     console.log("Groq API response (Features):", JSON.stringify(data, null, 2));
 
     const rawText = data.choices?.[0]?.message?.content?.trim();
@@ -93,9 +113,9 @@ ${specsList}
         if (colonIndex === -1) {
           return { title: line, description: "" };
         }
-        const title = line.substring(0, colonIndex).trim();
-        const description = line.substring(colonIndex + 1).trim();
-        return { title, description };
+        const fTitle = line.substring(0, colonIndex).trim();
+        const fDescription = line.substring(colonIndex + 1).trim();
+        return { title: fTitle, description: fDescription };
       })
       .filter((f: any) => f.title && f.description);
 

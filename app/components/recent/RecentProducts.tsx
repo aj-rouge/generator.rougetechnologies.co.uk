@@ -21,13 +21,20 @@ type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 interface RecentProductsProps {
   initialProducts: any[];
   categories?: any[];
-  initialCountFilters?: CountFiltersType;
+}
+
+// Added explicit type interface for the bulk synchronization responses
+interface SyncApiResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  successCount: number;
+  failureCount: number;
 }
 
 export default function RecentProducts({
   initialProducts,
   categories = [],
-  initialCountFilters = {},
 }: RecentProductsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,8 +45,13 @@ export default function RecentProducts({
   const [products, setProducts] = useState<any[]>(initialProducts);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const [limit, setLimit] = useState<LimitOption>(
+    (Number(searchParams.get("limit")) as LimitOption) || 10,
+  );
+  const [hasMore, setHasMore] = useState(
+    initialProducts.length === limit, // only if we fetched exactly `limit` items
+  );
+  const [offset, setOffset] = useState(initialProducts.length);
   const offsetRef = useRef(offset);
 
   // Keep ref in sync with state
@@ -53,9 +65,7 @@ export default function RecentProducts({
   const [sortOrder, setSortOrder] = useState<SortOrder>(
     (searchParams.get("sortOrder") as SortOrder) || "DESC",
   );
-  const [limit, setLimit] = useState<LimitOption>(
-    (Number(searchParams.get("limit")) as LimitOption) || 10,
-  );
+
   const [category, setCategory] = useState(searchParams.get("category") || "");
   const [identifierRules, setIdentifierRules] = useState<
     Partial<Record<IdentifierField, IdentifierRule>>
@@ -168,8 +178,11 @@ export default function RecentProducts({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productIds: Array.from(selectedIds) }),
       });
-      const data = await res.json();
+
+      // Cleanly cast standard response data schema using custom interface structure
+      const data = (await res.json()) as SyncApiResponse;
       if (!res.ok) throw new Error(data.error);
+
       updateNotification(toastId, {
         message:
           data.message ||

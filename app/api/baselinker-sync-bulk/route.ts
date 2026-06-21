@@ -5,14 +5,19 @@ export async function POST(request: NextRequest) {
   try {
     let productIds: (string | number)[] = [];
     try {
-      const body = await request.json();
-      if (body.productIds && Array.isArray(body.productIds)) {
+      // FIX: Explicitly cast as an any wrapper to read unknown properties cleanly
+      const body = (await request.json()) as any;
+      if (body && body.productIds && Array.isArray(body.productIds)) {
         productIds = body.productIds;
       }
-    } catch {}
+    } catch {
+      // Fail silently if request body text cannot be decoded properly
+    }
+
     const result = await batchUpdateBaselinkerDescriptions(productIds, {
       delayMs: 500,
     });
+
     return NextResponse.json({
       success: result.success,
       message: result.message,

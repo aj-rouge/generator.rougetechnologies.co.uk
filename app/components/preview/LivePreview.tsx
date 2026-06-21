@@ -1,4 +1,5 @@
 // components/preview/LivePreview.tsx
+import React from "react";
 import Header from "./header/Header";
 import ProductGallery from "./ProductGallery";
 import ProductDetails from "./ProductDetails";
@@ -7,9 +8,24 @@ import Tabs from "./Tabs";
 import Category from "./Category";
 import Footer from "./Footer";
 import PromotionGrid from "./PromotionGrid";
-import "../../../css/livepreview.css";
 
-const LivePreview = ({
+interface LivePreviewProps {
+  title: string;
+  condition: string;
+  images: Array<{ url: string; [key: string]: any }> | string[];
+  paragraphs: any[];
+  features: Array<{ name: string; value: string }>;
+  note?: string;
+  feedbacks: any[];
+  categoryContent: {
+    ebayStoreLink?: string;
+    content?: any[];
+    categoryName?: string;
+  } | null;
+  categoryName: string;
+}
+
+const LivePreview: React.FC<LivePreviewProps> = ({
   title,
   condition,
   images,
@@ -42,7 +58,7 @@ const LivePreview = ({
         <Tabs />
         <PromotionGrid ebayLink={categoryContent?.ebayStoreLink} />
         <Category
-          categoryName={categoryName} // now from prop
+          categoryName={categoryName}
           categoryContent={categoryContent?.content || []}
         />
         <Footer />

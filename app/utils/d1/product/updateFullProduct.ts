@@ -1,4 +1,4 @@
-import { executeBatch } from "../execute/executeBatch"; // we'll create this helper
+import { executeBatch } from "../execute";
 
 /**
  * Replace an entire product and all its child records.

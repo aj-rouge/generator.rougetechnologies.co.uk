@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeUniversal } from "../../../utils/scrape/decodo/universal";
 
+// 1. TYPE DEFINITIONS: Explicitly type the incoming request payload
+interface BatchScraperRequestBody {
+  identifiers?: string[];
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { identifiers } = await req.json();
+    // 2. FIXED CAST: Explicitly typecast incoming parsed JSON data body
+    const body = (await req.json()) as BatchScraperRequestBody;
+    const { identifiers } = body;
+
     if (
       !identifiers ||
       !Array.isArray(identifiers) ||
@@ -30,8 +38,8 @@ export async function POST(req: NextRequest) {
     const errors = results
       .filter((r): r is PromiseRejectedResult => r.status === "rejected")
       .map((r) => ({
-        identifier: (r as any).identifier,
-        error: r.reason?.message,
+        identifier: "identifier" in r ? (r as any).identifier : undefined,
+        error: r.reason?.message || "Unknown scraping process error",
       }));
 
     return NextResponse.json({
