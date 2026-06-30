@@ -1,5 +1,4 @@
 // utils/images/productImageService.ts
-import type { R2Bucket } from "@cloudflare/workers-types";
 import { uploadToR2FromUrl, uploadBufferToR2 } from "./r2Upload";
 import { generateSeoFileName } from "./seoGenerator";
 

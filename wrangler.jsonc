@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "account_id": "d5904b41723d90ba536b9364cf3570c7",
   "main": ".open-next/worker.js",
-  "name": "ebay-desc-generator",
+  "name": "generator-rougetechnologies",
   "compatibility_date": "2026-06-17",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
@@ -14,7 +14,7 @@
       // Self-reference service binding, the service name must match the worker name
       // see https://opennext.js.org/cloudflare/caching
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "ebay-desc-generator",
+      "service": "generator-rougetechnologies",
     },
   ],
   "r2_buckets": [

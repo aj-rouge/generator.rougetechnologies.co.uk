@@ -9,8 +9,8 @@ import {
   processImages,
 } from "../../../utils/images/productImageService";
 import { executeBatch } from "../../../utils/d1/execute";
-import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- add import
-import type { D1Database } from "@cloudflare/workers-types"; // optional but good
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import type { D1Database } from "@cloudflare/workers-types";
 
 // ----------------------------------------------------------------------
 // Helper to format D1/SQLite errors into user‑friendly messages
@@ -112,9 +112,11 @@ async function upsertProductData(
   data: ProductData,
   finalizedImages: FinalizedImage[],
   isUpdate: boolean,
-  db: any, // <-- using any
+  db: any,
+  createdAt?: number,
 ) {
   const now = Math.floor(Date.now() / 1000);
+  const createdAtTimestamp = createdAt ?? now;
   const queue: D1BatchStatement[] = [];
 
   // 1. Master Product Record Upsert
@@ -164,7 +166,7 @@ async function upsertProductData(
       data.quantity ?? 0,
       data.price_brutto ?? null,
       data.shipping_method ?? null,
-      isUpdate ? null : now,
+      createdAtTimestamp,
       now,
     ],
   });
@@ -246,7 +248,7 @@ async function upsertProductData(
     });
   }
 
-  // Execute batch – pass db (any)
+  // Execute batch – pass db
   await executeBatch(queue, db);
 }
 // ----------------------------------------------------------------------
@@ -255,7 +257,7 @@ async function upsertProductData(
 async function updateBaselinkerId(
   sku: string,
   baselinkerId: string | null,
-  db: any, // <-- using any
+  db: any,
 ) {
   const now = Math.floor(Date.now() / 1000);
   const result = await executeBatch(
@@ -282,7 +284,7 @@ export async function POST(req: Request) {
   const { env } = await getCloudflareContext({ async: true });
   const db = (env as any).DB;
   const bucket = (env as any).UPLOADS_BUCKET;
-  const images = (env as any).IMAGES; // <-- get the Images binding
+  const images = (env as any).IMAGES;
 
   try {
     const newData = (await req.json()) as any;
@@ -365,16 +367,19 @@ export async function POST(req: Request) {
       productSlug,
       existing?.images || [],
       bucket,
-      images, // <-- pass it
+      images,
     );
 
     // 3. Pass db to upsertProductData
+    const existingCreatedAt = existing?.created_at;
+
     await upsertProductData(
       productId,
       { ...newData, slug: productSlug } as ProductData,
       finalizedImages,
       !!existing,
       db,
+      existingCreatedAt,
     );
 
     const updatedImages = finalizedImages.map((img) => ({
