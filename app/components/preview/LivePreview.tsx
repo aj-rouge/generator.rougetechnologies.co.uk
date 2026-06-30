@@ -14,7 +14,7 @@ interface LivePreviewProps {
   condition: string;
   images: Array<{ url: string; [key: string]: any }> | string[];
   paragraphs: any[];
-  features: Array<{ name: string; value: string }>;
+  features: Array<{ title: string; description: string }>;
   note?: string;
   feedbacks: any[];
   categoryContent: {

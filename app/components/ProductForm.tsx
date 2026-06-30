@@ -664,8 +664,8 @@ export default function ProductForm({
                 images={formData.images}
                 paragraphs={formData.paragraphs}
                 features={formData.features.map((f) => ({
-                  name: f.title,
-                  value: f.description,
+                  title: f.title,
+                  description: f.description,
                 }))}
                 note={formData.note || undefined}
                 feedbacks={formData.feedbacks}
