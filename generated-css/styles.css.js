@@ -571,21 +571,21 @@ export default `
 :root {
   /* Shipping Content */
   --rouge-technologies-shipping-content: "We always strive to offer a smooth and uninterrupted delivery service. Orders purchased before 10:30am will be dispatched the very same day (Mon - Fri). Purchases made after 10:30am Mon - Fri will be shipped the following working day."
-    "\A \A We use a next day delivery service for orders over £80. If you're close to £80, try checking out our other listings for another product that you may enjoy, our range of products may surprise you! Shipping for orders is on us and there's always a little surprise in our parcels!"
-    "\A \A While we use reliable shipping partners, at times there can be delays which are unfortunately out of our control. For example, a Royal Mail Tracked 24 Parcel has a suggested 24 hour turnaround but can take up to 5 working days. In these rare cases, kindly use the tracking information provided to you by email and contact the courier directly if needed in the first instance. Feel free to reach out to us for further questions."
-    "\A \A Customers are also welcome to collect items directly! Please select collection at checkout and purchase the item first to avoid missing out. We are happy to arrange a collection from our warehouse in Acton during working hours.";
+    "We use a next day delivery service for orders over £80. If you're close to £80, try checking out our other listings for another product that you may enjoy, our range of products may surprise you! Shipping for orders is on us and there's always a little surprise in our parcels!"
+    " While we use reliable shipping partners, at times there can be delays which are unfortunately out of our control. For example, a Royal Mail Tracked 24 Parcel has a suggested 24 hour turnaround but can take up to 5 working days. In these rare cases, kindly use the tracking information provided to you by email and contact the courier directly if needed in the first instance. Feel free to reach out to us for further questions."
+    " Customers are also welcome to collect items directly! Please select collection at checkout and purchase the item first to avoid missing out. We are happy to arrange a collection from our warehouse in Acton during working hours.";
 
   /* Warranty Content */
   --rouge-technologies-warranty-content: "While all items are covered by our full 30-day return policy, customers may occasionally need to go to the manufacturer for warranty."
-    "\A \A Branded sealed items sold by Rouge Technologies Ltd can come with 1-year warranty direct with the manufacturer, but this can vary depending on the brand. Used or refurbished items are likely covered directly by us."
-    "\A \A In all cases, we remain on your side to assist. Please reach out to use to confirm the specific warranty offered on a specific item. This does not affect your statutory rights.";
+    " Branded sealed items sold by Rouge Technologies Ltd can come with 1-year warranty direct with the manufacturer, but this can vary depending on the brand. Used or refurbished items are likely covered directly by us."
+    " In all cases, we remain on your side to assist. Please reach out to use to confirm the specific warranty offered on a specific item. This does not affect your statutory rights.";
 
   /* Returns Content */
   --rouge-technologies-returns-content: "We offer a 30-day return policy. Please contact us prior to initiating a return as in many cases, we may be able to resolve the issue without you needing to return the item to us. We may ask for photos of the item and serial-number confirmation to help us process your request, and all returns are thoroughly inspected on arrival. A full refund is not guaranteed, until the item has been inspected and confirmed as a genuine return."
-    "\A \A For change-of-mind returns, return postage is payable by the customer. Where an item shows beyond reasonable use or is missing parts, we reserve the right to make a reasonable deduction to reflect any loss in value."
-    "\A \A Return address:" "\A Rouge Technologies Ltd" "\A 12 Jenner Avenue"
+    " For change-of-mind returns, return postage is payable by the customer. Where an item shows beyond reasonable use or is missing parts, we reserve the right to make a reasonable deduction to reflect any loss in value."
+    " Return address:" "\A Rouge Technologies Ltd" "\A 12 Jenner Avenue"
     "\A Acton, London" "\A W3 6EQ"
-    "\A \A Refunds will typically be issued within 3-5 working days after being received at our warehouse. We will reach out to you directly if there is anything further to clarify prior to issuing your refund."
+    " Refunds will typically be issued within 3-5 working days after being received at our warehouse. We will reach out to you directly if there is anything further to clarify prior to issuing your refund."
     "\A\A Please kindly note that sealed hygiene items, software/media and personalised items are exempted from returns once opened.";
 }
 
