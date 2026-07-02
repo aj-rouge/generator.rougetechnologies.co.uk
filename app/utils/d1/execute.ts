@@ -2,6 +2,9 @@
 import type { D1Database } from "@cloudflare/workers-types";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+// Helper to determine if we're in development mode
+const isDev = () => process.env.NODE_ENV === "development";
+
 // Define the shape of D1's response from stmt.all()
 interface D1AllResponse {
   results: any[];
@@ -21,7 +24,9 @@ interface D1AllResponse {
  */
 async function resolveDB(db?: D1Database): Promise<D1Database> {
   if (db) {
-    console.log(`[resolveDB] Using provided DB instance`);
+    if (isDev()) {
+      console.log(`[resolveDB] Using provided DB instance`);
+    }
     if (typeof db.prepare !== "function") {
       console.error("[resolveDB] Provided DB does not have a prepare method!");
     }
@@ -48,18 +53,28 @@ export const executeQuery = async (
   params: any[] = [],
   db: D1Database,
 ): Promise<any> => {
-  console.log(`[executeQuery] SQL: ${sql}`);
-  console.log(`[executeQuery] Params:`, params);
+  if (isDev()) {
+    console.log(`[executeQuery] SQL: ${sql}`);
+    console.log(`[executeQuery] Params:`, params);
+  }
 
   try {
     const dbInstance = await resolveDB(db);
-    console.log("[executeQuery] DB instance obtained, preparing statement...");
+    if (isDev()) {
+      console.log(
+        "[executeQuery] DB instance obtained, preparing statement...",
+      );
+    }
     const stmt = dbInstance.prepare(sql).bind(...params);
-    console.log("[executeQuery] Statement prepared and bound.");
+    if (isDev()) {
+      console.log("[executeQuery] Statement prepared and bound.");
+    }
 
     const trimmedSql = sql.trim().toUpperCase();
     if (trimmedSql.startsWith("SELECT")) {
-      console.log("[executeQuery] Executing SELECT via stmt.all()...");
+      if (isDev()) {
+        console.log("[executeQuery] Executing SELECT via stmt.all()...");
+      }
 
       // Add timeout to detect hanging queries
       const timeout = 10000; // 10 seconds
@@ -77,26 +92,34 @@ export const executeQuery = async (
         timeoutPromise,
       ])) as D1AllResponse;
 
-      console.log(
-        "[executeQuery] stmt.all() returned, response keys:",
-        Object.keys(response || {}),
-      );
-      console.log(
-        "[executeQuery] Full response (first 200 chars):",
-        JSON.stringify(response).slice(0, 200),
-      );
+      if (isDev()) {
+        console.log(
+          "[executeQuery] stmt.all() returned, response keys:",
+          Object.keys(response || {}),
+        );
+        console.log(
+          "[executeQuery] Full response (first 200 chars):",
+          JSON.stringify(response).slice(0, 200),
+        );
+        console.log(
+          `[executeQuery] SELECT returned ${response?.results?.length || 0} rows`,
+        );
+      }
 
       const results = response?.results || [];
-      console.log(`[executeQuery] SELECT returned ${results.length} rows`);
       return results;
     }
 
-    console.log("[executeQuery] Executing mutation via stmt.run()...");
+    if (isDev()) {
+      console.log("[executeQuery] Executing mutation via stmt.run()...");
+    }
     const response = await stmt.run();
     const meta = response.meta as any;
-    console.log(
-      `[executeQuery] Mutation succeeded, changes: ${meta?.changes || 0}`,
-    );
+    if (isDev()) {
+      console.log(
+        `[executeQuery] Mutation succeeded, changes: ${meta?.changes || 0}`,
+      );
+    }
     return {
       success: response.success,
       changes: meta?.changes || 0,
@@ -124,21 +147,29 @@ export const executeBatch = async (
   queries: Array<{ sql: string; params: any[] }>,
   db?: D1Database,
 ): Promise<any[]> => {
-  console.log(`[executeBatch] Running ${queries.length} queries in batch`);
+  if (isDev()) {
+    console.log(`[executeBatch] Running ${queries.length} queries in batch`);
+  }
 
   try {
     const dbInstance = await resolveDB(db);
-    console.log("[executeBatch] DB instance obtained, preparing batch...");
+    if (isDev()) {
+      console.log("[executeBatch] DB instance obtained, preparing batch...");
+    }
 
     // Prepare all statements
     const statements = queries.map(({ sql, params }) =>
       dbInstance.prepare(sql).bind(...params),
     );
 
-    console.log("[executeBatch] Executing batch via db.batch()...");
+    if (isDev()) {
+      console.log("[executeBatch] Executing batch via db.batch()...");
+    }
     const results = await dbInstance.batch(statements);
 
-    console.log(`[executeBatch] Batch executed, ${results.length} results`);
+    if (isDev()) {
+      console.log(`[executeBatch] Batch executed, ${results.length} results`);
+    }
     return results;
   } catch (error) {
     console.error(`[executeBatch] ❌ Batch execution error:`);
