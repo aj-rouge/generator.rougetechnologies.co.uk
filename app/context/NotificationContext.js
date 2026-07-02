@@ -44,13 +44,11 @@ export const NotificationProvider = ({ children }) => {
       {/* Toast container – fixed bottom‑right */}
       <div className="fixed bottom-5 right-5 z-[100] flex flex-col gap-3 w-full max-w-sm">
         {notifications.map((n) => (
-          <div
+          <ToastItem
             key={n.id}
-            onClick={() => removeNotification(n.id)}
-            className="cursor-pointer"
-          >
-            <ToastItem {...n} />
-          </div>
+            {...n}
+            onRemove={() => removeNotification(n.id)}
+          />
         ))}
       </div>
     </NotificationContext.Provider>

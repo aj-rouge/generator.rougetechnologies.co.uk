@@ -191,6 +191,16 @@ CREATE TABLE IF NOT EXISTS product_feedbacks (
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS prompt_templates (
+  task TEXT PRIMARY KEY,           -- 'title', 'sku', 'paragraphs', 'features', 'note'
+  name TEXT NOT NULL,
+  description TEXT,
+  template_text TEXT NOT NULL,     -- Handlebars template
+  variables TEXT,                  -- JSON array of expected variable names (for UI hints)
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- =====================================================
 -- Indexes for joins
 -- =====================================================

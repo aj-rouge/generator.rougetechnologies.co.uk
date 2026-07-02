@@ -1,7 +1,15 @@
 "use client";
-import { CheckCircle, AlertCircle, Loader2, X } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, X, Copy } from "lucide-react";
+import { useState } from "react";
 
-export default function ToastItem({ message, type = "success", progress = 0 }) {
+export default function ToastItem({
+  message,
+  type = "success",
+  progress = 0,
+  onRemove, // optional callback for closing
+}) {
+  const [copied, setCopied] = useState(false);
+
   const configs = {
     info: {
       bg: "bg-blue-50 dark:bg-blue-900/40",
@@ -28,6 +36,30 @@ export default function ToastItem({ message, type = "success", progress = 0 }) {
 
   const current = configs[type] || configs.success;
 
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(message);
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea");
+        textarea.value = message;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  const handleClose = () => {
+    if (onRemove) onRemove();
+  };
+
   return (
     <div
       className={`
@@ -41,9 +73,31 @@ export default function ToastItem({ message, type = "success", progress = 0 }) {
           <span className="w-5 h-5">{current.icon}</span>
           <span className="font-medium text-sm">{message}</span>
         </div>
-        <X className="w-4 h-4 opacity-40 hover:opacity-100 transition" />
+        <div className="flex items-center gap-2">
+          {/* Copy button */}
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors relative"
+            title={copied ? "Copied!" : "Copy message"}
+            aria-label="Copy message"
+          >
+            {copied ? (
+              <CheckCircle className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4 opacity-60 hover:opacity-100 transition" />
+            )}
+          </button>
+          {/* Close button – triggers onRemove */}
+          {onRemove && (
+            <X
+              className="w-4 h-4 opacity-40 hover:opacity-100 transition cursor-pointer"
+              onClick={handleClose}
+            />
+          )}
+        </div>
       </div>
 
+      {/* Progress bar (only for "info" type) */}
       {type === "info" && (
         <div className="w-full h-1 bg-gray-200/50 dark:bg-gray-800/50">
           <div

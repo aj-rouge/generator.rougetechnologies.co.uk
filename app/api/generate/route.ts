@@ -1,26 +1,57 @@
-// app/api/generate/route.ts
 import { NextResponse } from "next/server";
-import {
-  buildSkuPrompt,
-  buildTitlePrompt,
-  buildParagraphsPrompt,
-  buildFeaturesPrompt,
-  buildNotePrompt,
-  GenerateTitleInput,
-  GenerateSkuInput,
-  GenerateParagraphsInput,
-  GenerateFeaturesInput,
-  GenerateNoteInput,
-} from "../../utils/groq/prompts";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { groqClient } from "../../utils/groq/groq-client";
 import { executeQuery } from "../../utils/d1/execute";
+import {
+  compilePrompt,
+  getPromptTemplate,
+} from "../../utils/groq/prompt-utils";
+import type { D1Database } from "@cloudflare/workers-types";
 
-// ---------- Task Handlers ----------
-type TaskHandler = (payload: any) => Promise<any>;
+// We remove the import of the hardcoded prompt builders.
+// If needed, we can keep the type definitions, but they are not used.
 
-// 1. Title Generation
-const handleTitle = async (payload: GenerateTitleInput) => {
+// Type definitions (can be kept for type safety, but we don't import the builders)
+export interface GenerateTitleInput {
+  originalTitle: string;
+  categoryName: string;
+  categoryKeywords: string[];
+  specifications?: Array<{ key: string; value: string }>;
+  brand?: string;
+}
+
+export interface GenerateSkuInput {
+  title: string;
+  condition: string;
+  // existingPairs is built inside the handler
+}
+
+export interface GenerateParagraphsInput {
+  title: string;
+  category?: string;
+  specifications?: Array<{ key: string; value: string }>;
+  features?: Array<{ title: string; description: string }>;
+  keywords?: string[];
+}
+
+export interface GenerateFeaturesInput {
+  title: string;
+  category?: string;
+  specifications?: Array<{ key: string; value: string }>;
+  keywords?: string[];
+}
+
+export interface GenerateNoteInput {
+  description: string;
+  title?: string;
+  category?: string;
+}
+
+type TaskHandler = (payload: any, db: D1Database) => Promise<any>;
+
+// ---------- Handlers ----------
+
+const handleTitle = async (payload: GenerateTitleInput, db: D1Database) => {
   const {
     originalTitle,
     categoryName,
@@ -31,13 +62,24 @@ const handleTitle = async (payload: GenerateTitleInput) => {
   if (!originalTitle || !categoryName) {
     throw new Error("Missing required fields: originalTitle, categoryName");
   }
-  const prompt = buildTitlePrompt({
+
+  const brandLine = brand ? `**Brand**: ${brand}` : "";
+  const specsStr = (specifications || [])
+    .map((s) => `${s.key}: ${s.value}`)
+    .join(", ");
+  const keywordsStr = (categoryKeywords || []).join(", ");
+
+  const data = {
     originalTitle,
     categoryName,
-    categoryKeywords,
-    specifications,
-    brand,
-  });
+    brandLine,
+    specsStr: specsStr || "none",
+    keywordsStr: keywordsStr || "none",
+  };
+
+  const template = await getPromptTemplate("title", db);
+  const prompt = compilePrompt(template, data);
+
   const result = await groqClient.chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.3, maxTokens: 60 },
@@ -47,14 +89,13 @@ const handleTitle = async (payload: GenerateTitleInput) => {
   return { title };
 };
 
-// 2. SKU Generation (needs DB access)
-const handleSku = async (payload: { title: string; condition: string }) => {
+const handleSku = async (
+  payload: { title: string; condition: string },
+  db: D1Database,
+) => {
   const { title, condition } = payload;
   if (!title || !condition) throw new Error("Missing title or condition");
 
-  // Fetch existing SKUs from D1
-  const { env } = await getCloudflareContext({ async: true });
-  const db = (env as any).DB;
   const allSkus = await executeQuery(
     `SELECT sku, title FROM products WHERE sku IS NOT NULL ORDER BY updated_at DESC LIMIT 100`,
     [],
@@ -67,7 +108,20 @@ const handleSku = async (payload: { title: string; condition: string }) => {
           .join("\n")
       : "- No current SKU examples available.";
 
-  const prompt = buildSkuPrompt({ title, condition, existingPairs });
+  const conditionMap: Record<string, string> = {
+    New: "NEW",
+    Used: "USE",
+    "Excellent Refurbished": "EX-REF",
+    "Very Good Refurbished": "VG-REF",
+    "Good Refurbished": "GD-REF",
+  };
+  const conditionCode = conditionMap[condition] || "";
+
+  const data = { title, condition, existingPairs, conditionCode };
+
+  const template = await getPromptTemplate("sku", db);
+  const prompt = compilePrompt(template, data);
+
   const result = await groqClient.chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.2, maxTokens: 20, stop: ["\n"] },
@@ -77,17 +131,32 @@ const handleSku = async (payload: { title: string; condition: string }) => {
   return { sku };
 };
 
-// 3. Paragraphs Generation
-const handleParagraphs = async (payload: GenerateParagraphsInput) => {
+const handleParagraphs = async (
+  payload: GenerateParagraphsInput,
+  db: D1Database,
+) => {
   const { title, category, specifications, features, keywords } = payload;
   if (!title) throw new Error("Missing title");
-  const prompt = buildParagraphsPrompt({
+
+  const specsList = (specifications || [])
+    .map((s) => `${s.key}: ${s.value}`)
+    .join("\n");
+  const featuresList = (features || [])
+    .map((f) => `${f.title}: ${f.description}`)
+    .join("\n");
+  const keywordsList = (keywords || []).join(", ");
+
+  const data = {
     title,
-    category,
-    specifications,
-    features,
-    keywords,
-  });
+    category: category || "General",
+    specsList: specsList || "none",
+    featuresList: featuresList || "none",
+    keywordsList: keywordsList || "none",
+  };
+
+  const template = await getPromptTemplate("paragraphs", db);
+  const prompt = compilePrompt(template, data);
+
   const result = await groqClient.chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.5, maxTokens: 800 },
@@ -104,16 +173,28 @@ const handleParagraphs = async (payload: GenerateParagraphsInput) => {
   return { paragraphs };
 };
 
-// 4. Features Generation
-const handleFeatures = async (payload: GenerateFeaturesInput) => {
+const handleFeatures = async (
+  payload: GenerateFeaturesInput,
+  db: D1Database,
+) => {
   const { title, category, specifications, keywords } = payload;
   if (!title) throw new Error("Missing title");
-  const prompt = buildFeaturesPrompt({
+
+  const specsList = (specifications || [])
+    .map((s) => `${s.key}: ${s.value}`)
+    .join("\n");
+  const keywordsList = (keywords || []).join(", ");
+
+  const data = {
     title,
-    category,
-    specifications,
-    keywords,
-  });
+    category: category || "General",
+    specsList: specsList || "none",
+    keywordsList: keywordsList || "none",
+  };
+
+  const template = await getPromptTemplate("features", db);
+  const prompt = compilePrompt(template, data);
+
   const result = await groqClient.chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.4, maxTokens: 800 },
@@ -136,8 +217,7 @@ const handleFeatures = async (payload: GenerateFeaturesInput) => {
   return { features: features.slice(0, 8) };
 };
 
-// 5. Note Generation
-const handleNote = async (payload: GenerateNoteInput) => {
+const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
   const { description, title, category } = payload;
   if (!description) throw new Error("Missing description");
   const cleaned = description
@@ -146,7 +226,19 @@ const handleNote = async (payload: GenerateNoteInput) => {
     .trim()
     .slice(0, 2000);
   if (!cleaned) return { note: null };
-  const prompt = buildNotePrompt({ description: cleaned, title, category });
+
+  const titleLine = title ? `**Product Title**: "${title}"` : "";
+  const categoryLine = category ? `**Category**: "${category}"` : "";
+
+  const data = {
+    description: cleaned,
+    titleLine,
+    categoryLine,
+  };
+
+  const template = await getPromptTemplate("note", db);
+  const prompt = compilePrompt(template, data);
+
   const result = await groqClient.chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.3, maxTokens: 150 },
@@ -168,58 +260,29 @@ const taskHandlers: Record<string, TaskHandler> = {
 
 // ---------- POST Handler ----------
 export async function POST(request: Request) {
-  const requestId = Math.random().toString(36).substring(2, 10); // short unique id for tracing
+  const requestId = Math.random().toString(36).substring(2, 10);
   console.log(`[API:generate] ${requestId} - Request started`);
 
   try {
     const body = await request.json();
-
-    // Validate that body is an object
     if (typeof body !== "object" || body === null) {
-      console.error(
-        `[API:generate] ${requestId} - Invalid request body:`,
-        body,
-      );
+      console.error(`[API:generate] ${requestId} - Invalid request body`);
       return NextResponse.json(
         { success: false, error: "Invalid request body" },
         { status: 400 },
       );
     }
 
-    // Destructure safely with a type assertion
     const { task, ...payload } = body as { task?: string; [key: string]: any };
-
     if (!task || typeof task !== "string") {
       console.error(
-        `[API:generate] ${requestId} - Missing or invalid task field:`,
-        { task },
+        `[API:generate] ${requestId} - Missing or invalid task field`,
       );
       return NextResponse.json(
         { success: false, error: 'Missing or invalid "task" field' },
         { status: 400 },
       );
     }
-
-    // Log request details (truncate large payloads)
-    const payloadKeys = Object.keys(payload);
-    const payloadPreview = payloadKeys.reduce((acc, key) => {
-      const value = payload[key];
-      if (typeof value === "string" && value.length > 100) {
-        acc[key] = value.slice(0, 100) + "...";
-      } else {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as any);
-
-    console.log(
-      `[API:generate] ${requestId} - Task: ${task}, Payload keys:`,
-      payloadKeys,
-    );
-    console.log(
-      `[API:generate] ${requestId} - Payload preview:`,
-      payloadPreview,
-    );
 
     const handler = taskHandlers[task];
     if (!handler) {
@@ -230,17 +293,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const { env } = await getCloudflareContext({ async: true });
+    const db = (env as any).DB;
+
     const startTime = Date.now();
-    const data = await handler(payload);
+    const data = await handler(payload, db);
     const elapsed = Date.now() - startTime;
 
     console.log(`[API:generate] ${requestId} - Success in ${elapsed}ms`);
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     console.error(`[API:generate] ${requestId} - Error:`, error.message);
-    if (error.stack) {
-      console.error(`[API:generate] ${requestId} - Stack trace:`, error.stack);
-    }
+    if (error.stack) console.error(error.stack);
     return NextResponse.json(
       { success: false, error: error.message || "Generation failed" },
       { status: 500 },
