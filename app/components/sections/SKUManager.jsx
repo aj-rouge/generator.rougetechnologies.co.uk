@@ -255,8 +255,8 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           </label>
           <div className="flex gap-2">
             <AIGenerateButton
-              endpoint="/api/generate-sku"
-              body={{ title, condition }}
+              task="sku"
+              payload={{ title, condition }}
               onSuccess={(data) => data.sku && onSkuChange(data.sku)}
               fallback={() =>
                 onSkuChange(suggestSkuFromTitle(title, condition))
@@ -268,7 +268,6 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
             </AIGenerateButton>
           </div>
         </div>
-
         <input
           type="text"
           placeholder="e.g., APP-IPA-PRO-11I-256G-SIL-NEW"

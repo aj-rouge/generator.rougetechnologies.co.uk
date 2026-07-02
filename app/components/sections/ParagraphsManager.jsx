@@ -223,8 +223,8 @@ export default function ParagraphsManager({
       />
       <div className="flex justify-end mb-2">
         <AIGenerateButton
-          endpoint="/api/generate-paragraphs"
-          body={{
+          task="paragraphs"
+          payload={{
             title: productTitle,
             category: categoryName,
             specifications,

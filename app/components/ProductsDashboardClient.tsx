@@ -18,12 +18,6 @@ export default function ProductsDashboardClient({
   categories,
   initialCountFilters,
 }: ProductsDashboardClientProps) {
-  console.log("[ProductsDashboardClient] Rendering with props:", {
-    productsCount: initialProducts?.length,
-    categoriesCount: categories?.length,
-    countFilters: initialCountFilters,
-  });
-
   return (
     <div className="flex flex-col items-center gap-4 p-4 min-h-screen">
       {/* Header with logout and sync buttons */}

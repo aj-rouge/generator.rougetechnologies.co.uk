@@ -300,8 +300,8 @@ export default function FeaturesManager({
       {/* AI Generate button */}
       <div className="flex justify-end mb-2">
         <AIGenerateButton
-          endpoint="/api/generate-features"
-          body={{
+          task="features"
+          payload={{
             title: productTitle,
             category: categoryName,
             specifications,

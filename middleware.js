@@ -25,7 +25,6 @@ export async function middleware(request) {
 
   try {
     const secretKey = process.env.JWT_SECRET;
-    console.log("JWT_SECRET exists?", !!process.env.JWT_SECRET);
 
     if (!secretKey) {
       console.error(

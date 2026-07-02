@@ -17,6 +17,12 @@ export const IMPORT_FIELDS = [
   { key: "specifications", label: "Specifications" },
 ];
 
+interface GenerateApiResponse<T = any> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
+
 interface ScrapedSource {
   source: string; // e.g., "ebay", "amazon", "currys"
   identifier: string;
@@ -268,90 +274,88 @@ export default function UniversalImportModal({
     }
     setAiLoading(true);
     try {
-      // Generic fetch wrapper with retry
-      async function groqFetch<T>(
-        url: string,
-        body: any,
-        maxRetries = 2,
-      ): Promise<T> {
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (res.ok) return res.json() as Promise<T>;
-          if (res.status === 429 && attempt < maxRetries) {
-            const retryAfter = parseInt(
-              res.headers.get("Retry-After") || "5",
-              10,
-            );
-            await new Promise((r) => setTimeout(r, retryAfter * 1000));
-            continue;
-          }
-          const errorText = await res.text();
-          throw new Error(`Generation failed (${res.status}): ${errorText}`);
-        }
-        throw new Error("Max retries exceeded");
-      }
-
       // 1. Generate SKU
-      const skuRes = await groqFetch<SkuGenerationResponse>(
-        "/api/generate-sku",
-        {
+      const skuRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "sku",
           title: selectedTitle,
           condition: condition || "New",
-        },
-      );
+        }),
+      });
+      const skuData = (await skuRes.json()) as GenerateApiResponse<{
+        sku: string;
+      }>;
+      if (!skuData.success) throw new Error(skuData.error);
+      const sku = skuData.data.sku;
 
       // 2. Generate paragraphs
-      const paraRes = await groqFetch<ParagraphsGenerationResponse>(
-        "/api/generate-paragraphs",
-        {
+      const paraRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "paragraphs",
           title: selectedTitle,
           category: categoryName,
           specifications: selectedSpecs,
           features: [],
           keywords: categoryKeywords,
-        },
-      );
+        }),
+      });
+      const paraData = (await paraRes.json()) as GenerateApiResponse<{
+        paragraphs: string[];
+      }>;
+      if (!paraData.success) throw new Error(paraData.error);
+      const paragraphs = paraData.data.paragraphs;
 
       // 3. Generate features
-      const featRes = await groqFetch<FeaturesGenerationResponse>(
-        "/api/generate-features",
-        {
+      const featRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "features",
           title: selectedTitle,
           category: categoryName,
           specifications: selectedSpecs,
           keywords: categoryKeywords,
-        },
-      );
+        }),
+      });
+      const featData = (await featRes.json()) as GenerateApiResponse<{
+        features: FeatureItem[];
+      }>;
+      if (!featData.success) throw new Error(featData.error);
+      const features = featData.data.features;
 
-      // 4. Generate optimised title (AI‑shortened, SEO‑friendly)
-      const titleRes = await groqFetch<TitleGenerationResponse>(
-        "/api/generate-title",
-        {
+      // 4. Generate optimised title
+      const titleRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "title",
           originalTitle: selectedTitle,
           categoryName,
           categoryKeywords,
           specifications: selectedSpecs,
           brand: selectedBrand,
-        },
-      );
+        }),
+      });
+      const titleData = (await titleRes.json()) as GenerateApiResponse<{
+        title: string;
+      }>;
+      if (!titleData.success) throw new Error(titleData.error);
+      const generatedTitle = titleData.data.title;
 
-      // Build final import data
+      // Build final import data (same as before)
       const finalData: any = {};
-      if (skuRes.sku) finalData.sku = skuRes.sku;
-      if (paraRes.paragraphs) finalData.paragraphs = paraRes.paragraphs;
-      if (featRes.features)
-        finalData.features = featRes.features.map((f) => ({
+      if (sku) finalData.sku = sku;
+      if (paragraphs) finalData.paragraphs = paragraphs;
+      if (features)
+        finalData.features = features.map((f: FeatureItem) => ({
           title: f.title,
           description: f.description,
         }));
-
-      // Use AI‑generated title if available, otherwise fallback to original
-      finalData.title = titleRes.title || selectedTitle;
-
+      finalData.title = generatedTitle || selectedTitle;
       const selectedPrice = getSelectedFieldValue("price");
       if (selectedPrice) finalData.price = selectedPrice;
 
@@ -376,22 +380,6 @@ export default function UniversalImportModal({
       setAiLoading(false);
     }
   };
-
-  useEffect(() => {
-    console.group("🔍 AI Autofill Debug");
-    console.log("selectedTitle:", selectedTitle);
-    console.log("categoryName:", categoryName);
-    console.log("aiLoading:", aiLoading);
-    console.log("canAiAutofill:", canAiAutofill);
-    if (!selectedTitle)
-      console.warn(
-        "❌ No title selected – click a radio button for the Title row",
-      );
-    if (!categoryName)
-      console.warn("❌ No categoryName – check parent component");
-    if (aiLoading) console.log("⏳ Already loading...");
-    console.groupEnd();
-  }, [selectedTitle, categoryName, aiLoading, canAiAutofill]);
 
   if (!isOpen) return null;
 

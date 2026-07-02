@@ -53,6 +53,8 @@ export async function fetchRawHtml(url: string): Promise<string> {
     url,
     target: "universal",
     render: "html",
+    proxy_pool: "standard",
+    headless: "html",
   });
   const html = result?.results?.[0]?.content;
   if (!html) throw new Error("No HTML content returned from Decodo");
