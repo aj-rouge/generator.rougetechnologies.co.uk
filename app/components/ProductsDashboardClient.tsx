@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, LogOut } from "lucide-react";
+import { Plus, LogOut, FileText } from "lucide-react";
 import { DarkModeToggle } from "./header/DarkModeToggle";
 import RecentProducts from "./recent/RecentProducts";
 import SearchBar from "./search/SearchBar";
@@ -35,6 +35,13 @@ export default function ProductsDashboardClient({
         </form>
 
         <div className="flex gap-2">
+          <Link
+            href="/prompts"
+            className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            Manage Prompts
+          </Link>
           <DarkModeToggle />
           <Link
             href="/create"
