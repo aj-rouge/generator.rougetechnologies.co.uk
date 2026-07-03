@@ -6,7 +6,8 @@ import { ValidationRules } from "./ValidationRules";
 import { calculateValidationScore } from "../../utils/ui/validationHelpers";
 import { VALIDATION_COLORS } from "../../utils/ui/validationColors";
 import { LengthIndicatorBar } from "./LengthIndicatorBar";
-import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers"; // <-- added import
+import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
+import { AIGenerateButton } from "../AIGenerateButton";
 
 const TITLE_CONFIG = {
   MIN_LENGTH: 50,
@@ -14,7 +15,14 @@ const TITLE_CONFIG = {
   DISPLAY_KEYWORDS_LIMIT: 3,
 };
 
-export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
+export default function TitleInput({
+  title,
+  setTitle,
+  categoryKeywords = [],
+  categoryName = "",
+  specifications = [],
+  brand = "",
+}) {
   // Format keywords for display
   const formatKeywords = (keywords) => {
     if (!keywords || keywords.length === 0) return "No category selected";
@@ -212,21 +220,41 @@ export default function TitleInput({ title, setTitle, categoryKeywords = [] }) {
           </div>
         </div>
 
-        <input
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
-                     dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
-                     ${getInputBorderColor()}`}
-          maxLength={TITLE_CONFIG.MAX_LENGTH}
-          placeholder={
-            hasCategory
-              ? `E.g., "Your Product ${categoryKeywords[0]}" or "Premium ${categoryKeywords[1]}"... (${TITLE_CONFIG.MIN_LENGTH}-${TITLE_CONFIG.MAX_LENGTH} chars)`
-              : "Select a category first to see title suggestions"
-          }
-          disabled={!hasCategory}
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
+                       dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
+                       ${getInputBorderColor()}`}
+            maxLength={TITLE_CONFIG.MAX_LENGTH}
+            placeholder={
+              hasCategory
+                ? `E.g., "Your Product ${categoryKeywords[0]}" or "Premium ${categoryKeywords[1]}"... (${TITLE_CONFIG.MIN_LENGTH}-${TITLE_CONFIG.MAX_LENGTH} chars)`
+                : "Select a category first to see title suggestions"
+            }
+            disabled={!hasCategory}
+          />
+          <div className="flex items-center">
+            <AIGenerateButton
+              task="title"
+              payload={{
+                originalTitle: title || "",
+                categoryName,
+                categoryKeywords,
+                specifications,
+                brand,
+              }}
+              onSuccess={(data) => data.title && setTitle(data.title)}
+              successMessage="Title generated successfully!"
+              disabled={!hasCategory || !title}
+              className="whitespace-nowrap"
+            >
+              Generate Title
+            </AIGenerateButton>
+          </div>
+        </div>
 
         {hasCategory && (
           <LengthIndicatorBar

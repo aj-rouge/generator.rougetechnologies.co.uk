@@ -602,6 +602,8 @@ export default function ProductForm({
           title={formData.title}
           setTitle={(val) => updateForm({ title: val })}
           categoryKeywords={currentCategoryKeywords}
+          categoryName={categoryName}
+          specifications={formData.specifications}
         />
       </div>
       <div className="px-4 flex-col flex gap-2">
