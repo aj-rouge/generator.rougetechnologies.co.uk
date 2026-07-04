@@ -26,5 +26,5 @@ export function generateSeoFileName(
 
 export function generateSeoAltText(productTitle, imageNumber) {
   if (!productTitle) return "";
-  return `Check out the ${productTitle} at Rouge Technologies - image ${imageNumber}`;
+  return `The ${productTitle} | Rouge Technologies - image ${imageNumber}`;
 }
