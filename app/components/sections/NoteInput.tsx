@@ -192,7 +192,7 @@ function TemplateDropdown({
   );
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative w-1/2" ref={dropdownRef}>
       <div
         className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md 
                    bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-blue-500"
