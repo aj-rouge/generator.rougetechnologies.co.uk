@@ -201,6 +201,14 @@ CREATE TABLE IF NOT EXISTS prompt_templates (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE TABLE IF NOT EXISTS note_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- =====================================================
 -- Indexes for joins
 -- =====================================================
@@ -209,6 +217,7 @@ CREATE INDEX IF NOT EXISTS idx_product_features_product_id ON product_features(p
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_feedbacks_product_id ON product_feedbacks(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warnings) WHERE warnings IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_note_templates_name ON note_templates(name);
 
 -- =====================================================
 -- VIEW for full product data (no category enrichment)
