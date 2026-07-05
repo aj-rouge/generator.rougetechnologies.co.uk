@@ -10,9 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "build-and-run": "npx @opennextjs/cloudflare build && npx wrangler dev --remote",
-    "dev:worker": "nodemon --watch app --watch components --ext ts,tsx,css --exec \"npm run build-and-run\""
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.962.0",

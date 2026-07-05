@@ -37,19 +37,16 @@
     // See https://opennext.js.org/cloudflare/caching
     {
       "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      // Create the bucket before deploying
-      // You can change the bucket name if you want
-      // See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
       "bucket_name": "ebay-desc-generator-opennext-cache",
+      "remote": true,
     },
     {
       "binding": "UPLOADS_BUCKET",
-      "bucket_name": "rougetechnologies", // Put your actual production bucket name here
+      "bucket_name": "rougetechnologies",
+      "remote": true,
     },
   ],
   "images": {
-    // Enable image optimization
-    // see https://opennext.js.org/cloudflare/howtos/image
     "binding": "IMAGES",
   },
   "d1_databases": [
@@ -57,6 +54,7 @@
       "binding": "DB",
       "database_name": "ebay-html-generator-search",
       "database_id": "90375842-d682-4918-87e4-d5c134a13bbb",
+      "remote": true,
     },
   ],
 }
