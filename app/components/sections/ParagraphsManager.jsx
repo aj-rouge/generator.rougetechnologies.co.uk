@@ -221,7 +221,7 @@ export default function ParagraphsManager({
         totalRules={totalRules}
         subtitle={subtitleStats}
       />
-      <div className="flex justify-end mb-2">
+      <div className="flex my-2 w-full">
         <AIGenerateButton
           task="paragraphs"
           payload={{

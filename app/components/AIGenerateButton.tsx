@@ -13,6 +13,7 @@ interface PromptTemplateResponse {
   success: boolean;
   data?: {
     template_text: string;
+    variables?: string[];
   };
   error?: string;
 }
@@ -43,6 +44,7 @@ export function AIGenerateButton({
   const [promptText, setPromptText] = useState("");
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [variables, setVariables] = useState<string[]>([]);
   const { addNotification } = useNotification();
 
   useEffect(() => {
@@ -58,12 +60,16 @@ export function AIGenerateButton({
       const json = (await res.json()) as PromptTemplateResponse;
       if (json.success && json.data) {
         setPromptText(json.data.template_text);
+        // Ensure variables is an array
+        const vars = json.data.variables;
+        setVariables(Array.isArray(vars) ? vars : []);
       } else {
         addNotification({
           message: json.error || `Failed to load prompt for ${task}`,
           type: "error",
         });
         setPromptText(`# Prompt for ${task} not found in database`);
+        setVariables([]);
       }
     } catch (e: any) {
       addNotification({ message: e.message, type: "error" });
@@ -141,7 +147,7 @@ export function AIGenerateButton({
   };
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -188,6 +194,31 @@ export function AIGenerateButton({
             </button>
           </div>
 
+          {/* Display available variables */}
+          {!loadingPrompt && (
+            <div className="mb-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Available variables:
+              </span>
+              {variables.length > 0 ? (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {variables.map((v) => (
+                    <span
+                      key={v}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                    >
+                      {"{{" + v + "}}"}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                  (No variables defined for this task)
+                </span>
+              )}
+            </div>
+          )}
+
           {loadingPrompt ? (
             <div className="text-gray-500">Loading prompt...</div>
           ) : (
@@ -195,15 +226,15 @@ export function AIGenerateButton({
               <textarea
                 value={promptText}
                 onChange={(e) => setPromptText(e.target.value)}
-                rows={6}
+                rows={26}
                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 placeholder="Enter the prompt template with {{variables}}"
               />
-              <div className="flex gap-2 mt-3">
+              <div className="flex flex-col justify-end sm:flex-row gap-2 mt-3">
                 <button
                   onClick={handleSaveAndGenerate}
                   disabled={savingPrompt || loading}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 justify-center align-middle bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
                 >
                   {savingPrompt ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -215,7 +246,7 @@ export function AIGenerateButton({
                 <button
                   onClick={handleSaveOnly}
                   disabled={savingPrompt}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 justify-center align-middle bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
                 >
                   {savingPrompt ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

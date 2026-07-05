@@ -15,7 +15,21 @@ export async function GET() {
       db,
     );
 
-    return NextResponse.json({ success: true, data: rows });
+    // Parse variables for each row
+    const parsedRows = rows.map((row: any) => {
+      if (row.variables && typeof row.variables === "string") {
+        try {
+          row.variables = JSON.parse(row.variables);
+        } catch {
+          row.variables = [];
+        }
+      } else if (!row.variables) {
+        row.variables = [];
+      }
+      return row;
+    });
+
+    return NextResponse.json({ success: true, data: parsedRows });
   } catch (error: any) {
     console.error("[API:prompts] GET all error:", error);
     return NextResponse.json(

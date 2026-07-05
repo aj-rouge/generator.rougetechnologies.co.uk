@@ -185,8 +185,8 @@ export default function TitleInput({
             : null
         }
       />
-      <div className="flex flex-col flex-1">
-        <div className="flex justify-between items-center mb-2">
+      <div className="flex flex-col flex-1 gap-2">
+        <div className="flex justify-between items-center">
           <label className="block text-black dark:text-gray-100 font-medium">
             Enter your title:
           </label>
@@ -219,7 +219,22 @@ export default function TitleInput({
             </span>
           </div>
         </div>
-
+        <AIGenerateButton
+          task="title"
+          payload={{
+            originalTitle: title || "",
+            categoryName,
+            categoryKeywords,
+            specifications,
+            brand,
+          }}
+          onSuccess={(data) => data.title && setTitle(data.title)}
+          successMessage="Title generated successfully!"
+          disabled={!hasCategory || !title}
+          className="whitespace-nowrap"
+        >
+          Generate Title
+        </AIGenerateButton>
         <div className="flex gap-2">
           <input
             type="text"
@@ -236,24 +251,6 @@ export default function TitleInput({
             }
             disabled={!hasCategory}
           />
-          <div className="flex items-center">
-            <AIGenerateButton
-              task="title"
-              payload={{
-                originalTitle: title || "",
-                categoryName,
-                categoryKeywords,
-                specifications,
-                brand,
-              }}
-              onSuccess={(data) => data.title && setTitle(data.title)}
-              successMessage="Title generated successfully!"
-              disabled={!hasCategory || !title}
-              className="whitespace-nowrap"
-            >
-              Generate Title
-            </AIGenerateButton>
-          </div>
         </div>
 
         {hasCategory && (
@@ -264,12 +261,11 @@ export default function TitleInput({
             showMinLine
             showMaxLine
             barHeight="h-2"
-            className="mt-4"
           />
         )}
 
         {hasCategory && title.length > 0 && (
-          <div className="mt-4">
+          <div>
             <div className="mb-2">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {getKeywordStatus()}

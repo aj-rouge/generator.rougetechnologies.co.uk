@@ -248,26 +248,20 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         subtitle={getSubtitle()}
       />
 
-      <div className="flex flex-col flex-1">
-        <div className="flex items-center justify-between">
-          <label className="text-black dark:text-gray-100 font-medium">
-            Product SKU:
-          </label>
-          <div className="flex gap-2">
-            <AIGenerateButton
-              task="sku"
-              payload={{ title, condition }}
-              onSuccess={(data) => data.sku && onSkuChange(data.sku)}
-              fallback={() =>
-                onSkuChange(suggestSkuFromTitle(title, condition))
-              }
-              successMessage="SKU generated successfully!"
-              disabled={!title || !condition}
-            >
-              Generate SKU
-            </AIGenerateButton>
-          </div>
-        </div>
+      <div className="flex flex-col gap-2 flex-1">
+        <AIGenerateButton
+          task="sku"
+          payload={{ title, condition }}
+          onSuccess={(data) => data.sku && onSkuChange(data.sku)}
+          fallback={() => onSkuChange(suggestSkuFromTitle(title, condition))}
+          successMessage="SKU generated successfully!"
+          disabled={!title || !condition}
+        >
+          Generate SKU
+        </AIGenerateButton>
+        <label className="text-black dark:text-gray-100 font-medium">
+          Product SKU:
+        </label>
         <input
           type="text"
           placeholder="e.g., APP-IPA-PRO-11I-256G-SIL-NEW"
@@ -281,9 +275,8 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
           value={sku || ""}
           onChange={(e) => onSkuChange(e.target.value.toUpperCase())}
         />
-
         {skuParts && (
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
+          <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-md">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
               <BarChart3 className="h-4 w-4" /> SKU Breakdown:
             </p>

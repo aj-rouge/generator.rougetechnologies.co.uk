@@ -31,7 +31,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: rows[0] });
+    // Parse variables if it's a JSON string
+    const row = rows[0];
+    if (row.variables && typeof row.variables === "string") {
+      try {
+        row.variables = JSON.parse(row.variables);
+      } catch {
+        row.variables = [];
+      }
+    } else if (!row.variables) {
+      row.variables = [];
+    }
+
+    return NextResponse.json({ success: true, data: row });
   } catch (error: any) {
     console.error("[API:prompts] GET single error:", error);
     return NextResponse.json(
@@ -104,7 +116,19 @@ export async function PUT(
       db,
     );
 
-    return NextResponse.json({ success: true, data: updatedRow[0] });
+    // Parse variables for the response
+    const row = updatedRow[0];
+    if (row.variables && typeof row.variables === "string") {
+      try {
+        row.variables = JSON.parse(row.variables);
+      } catch {
+        row.variables = [];
+      }
+    } else if (!row.variables) {
+      row.variables = [];
+    }
+
+    return NextResponse.json({ success: true, data: row });
   } catch (error: any) {
     console.error("[API:prompts] PUT error:", error);
     return NextResponse.json(
