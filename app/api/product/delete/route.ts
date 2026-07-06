@@ -1,54 +1,35 @@
-// app/api/product/delete/route.ts
-
 import { NextResponse } from "next/server";
-import { ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
-import { s3Client } from "../../../utils/images/s3Client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import type { D1Database, R2Bucket } from "@cloudflare/workers-types";
 import { deleteProductById } from "../../../utils/d1/product/deleteProduct";
-import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- import
-import type { D1Database } from "@cloudflare/workers-types";
 
-// Type definition
 interface DeleteProductRequestBody {
   slug?: string;
   category?: string;
   uuid?: string;
 }
 
-const deleteFolderRecursive = async (prefix: string) => {
-  const bucket = process.env.R2_BUCKET_NAME;
-
+const deleteFolderRecursive = async (prefix: string, bucket: R2Bucket) => {
   console.log(`🔍 Scanning for files with prefix: ${prefix}`);
-  const listedObjects = await s3Client.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
-    }),
-  );
+  const listResult = await bucket.list({ prefix });
+  const objects = listResult.objects;
 
-  if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
+  if (!objects || objects.length === 0) {
     console.log(`ℹ️ No files found for prefix: ${prefix}`);
     return;
   }
 
-  await s3Client.send(
-    new DeleteObjectsCommand({
-      Bucket: bucket,
-      Delete: {
-        Objects: listedObjects.Contents.map((obj) => ({ Key: obj.Key })),
-      },
-    }),
-  );
-  console.log(
-    `✅ Batch deleted ${listedObjects.Contents.length} files from: ${prefix}`,
-  );
+  await Promise.all(objects.map((obj) => bucket.delete(obj.key)));
+  console.log(`✅ Deleted ${objects.length} files from: ${prefix}`);
 };
 
 export async function POST(req: Request) {
   console.log("🗑️ [START] Product Delete Request");
 
-  // 1. Fetch the D1 binding at the start
-  const { env } = await getCloudflareContext({ async: true });
-  const db = (env as any).DB as D1Database;
+  // Cast env to any to avoid TypeScript errors about unknown bindings
+  const { env } = (await getCloudflareContext({ async: true })) as any;
+  const db = env.DB as D1Database;
+  const bucket = env.UPLOADS_BUCKET as R2Bucket;
 
   try {
     const body = (await req.json()) as DeleteProductRequestBody;
@@ -58,23 +39,17 @@ export async function POST(req: Request) {
       throw new Error("Missing slug or category for deletion");
     }
 
-    // 1. PHASE 1: Delete from R2 (Main Gallery)
     console.log(`🗑️ [1/3] Deleting images from R2 with prefix: ${slug}`);
-    await deleteFolderRecursive(slug);
+    await deleteFolderRecursive(slug, bucket);
 
-    // 2. PHASE 2: Delete from D1 (Database)
     console.log("📊 [2/3] Syncing removal to D1...");
     if (uuid) {
-      // Pass `db` to deleteProductById
       await deleteProductById(uuid, db);
     } else {
-      console.log(
-        "⚠️ No explicit uuid provided, skipped DB deletion row stage.",
-      );
+      console.log("⚠️ No explicit uuid provided, skipped DB deletion.");
     }
 
-    // 3. PHASE 3: Cleanup Temp folder
-    await deleteFolderRecursive(`temp/${slug}/`);
+    await deleteFolderRecursive(`temp/${slug}/`, bucket);
 
     console.log("🏁 [FINISH] Delete completed successfully!");
     return NextResponse.json({ success: true });
