@@ -10,13 +10,15 @@ import {
   Search,
   AlertCircle,
   CheckCircle,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { getStatusBadgeColorFromState } from "../../utils/ui/statusHelpers";
 import { ValidationRules } from "./ValidationRules";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { AIGenerateButton } from "../AIGenerateButton";
 
-// ----- Helper functions for text cleaning -----
+// ----- Helper functions for text cleaning (unchanged) -----
 const capitalizeFirstLetter = (str) => {
   if (!str) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -51,6 +53,7 @@ export default function FeaturesManager({
   const [keywordCounts, setKeywordCounts] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
 
+  // Auto‑clean existing features on mount
   useEffect(() => {
     const cleaned = features.map((f) => ({
       title: capitalizeFirstLetter(removeDoubleColon(f.title?.trim() || "")),
@@ -69,35 +72,37 @@ export default function FeaturesManager({
     setNewFeatureDesc("");
   };
 
-  const addOrUpdateFeature = () => {
+  // Save edited feature (inline)
+  const saveEdit = () => {
     const rawTitle = newFeatureTitle.trim();
     const rawDesc = newFeatureDesc.trim();
-
     if (rawTitle && rawDesc) {
       const cleanedTitle = capitalizeFirstLetter(removeDoubleColon(rawTitle));
       const cleanedDesc = ensureEndsWithPeriod(
         capitalizeFirstLetter(removeDoubleColon(rawDesc)),
       );
+      const updated = [...features];
+      updated[editingIndex] = { title: cleanedTitle, description: cleanedDesc };
+      setFeatures(updated);
+      cancelEdit();
+    }
+  };
 
-      if (editingIndex !== null) {
-        const updatedFeatures = [...features];
-        updatedFeatures[editingIndex] = {
-          title: cleanedTitle,
-          description: cleanedDesc,
-        };
-        setFeatures(updatedFeatures);
-        cancelEdit();
-      } else {
-        setFeatures([
-          ...features,
-          {
-            title: cleanedTitle,
-            description: cleanedDesc,
-          },
-        ]);
-        setNewFeatureTitle("");
-        setNewFeatureDesc("");
-      }
+  // Add new feature (from bottom form)
+  const addFeature = () => {
+    const rawTitle = newFeatureTitle.trim();
+    const rawDesc = newFeatureDesc.trim();
+    if (rawTitle && rawDesc) {
+      const cleanedTitle = capitalizeFirstLetter(removeDoubleColon(rawTitle));
+      const cleanedDesc = ensureEndsWithPeriod(
+        capitalizeFirstLetter(removeDoubleColon(rawDesc)),
+      );
+      setFeatures([
+        ...features,
+        { title: cleanedTitle, description: cleanedDesc },
+      ]);
+      setNewFeatureTitle("");
+      setNewFeatureDesc("");
     }
   };
 
@@ -110,14 +115,52 @@ export default function FeaturesManager({
     }
   };
 
-  const editFeature = (index) => {
+  // --- Reorder functions ---
+  const moveFeatureUp = (index) => {
+    if (index === 0) return;
+    const updated = [...features];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    setFeatures(updated);
+    // If we are editing one of the swapped items, adjust editingIndex
+    if (editingIndex === index) {
+      setEditingIndex(index - 1);
+    } else if (editingIndex === index - 1) {
+      setEditingIndex(index);
+    }
+  };
+
+  const moveFeatureDown = (index) => {
+    if (index === features.length - 1) return;
+    const updated = [...features];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    setFeatures(updated);
+    if (editingIndex === index) {
+      setEditingIndex(index + 1);
+    } else if (editingIndex === index + 1) {
+      setEditingIndex(index);
+    }
+  };
+
+  // Enter edit mode
+  const startEdit = (index) => {
     const feature = features[index];
     setNewFeatureTitle(feature.title);
     setNewFeatureDesc(feature.description);
     setEditingIndex(index);
   };
 
-  // Calculate keyword occurrences whenever features change
+  // Keyboard shortcuts inside edit inputs
+  const handleEditKeyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      saveEdit();
+    }
+  };
+
+  // ----- Keyword counting (unchanged) -----
   useEffect(() => {
     if (categoryKeywords.length > 0) {
       const allText = features
@@ -125,7 +168,6 @@ export default function FeaturesManager({
         .join(" ")
         .toLowerCase();
       const counts = {};
-
       categoryKeywords.forEach((keyword) => {
         const keywordLower = keyword.toLowerCase();
         const regex = new RegExp(
@@ -135,7 +177,6 @@ export default function FeaturesManager({
         const matches = allText.match(regex);
         counts[keyword] = matches ? matches.length : 0;
       });
-
       setKeywordCounts(counts);
     } else {
       setKeywordCounts({});
@@ -150,6 +191,7 @@ export default function FeaturesManager({
     0,
   );
 
+  // ----- Validation rules (unchanged) -----
   const checkValidationRules = () => {
     const rules = [
       {
@@ -258,7 +300,7 @@ export default function FeaturesManager({
     isComplete: allRulesPass,
   });
 
-  const canAddOrUpdate =
+  const canAdd =
     newFeatureTitle.trim().length > 0 && newFeatureDesc.trim().length > 0;
 
   return (
@@ -336,8 +378,7 @@ export default function FeaturesManager({
               {showKeywordStats ? "Hide Details" : "Show Details"}
             </button>
           </div>
-
-          {showKeywordStats ? (
+          {showKeywordStats && (
             <div className="space-y-2">
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                 Include category keywords in your features for better SEO:
@@ -362,26 +403,11 @@ export default function FeaturesManager({
                 })}
               </div>
             </div>
-          ) : (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {hasMissingKeywords ? (
-                  <span className="text-red-600 dark:text-red-400">
-                    {Object.values(keywordCounts).filter((c) => c === 0).length}{" "}
-                    keywords missing
-                  </span>
-                ) : (
-                  <span className="text-green-600 dark:text-green-400">
-                    All keywords present
-                  </span>
-                )}
-              </span>
-            </div>
           )}
         </div>
       )}
 
-      {/* Current Features */}
+      {/* Current Features — with inline editing and reorder buttons */}
       <div className="space-y-3 my-4">
         {features.length === 0 ? (
           <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
@@ -392,6 +418,7 @@ export default function FeaturesManager({
           </div>
         ) : (
           features.map((feature, index) => {
+            const isEditing = editingIndex === index;
             const keywordMatches =
               categoryKeywords.length > 0
                 ? categoryKeywords.reduce((acc, keyword) => {
@@ -405,139 +432,214 @@ export default function FeaturesManager({
                   }, 0)
                 : 0;
 
-            const isEditingThis = editingIndex === index;
-
             return (
               <div
                 key={index}
                 className={`p-3 rounded border transition-all duration-300 ${
-                  isEditingThis
+                  isEditing
                     ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
                     : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600"
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Feature {index + 1}
-                    </span>
-                    {keywordMatches > 0 && (
-                      <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          keywordMatches > 2
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
-                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                {/* Flex container for reorder buttons (left) and content (right) */}
+                <div className="flex items-start gap-3">
+                  {/* Left: Reorder buttons (only in read mode) */}
+                  {!isEditing && features.length > 1 && (
+                    <div className="flex flex-col items-center gap-1 pt-0.5">
+                      <button
+                        onClick={() => moveFeatureUp(index)}
+                        disabled={index === 0}
+                        className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                          index === 0
+                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
+                        aria-label="Move up"
+                        title="Move up"
                       >
-                        {keywordMatches} keyword
-                        {keywordMatches !== 1 ? "s" : ""}
-                      </span>
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => moveFeatureDown(index)}
+                        disabled={index === features.length - 1}
+                        className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                          index === features.length - 1
+                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                        aria-label="Move down"
+                        title="Move down"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Right: main content */}
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      // --- EDIT MODE: inline inputs + Save / Cancel ---
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                            ✏️ Editing Feature {index + 1}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            (Esc to cancel, Ctrl+Enter to save)
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={newFeatureTitle}
+                          onChange={(e) => setNewFeatureTitle(e.target.value)}
+                          onKeyDown={handleEditKeyDown}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+                          placeholder="Feature title"
+                          autoFocus
+                        />
+                        <textarea
+                          value={newFeatureDesc}
+                          onChange={(e) => setNewFeatureDesc(e.target.value)}
+                          onKeyDown={handleEditKeyDown}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+                          placeholder="Feature description"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={saveEdit}
+                            disabled={!canAdd}
+                            className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-all ${
+                              canAdd
+                                ? "bg-green-500 hover:bg-green-600 text-white"
+                                : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            <Check className="w-4 h-4" /> Save
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="flex items-center gap-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <X className="w-4 h-4" /> Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      // --- READ MODE: display feature + actions ---
+                      <>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              Feature {index + 1}
+                            </span>
+                            {keywordMatches > 0 && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded-full ${
+                                  keywordMatches > 2
+                                    ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                                    : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                                }`}
+                              >
+                                {keywordMatches} keyword
+                                {keywordMatches !== 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => startEdit(index)}
+                              className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => removeFeature(index)}
+                              className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300">
+                          <strong className="text-blue-600 dark:text-blue-400">
+                            {feature.title}:
+                          </strong>{" "}
+                          {feature.description}
+                        </p>
+                      </>
                     )}
-                    {isEditingThis && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                        (editing)
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => editFeature(index)}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      onClick={() => removeFeature(index)}
-                      className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Remove</span>
-                    </button>
                   </div>
                 </div>
-                <p className="text-gray-700 dark:text-gray-300">
-                  <strong className="text-blue-600 dark:text-blue-400">
-                    {feature.title}:
-                  </strong>{" "}
-                  {feature.description}
-                </p>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Add/Edit Feature Form */}
-      <div className="mt-6">
-        <div className="flex justify-between items-center mb-2">
-          <label className="block text-black dark:text-gray-100 font-medium">
-            {editingIndex !== null ? "Edit Feature:" : "Add New Feature:"}
-          </label>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {features.length}/1 minimum
-          </span>
-        </div>
+      {/* Add New Feature Form — hidden while editing */}
+      {editingIndex === null && (
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-black dark:text-gray-100 font-medium">
+              Add New Feature:
+            </label>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {features.length}/1 minimum
+            </span>
+          </div>
 
-        <div className="space-y-3">
-          <input
-            type="text"
-            value={newFeatureTitle}
-            onChange={(e) => setNewFeatureTitle(e.target.value)}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
-                     dark:bg-gray-700 dark:text-gray-100
-                     ${
-                       canAddOrUpdate
-                         ? "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
-                         : "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                     }`}
-            placeholder="Feature title (e.g., High-Speed Processor, Advanced Cooling System)"
-          />
-          <textarea
-            value={newFeatureDesc}
-            onChange={(e) => setNewFeatureDesc(e.target.value)}
-            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
-                     dark:bg-gray-700 dark:text-gray-100
-                     ${
-                       canAddOrUpdate
-                         ? "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
-                         : "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                     }`}
-            placeholder="Detailed feature description with benefits and specifications..."
-            rows={2}
-          />
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={newFeatureTitle}
+              onChange={(e) => setNewFeatureTitle(e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
+                       dark:bg-gray-700 dark:text-gray-100
+                       ${
+                         canAdd
+                           ? "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
+                           : "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                       }`}
+              placeholder="Feature title (e.g., High-Speed Processor, Advanced Cooling System)"
+            />
+            <textarea
+              value={newFeatureDesc}
+              onChange={(e) => setNewFeatureDesc(e.target.value)}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
+                       dark:bg-gray-700 dark:text-gray-100
+                       ${
+                         canAdd
+                           ? "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
+                           : "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                       }`}
+              placeholder="Detailed feature description with benefits and specifications..."
+              rows={2}
+            />
 
-          <div className="flex gap-3">
             <button
-              onClick={addOrUpdateFeature}
-              disabled={!canAddOrUpdate}
+              onClick={addFeature}
+              disabled={!canAdd}
               className={`flex-1 px-4 py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                canAddOrUpdate
+                canAdd
                   ? "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white shadow-md"
                   : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
-              {editingIndex !== null ? (
-                <>
-                  <Check className="h-4 w-4" /> Update Feature
-                </>
-              ) : (
-                "+ Add Feature"
-              )}
+              + Add Feature
             </button>
-
-            {editingIndex !== null && (
-              <button
-                onClick={cancelEdit}
-                className="flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {editingIndex !== null && (
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+          ⏳ Editing feature {editingIndex + 1} — finish or cancel to add a new
+          one.
+        </div>
+      )}
 
       <ValidationRules
         rules={displayRules}
