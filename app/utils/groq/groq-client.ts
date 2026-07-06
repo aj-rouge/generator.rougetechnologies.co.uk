@@ -34,7 +34,7 @@ export class GroqClient {
       throw new Error("GROQ_API_KEY is not set in environment variables");
     }
     this.baseURL = "https://api.groq.com/openai/v1";
-    this.defaultModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+    this.defaultModel = "llama-3.3-70b-versatile";
   }
 
   async chatCompletion<T = string>(
