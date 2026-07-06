@@ -28,11 +28,9 @@ export class GroqClient {
   private baseURL: string;
   private defaultModel: string;
 
-  constructor() {
-    this.apiKey = process.env.GROQ_API_KEY!;
-    if (!this.apiKey) {
-      throw new Error("GROQ_API_KEY is not set in environment variables");
-    }
+  // Constructor now takes the API key explicitly
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
     this.baseURL = "https://api.groq.com/openai/v1";
     this.defaultModel = "llama-3.3-70b-versatile";
   }
@@ -170,4 +168,16 @@ export class GroqClient {
   }
 }
 
-export const groqClient = new GroqClient();
+// ---------- Lazy singleton factory ----------
+let clientInstance: GroqClient | null = null;
+
+export function getGroqClient(): GroqClient {
+  if (!clientInstance) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new Error("GROQ_API_KEY is not set in environment variables");
+    }
+    clientInstance = new GroqClient(apiKey);
+  }
+  return clientInstance;
+}

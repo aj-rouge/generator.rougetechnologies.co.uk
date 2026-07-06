@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { groqClient } from "../../utils/groq/groq-client";
+import { getGroqClient } from "../../utils/groq/groq-client"; // <-- changed import
 import { executeQuery } from "../../utils/d1/execute";
 import {
   compilePrompt,
   getPromptTemplate,
 } from "../../utils/groq/prompt-utils";
 import type { D1Database } from "@cloudflare/workers-types";
+
 export const dynamic = "force-dynamic";
 
-// We remove the import of the hardcoded prompt builders.
-// If needed, we can keep the type definitions, but they are not used.
-
-// Type definitions (can be kept for type safety, but we don't import the builders)
+// Type definitions
 export interface GenerateTitleInput {
   originalTitle: string;
   categoryName: string;
@@ -24,7 +22,6 @@ export interface GenerateTitleInput {
 export interface GenerateSkuInput {
   title: string;
   condition: string;
-  // existingPairs is built inside the handler
 }
 
 export interface GenerateParagraphsInput {
@@ -81,7 +78,8 @@ const handleTitle = async (payload: GenerateTitleInput, db: D1Database) => {
   const template = await getPromptTemplate("title", db);
   const prompt = compilePrompt(template, data);
 
-  const result = await groqClient.chatCompletion<string>(
+  // Use getGroqClient() instead of the top‑level import
+  const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.3, maxTokens: 60 },
   );
@@ -123,7 +121,7 @@ const handleSku = async (
   const template = await getPromptTemplate("sku", db);
   const prompt = compilePrompt(template, data);
 
-  const result = await groqClient.chatCompletion<string>(
+  const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.2, maxTokens: 20, stop: ["\n"] },
   );
@@ -158,7 +156,7 @@ const handleParagraphs = async (
   const template = await getPromptTemplate("paragraphs", db);
   const prompt = compilePrompt(template, data);
 
-  const result = await groqClient.chatCompletion<string>(
+  const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.5, maxTokens: 800 },
   );
@@ -196,7 +194,7 @@ const handleFeatures = async (
   const template = await getPromptTemplate("features", db);
   const prompt = compilePrompt(template, data);
 
-  const result = await groqClient.chatCompletion<string>(
+  const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.4, maxTokens: 800 },
   );
@@ -240,7 +238,7 @@ const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
   const template = await getPromptTemplate("note", db);
   const prompt = compilePrompt(template, data);
 
-  const result = await groqClient.chatCompletion<string>(
+  const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     { temperature: 0.3, maxTokens: 150 },
   );
