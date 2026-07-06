@@ -9,7 +9,8 @@ import {
   Search,
   AlertCircle,
   CheckCircle,
-  Zap,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { ValidationWrapper } from "./ValidationWrapper";
 import { StatusHeader } from "./StatusHeader";
@@ -45,19 +46,26 @@ export default function ParagraphsManager({
     setLocalParagraphsError("");
   };
 
-  const addOrUpdateParagraph = () => {
-    const validationMsg = validateParagraph(newParagraph);
-    if (newParagraph.trim() && !validationMsg.includes("required")) {
-      if (editingIndex !== null) {
-        const updatedParagraphs = [...paragraphs];
-        updatedParagraphs[editingIndex] = newParagraph;
-        setParagraphs(updatedParagraphs);
-        cancelEdit();
-      } else {
-        setParagraphs([...paragraphs, newParagraph]);
-        setNewParagraph("");
-        setLocalParagraphsError("");
-      }
+  const saveEdit = () => {
+    const trimmed = newParagraph.trim();
+    const validationMsg = validateParagraph(trimmed);
+    if (trimmed && !validationMsg) {
+      const updated = [...paragraphs];
+      updated[editingIndex] = trimmed;
+      setParagraphs(updated);
+      cancelEdit();
+    } else if (validationMsg) {
+      setLocalParagraphsError(validationMsg);
+    }
+  };
+
+  const addParagraph = () => {
+    const trimmed = newParagraph.trim();
+    const validationMsg = validateParagraph(trimmed);
+    if (trimmed && !validationMsg) {
+      setParagraphs([...paragraphs, trimmed]);
+      setNewParagraph("");
+      setLocalParagraphsError("");
     } else if (validationMsg) {
       setLocalParagraphsError(validationMsg);
     }
@@ -72,7 +80,32 @@ export default function ParagraphsManager({
     }
   };
 
-  const editParagraph = (index) => {
+  // --- Reorder functions ---
+  const moveParagraphUp = (index) => {
+    if (index === 0) return;
+    const updated = [...paragraphs];
+    [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+    setParagraphs(updated);
+    if (editingIndex === index) {
+      setEditingIndex(index - 1);
+    } else if (editingIndex === index - 1) {
+      setEditingIndex(index);
+    }
+  };
+
+  const moveParagraphDown = (index) => {
+    if (index === paragraphs.length - 1) return;
+    const updated = [...paragraphs];
+    [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+    setParagraphs(updated);
+    if (editingIndex === index) {
+      setEditingIndex(index + 1);
+    } else if (editingIndex === index + 1) {
+      setEditingIndex(index);
+    }
+  };
+
+  const startEdit = (index) => {
     setNewParagraph(paragraphs[index]);
     setEditingIndex(index);
     setLocalParagraphsError("");
@@ -84,6 +117,17 @@ export default function ParagraphsManager({
     if (value.length > 100) {
       const validationMsg = validateParagraph(value);
       setLocalParagraphsError(validationMsg);
+    }
+  };
+
+  // Keyboard shortcuts inside edit textarea
+  const handleEditKeyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEdit();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      saveEdit();
     }
   };
 
@@ -325,6 +369,7 @@ export default function ParagraphsManager({
         </div>
       )}
 
+      {/* Paragraph list with inline editing and reorder buttons */}
       <div className="space-y-3 my-4">
         {paragraphs.length === 0 ? (
           <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
@@ -335,6 +380,7 @@ export default function ParagraphsManager({
           </div>
         ) : (
           paragraphs.map((para, index) => {
+            const isEditing = editingIndex === index;
             const keywordMatches =
               categoryKeywords.length > 0
                 ? categoryKeywords.reduce((acc, keyword) => {
@@ -346,221 +392,316 @@ export default function ParagraphsManager({
                     return matches ? acc + matches.length : acc;
                   }, 0)
                 : 0;
-            const isEditingThis = editingIndex === index;
+
             return (
               <div
                 key={index}
                 className={`p-3 rounded border transition-all duration-300 ${
-                  isEditingThis
+                  isEditing
                     ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
                     : para.length >= 160
                       ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                       : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Paragraph {index + 1} • {para.length} chars
-                    </span>
-                    {categoryKeywords.length > 0 && keywordMatches > 0 && (
-                      <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          keywordMatches > 2
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
-                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                <div className="flex items-start gap-3">
+                  {/* Left: reorder buttons (only when not editing) */}
+                  {!isEditing && paragraphs.length > 1 && (
+                    <div className="flex flex-col items-center gap-1 pt-0.5">
+                      <button
+                        onClick={() => moveParagraphUp(index)}
+                        disabled={index === 0}
+                        className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                          index === 0
+                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
+                        aria-label="Move up"
+                        title="Move up"
                       >
-                        {keywordMatches} keyword
-                        {keywordMatches !== 1 ? "s" : ""}
-                      </span>
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => moveParagraphDown(index)}
+                        disabled={index === paragraphs.length - 1}
+                        className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                          index === paragraphs.length - 1
+                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                        aria-label="Move down"
+                        title="Move down"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Right: content */}
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      // --- EDIT MODE ---
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                            ✏️ Editing Paragraph {index + 1}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            (Esc to cancel, Ctrl+Enter to save)
+                          </span>
+                        </div>
+                        <textarea
+                          value={newParagraph}
+                          onChange={handleNewParagraphChange}
+                          onKeyDown={handleEditKeyDown}
+                          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
+                          rows={3}
+                          placeholder="Edit paragraph..."
+                          autoFocus
+                        />
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span>
+                            {newParagraph.length} chars{" "}
+                            {newParagraph.length < 160 && (
+                              <span className="text-red-500">
+                                (need {160 - newParagraph.length} more)
+                              </span>
+                            )}
+                          </span>
+                          {localParagraphsError && (
+                            <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />{" "}
+                              {localParagraphsError}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={saveEdit}
+                            disabled={!canAddOrUpdate}
+                            className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-all ${
+                              canAddOrUpdate
+                                ? "bg-green-500 hover:bg-green-600 text-white"
+                                : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            <CheckCircle className="w-4 h-4" /> Save
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="flex items-center gap-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <X className="w-4 h-4" /> Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      // --- READ MODE ---
+                      <>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              Paragraph {index + 1} • {para.length} chars
+                            </span>
+                            {categoryKeywords.length > 0 &&
+                              keywordMatches > 0 && (
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full ${
+                                    keywordMatches > 2
+                                      ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                                      : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                                  }`}
+                                >
+                                  {keywordMatches} keyword
+                                  {keywordMatches !== 1 ? "s" : ""}
+                                </span>
+                              )}
+                          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => startEdit(index)}
+                              className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => removeParagraph(index)}
+                              className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {para}
+                        </p>
+                        {para.length < 160 && (
+                          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" /> Needs{" "}
+                            {160 - para.length} more characters (minimum 160)
+                          </p>
+                        )}
+                      </>
                     )}
-                    {isEditingThis && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                        (editing)
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => editParagraph(index)}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      onClick={() => removeParagraph(index)}
-                      className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Remove</span>
-                    </button>
                   </div>
                 </div>
-                <p className="text-gray-700 dark:text-gray-300">{para}</p>
-                {!isEditingThis && para.length < 160 && (
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> Needs{" "}
-                    {160 - para.length} more characters (minimum 160)
-                  </p>
-                )}
               </div>
             );
           })
         )}
       </div>
 
-      <div className="mt-6">
-        <div className="flex justify-between items-center mb-2">
-          <label className="block text-black dark:text-gray-100 font-medium">
-            {editingIndex !== null ? "Edit Paragraph:" : "Add New Paragraph:"}
-          </label>
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-sm ${
-                newParagraph.length === 0
-                  ? "text-gray-500 dark:text-gray-400"
-                  : newParagraph.length < 160
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-green-600 dark:text-green-400"
-              }`}
-            >
-              {newParagraph.length}/160+ chars
-              {newParagraph.length > 0 && newParagraph.length < 160 && (
-                <span className="ml-1">
-                  (need {160 - newParagraph.length} more)
-                </span>
-              )}
-            </span>
+      {/* Add New Paragraph Form — hidden while editing */}
+      {editingIndex === null && (
+        <div className="mt-6">
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-black dark:text-gray-100 font-medium">
+              Add New Paragraph:
+            </label>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-sm ${
+                  newParagraph.length === 0
+                    ? "text-gray-500 dark:text-gray-400"
+                    : newParagraph.length < 160
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-green-600 dark:text-green-400"
+                }`}
+              >
+                {newParagraph.length}/160+ chars
+                {newParagraph.length > 0 && newParagraph.length < 160 && (
+                  <span className="ml-1">
+                    (need {160 - newParagraph.length} more)
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div className="w-full flex flex-col gap-4">
-          <div className="w-full">
-            <textarea
-              value={newParagraph}
-              onChange={handleNewParagraphChange}
-              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-gray-100 ${
-                newParagraph.length === 0
-                  ? "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  : newParagraph.length < 160
-                    ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
-                    : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
-              }`}
-              placeholder={
-                categoryKeywords.length > 0
-                  ? `Write detailed paragraph including keywords: ${categoryKeywords.slice(0, 3).join(", ")}${
-                      categoryKeywords.length > 3 ? "..." : ""
-                    } (minimum 160 characters)`
-                  : "Write detailed paragraph with specifications, features, and benefits... (minimum 160 characters)"
-              }
-              rows={3}
-            />
+          <div className="w-full flex flex-col gap-4">
+            <div className="w-full">
+              <textarea
+                value={newParagraph}
+                onChange={handleNewParagraphChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-gray-100 ${
+                  newParagraph.length === 0
+                    ? "border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    : newParagraph.length < 160
+                      ? "border-red-300 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400"
+                      : "border-green-300 dark:border-green-500 focus:ring-green-500 dark:focus:ring-green-400"
+                }`}
+                placeholder={
+                  categoryKeywords.length > 0
+                    ? `Write detailed paragraph including keywords: ${categoryKeywords.slice(0, 3).join(", ")}${
+                        categoryKeywords.length > 3 ? "..." : ""
+                      } (minimum 160 characters)`
+                    : "Write detailed paragraph with specifications, features, and benefits... (minimum 160 characters)"
+                }
+                rows={3}
+              />
 
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                <span>0</span>
-                <span
-                  className={
-                    isGoodLength
-                      ? "text-green-600 dark:text-green-400 font-medium"
-                      : isTooShort && newParagraph.length > 0
-                        ? "text-red-600 dark:text-red-400 font-medium"
-                        : ""
-                  }
-                >
-                  160 (min)
-                </span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  500+ (recommended)
-                </span>
-              </div>
-              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
-                <div
-                  className={`h-full transition-all duration-300 ${
-                    isTooShort
-                      ? "bg-red-500"
-                      : isGoodLength
-                        ? "bg-green-500"
-                        : newParagraph.length > 0
-                          ? "bg-blue-500"
-                          : "bg-transparent"
-                  }`}
-                  style={{
-                    width: `${Math.min(100, (newParagraph.length / 500) * 100)}%`,
-                  }}
-                />
-                <div
-                  className="h-2 w-0.5 bg-gray-400 absolute top-0"
-                  style={{
-                    left: `${(160 / 500) * 100}%`,
-                    transform: "translateX(-50%)",
-                  }}
-                />
-                <div
-                  className="h-2 w-0.5 bg-green-400 absolute top-0 opacity-50"
-                  style={{
-                    left: `${(300 / 500) * 100}%`,
-                    transform: "translateX(-50%)",
-                  }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                <span>Too short</span>
-                <span
-                  className={
-                    isGoodLength
-                      ? "text-green-600 dark:text-green-400 font-medium"
-                      : newParagraph.length >= 300
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <span>0</span>
+                  <span
+                    className={
+                      isGoodLength
+                        ? "text-green-600 dark:text-green-400 font-medium"
+                        : isTooShort && newParagraph.length > 0
+                          ? "text-red-600 dark:text-red-400 font-medium"
+                          : ""
+                    }
+                  >
+                    160 (min)
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    500+ (recommended)
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      isTooShort
+                        ? "bg-red-500"
+                        : isGoodLength
+                          ? "bg-green-500"
+                          : newParagraph.length > 0
+                            ? "bg-blue-500"
+                            : "bg-transparent"
+                    }`}
+                    style={{
+                      width: `${Math.min(100, (newParagraph.length / 500) * 100)}%`,
+                    }}
+                  />
+                  <div
+                    className="h-2 w-0.5 bg-gray-400 absolute top-0"
+                    style={{
+                      left: `${(160 / 500) * 100}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  />
+                  <div
+                    className="h-2 w-0.5 bg-green-400 absolute top-0 opacity-50"
+                    style={{
+                      left: `${(300 / 500) * 100}%`,
+                      transform: "translateX(-50%)",
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <span>Too short</span>
+                  <span
+                    className={
+                      isGoodLength
+                        ? "text-green-600 dark:text-green-400 font-medium"
+                        : newParagraph.length >= 300
+                          ? "text-green-600 dark:text-green-400"
+                          : ""
+                    }
+                  >
+                    {newParagraph.length >= 300 ? "Excellent!" : "Good length"}
+                  </span>
+                  <span
+                    className={
+                      newParagraph.length >= 300
                         ? "text-green-600 dark:text-green-400"
                         : ""
-                  }
-                >
-                  {newParagraph.length >= 300 ? "Excellent!" : "Good length"}
-                </span>
-                <span
-                  className={
-                    newParagraph.length >= 300
-                      ? "text-green-600 dark:text-green-400"
-                      : ""
-                  }
-                >
-                  Recommended
-                </span>
+                    }
+                  >
+                    Recommended
+                  </span>
+                </div>
               </div>
+              {localParagraphsError && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" /> {localParagraphsError}
+                </p>
+              )}
             </div>
-            {localParagraphsError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> {localParagraphsError}
-              </p>
-            )}
-          </div>
 
-          <div className="flex gap-3">
             <button
-              onClick={addOrUpdateParagraph}
+              onClick={addParagraph}
               disabled={!canAddOrUpdate}
-              className={`flex-1 px-4 py-3 rounded-lg transition-all duration-300 ${
+              className={`w-full px-4 py-3 rounded-lg transition-all duration-300 ${
                 canAddOrUpdate
                   ? "bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white shadow-md"
                   : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
-              {editingIndex !== null ? "Update Paragraph" : "Add Paragraph"}
+              Add Paragraph
             </button>
-            {editingIndex !== null && (
-              <button
-                onClick={cancelEdit}
-                className="flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {editingIndex !== null && (
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
+          ⏳ Editing paragraph {editingIndex + 1} — finish or cancel to add a
+          new one.
+        </div>
+      )}
 
       <ValidationRules
         rules={displayRules}
