@@ -136,7 +136,7 @@ export function IdentifierRulesFilter({
                 onChange={(e) =>
                   updateField(item.id, e.target.value as IdentifierField)
                 }
-                className="flex-1 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600"
+                className="flex-1 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               >
                 {available.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -149,7 +149,7 @@ export function IdentifierRulesFilter({
                 onChange={(e) =>
                   updateRule(item.id, e.target.value as IdentifierRule)
                 }
-                className="flex-1 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600"
+                className="flex-1 px-2 py-1 text-sm border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               >
                 {ruleOptions.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -196,7 +196,7 @@ export function IdentifierRulesFilter({
               onChange={(e) =>
                 updateField(item.id, e.target.value as IdentifierField)
               }
-              className="text-sm rounded bg-transparent border-none focus:ring-0 dark:text-gray-200"
+              className="text-sm rounded bg-transparent border-none focus:ring-0 dark:text-white"
             >
               {available.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -210,7 +210,7 @@ export function IdentifierRulesFilter({
               onChange={(e) =>
                 updateRule(item.id, e.target.value as IdentifierRule)
               }
-              className="text-sm rounded bg-transparent border-none focus:ring-0 dark:text-gray-200"
+              className="text-sm rounded bg-transparent border-none focus:ring-0 dark:text-white"
             >
               {ruleOptions.map((r) => (
                 <option key={r.value} value={r.value}>
