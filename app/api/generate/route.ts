@@ -7,6 +7,7 @@ import {
   getPromptTemplate,
 } from "../../utils/groq/prompt-utils";
 import type { D1Database } from "@cloudflare/workers-types";
+export const dynamic = "force-dynamic";
 
 // We remove the import of the hardcoded prompt builders.
 // If needed, we can keep the type definitions, but they are not used.
