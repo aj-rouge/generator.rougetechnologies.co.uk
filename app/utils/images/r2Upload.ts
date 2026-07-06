@@ -13,7 +13,7 @@ export async function uploadBufferToR2(
 ): Promise<ArrayBuffer> {
   let dataToStore = buffer;
 
-  if (images) {
+  if (images && typeof images.transform === "function") {
     try {
       const response = await images.transform(buffer, {
         width: 3000,

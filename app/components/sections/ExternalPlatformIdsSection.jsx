@@ -14,7 +14,7 @@ export default function ExternalPlatformIdsSection({
   const [isMatching, setIsMatching] = useState(false);
   const [matchError, setMatchError] = useState("");
 
-  const isFilled = (value) => value && value.trim() !== "";
+ const isFilled = (value) => typeof value === "string" && value.trim() !== "";
 
   const fields = [baselinker_id, shopify_id];
   const filledCount = fields.filter(isFilled).length;
