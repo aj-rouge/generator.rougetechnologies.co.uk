@@ -14,6 +14,7 @@ import {
   Package,
   Loader2,
   FileText,
+  Trash2,
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -73,6 +74,8 @@ interface TimelineFiltersProps {
   setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
   draftFilter?: boolean;
   onToggleDraftFilter?: () => void;
+  onBulkDeleteSelected?: () => void;
+  isDeletingSelected?: boolean;
 }
 
 export const MobileFiltersBar = ({
@@ -81,12 +84,20 @@ export const MobileFiltersBar = ({
   onOpenSheet,
   draftFilter,
   onToggleDraftFilter,
+  onBulkDeleteSelected,
+  isDeletingSelected,
+  selectionMode,
+  selectedCount,
 }: {
   loading: boolean;
   fetchRecent: () => void;
   onOpenSheet: () => void;
   draftFilter?: boolean;
   onToggleDraftFilter?: () => void;
+  onBulkDeleteSelected?: () => void;
+  isDeletingSelected?: boolean;
+  selectionMode?: boolean;
+  selectedCount?: number;
 }) => {
   return (
     <motion.div
@@ -100,6 +111,7 @@ export const MobileFiltersBar = ({
         </h2>
       </div>
       <div className="flex items-center gap-2">
+        {/* Draft toggle in bar */}
         {onToggleDraftFilter && (
           <button
             onClick={onToggleDraftFilter}
@@ -111,6 +123,21 @@ export const MobileFiltersBar = ({
             title="Show drafts only"
           >
             <FileText className="w-4 h-4" />
+          </button>
+        )}
+        {/* Bulk Delete in bar (only in selection mode) */}
+        {selectionMode && onBulkDeleteSelected && (
+          <button
+            onClick={onBulkDeleteSelected}
+            disabled={isDeletingSelected || (selectedCount ?? 0) === 0}
+            className="flex items-center gap-1 p-2 text-sm font-medium rounded-md border bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50"
+            title="Delete selected"
+          >
+            {isDeletingSelected ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
           </button>
         )}
         <motion.button
@@ -172,6 +199,8 @@ export const MobileFiltersSheet = ({
     setSyncPlatform,
     draftFilter = false,
     onToggleDraftFilter,
+    onBulkDeleteSelected,
+    isDeletingSelected = false,
   } = filtersProps;
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -258,6 +287,19 @@ export const MobileFiltersSheet = ({
                     >
                       <Package className="w-4 h-4" /> All Baselinker
                     </button>
+                    {/* Bulk Delete button in sheet */}
+                    <button
+                      onClick={onBulkDeleteSelected}
+                      disabled={isDeletingSelected || selectedCount === 0}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50"
+                    >
+                      {isDeletingSelected ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Delete ({selectedCount})
+                    </button>
                     <button
                       onClick={onToggleSelectionMode}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
@@ -275,7 +317,6 @@ export const MobileFiltersSheet = ({
                   >
                     <CheckSquare className="w-4 h-4" /> Select mode
                   </button>
-                  {/* Draft toggle in sheet */}
                   {onToggleDraftFilter && (
                     <button
                       onClick={onToggleDraftFilter}

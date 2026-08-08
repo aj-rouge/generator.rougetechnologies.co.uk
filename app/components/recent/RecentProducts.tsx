@@ -14,6 +14,7 @@ import {
   IdentifierRule,
 } from "../../utils/d1/getRecentProducts";
 import { useNotification } from "../../context/NotificationContext";
+import PhoneCheckImportButton from "../PhoneCheckImportButton";
 
 type SortField = "updated_at" | "created_at";
 type SortOrder = "DESC" | "ASC";
@@ -30,6 +31,13 @@ interface SyncApiResponse {
   error?: string;
   successCount: number;
   failureCount: number;
+}
+
+interface BulkDeleteResponse {
+  success: boolean;
+  deletedCount?: number;
+  total?: number;
+  error?: string;
 }
 
 export default function RecentProducts({
@@ -128,6 +136,7 @@ export default function RecentProducts({
     new Set(),
   );
   const [isSyncingSelected, setIsSyncingSelected] = useState(false);
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
   const [syncPlatform, setSyncPlatform] = useState<"shopify" | "baselinker">(
     "shopify",
   );
@@ -354,6 +363,61 @@ export default function RecentProducts({
     ],
   );
 
+  // ---------- Bulk Delete handler ----------
+  const handleBulkDeleteSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedIds.size} selected product(s)? This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeletingSelected(true);
+    const toastId = addNotification({
+      message: `Deleting ${selectedIds.size} selected product(s)...`,
+      type: "info",
+      duration: 0,
+    });
+
+    try {
+      const res = await fetch("/api/product/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productIds: Array.from(selectedIds) }),
+      });
+
+      const data = (await res.json()) as BulkDeleteResponse;
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+
+      updateNotification(toastId, {
+        message: `Deleted ${data.deletedCount ?? 0} product(s) successfully`,
+        type: "success",
+        duration: 4000,
+      });
+
+      clearSelections();
+      setSelectionMode(false);
+      fetchProducts(false);
+    } catch (err: any) {
+      updateNotification(toastId, {
+        message: `Delete failed: ${err.message}`,
+        type: "error",
+        duration: 6000,
+      });
+    } finally {
+      setIsDeletingSelected(false);
+      setTimeout(() => removeNotification(toastId), 5000);
+    }
+  }, [
+    selectedIds,
+    addNotification,
+    updateNotification,
+    removeNotification,
+    clearSelections,
+    fetchProducts,
+  ]);
+
+  // ---------- Effects ----------
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -452,6 +516,12 @@ export default function RecentProducts({
       </div>
 */}
       <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <PhoneCheckImportButton
+            categories={categories}
+            onImportComplete={() => fetchProducts(false)}
+          />
+        </div>
         <TimelineFilters
           sort={{
             field: sortField,
@@ -484,6 +554,8 @@ export default function RecentProducts({
           setSyncPlatform={setSyncPlatform}
           draftFilter={draftFilter}
           onToggleDraftFilter={() => setDraftFilter(!draftFilter)}
+          onBulkDeleteSelected={handleBulkDeleteSelected}
+          isDeletingSelected={isDeletingSelected}
         />
       </div>
 

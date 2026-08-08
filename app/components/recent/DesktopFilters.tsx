@@ -17,6 +17,7 @@ import {
   ShoppingBag,
   Package,
   FileText,
+  Trash2, // NEW
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -75,6 +76,9 @@ interface DesktopFiltersProps {
   setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
   draftFilter?: boolean;
   onToggleDraftFilter?: () => void;
+  // New
+  onBulkDeleteSelected?: () => void;
+  isDeletingSelected?: boolean;
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
@@ -106,6 +110,8 @@ export const DesktopFilters = ({
   setSyncPlatform,
   draftFilter = false,
   onToggleDraftFilter,
+  onBulkDeleteSelected,
+  isDeletingSelected = false,
 }: DesktopFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -169,6 +175,19 @@ export const DesktopFilters = ({
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <Package className="w-4 h-4" /> All Baselinker
+              </button>
+              {/* NEW: Bulk Delete button */}
+              <button
+                onClick={onBulkDeleteSelected}
+                disabled={isDeletingSelected || selectedCount === 0}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+              >
+                {isDeletingSelected ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                <span>Delete ({selectedCount})</span>
               </button>
               <button
                 onClick={onToggleSelectionMode}

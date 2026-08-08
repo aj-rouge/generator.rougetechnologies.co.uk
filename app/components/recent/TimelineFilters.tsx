@@ -61,6 +61,8 @@ interface TimelineFiltersProps {
   setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
   draftFilter?: boolean;
   onToggleDraftFilter?: () => void;
+  onBulkDeleteSelected?: () => void;
+  isDeletingSelected?: boolean;
 }
 
 function useMediaQuery(query: string): boolean {
@@ -103,6 +105,10 @@ export const TimelineFilters = (props: TimelineFiltersProps) => {
         onOpenSheet={() => setIsMobileFiltersOpen(true)}
         draftFilter={props.draftFilter}
         onToggleDraftFilter={props.onToggleDraftFilter}
+        onBulkDeleteSelected={props.onBulkDeleteSelected}
+        isDeletingSelected={props.isDeletingSelected}
+        selectionMode={props.selectionMode}
+        selectedCount={props.selectedCount}
       />
       <MobileFiltersSheet
         isOpen={isMobileFiltersOpen}
