@@ -289,69 +289,78 @@ export default function ProductForm({
     });
   };
 
-  const handleInternalSave = async () => {
+  // --------------------------------------------------------
+  // Internal save handler with optional draft mode
+  // --------------------------------------------------------
+  const handleInternalSave = async (options?: { draft?: boolean }) => {
+    const { draft = false } = options || {};
+
+    // Basic validation: title and category are always required
     if (!isFormValid) {
       addNotification({
-        message: "Please fix validation errors",
+        message: "Please set a title and category",
         type: "error",
       });
       return;
     }
 
-    const MAX_VAT_RATE = 30;
-    const vatRaw = formData.vat_rate;
-    const vatNumber = vatRaw === "" ? null : Number(vatRaw);
-    if (
-      vatNumber === null ||
-      isNaN(vatNumber) ||
-      vatNumber < 0 ||
-      vatNumber > MAX_VAT_RATE
-    ) {
-      addNotification({
-        message: `VAT Rate must be a number between 0 and ${MAX_VAT_RATE}`,
-        type: "error",
-      });
-      return;
-    }
+    // Skip all numeric validations when saving as draft
+    if (!draft) {
+      const MAX_VAT_RATE = 30;
+      const vatRaw = formData.vat_rate;
+      const vatNumber = vatRaw === "" ? null : Number(vatRaw);
+      if (
+        vatNumber === null ||
+        isNaN(vatNumber) ||
+        vatNumber < 0 ||
+        vatNumber > MAX_VAT_RATE
+      ) {
+        addNotification({
+          message: `VAT Rate must be a number between 0 and ${MAX_VAT_RATE}`,
+          type: "error",
+        });
+        return;
+      }
 
-    const priceRaw = formData.price_brutto;
-    const priceNumber = priceRaw === "" ? null : Number(priceRaw);
-    if (priceNumber === null || isNaN(priceNumber) || priceNumber <= 0) {
-      addNotification({
-        message: "Price must be greater than 0",
-        type: "error",
-      });
-      return;
-    }
+      const priceRaw = formData.price_brutto;
+      const priceNumber = priceRaw === "" ? null : Number(priceRaw);
+      if (priceNumber === null || isNaN(priceNumber) || priceNumber <= 0) {
+        addNotification({
+          message: "Price must be greater than 0",
+          type: "error",
+        });
+        return;
+      }
 
-    const weightRaw = formData.weight;
-    const weightNumber = weightRaw === "" ? null : Number(weightRaw);
-    if (weightNumber === null || isNaN(weightNumber) || weightNumber <= 0) {
-      addNotification({
-        message: "Weight must be greater than 0",
-        type: "error",
-      });
-      return;
-    }
+      const weightRaw = formData.weight;
+      const weightNumber = weightRaw === "" ? null : Number(weightRaw);
+      if (weightNumber === null || isNaN(weightNumber) || weightNumber <= 0) {
+        addNotification({
+          message: "Weight must be greater than 0",
+          type: "error",
+        });
+        return;
+      }
 
-    const quantityRaw = formData.quantity;
-    const quantityNumber = quantityRaw === "" ? null : Number(quantityRaw);
-    if (
-      quantityNumber === null ||
-      isNaN(quantityNumber) ||
-      quantityNumber <= 0 ||
-      !Number.isInteger(quantityNumber)
-    ) {
-      addNotification({
-        message: "Stock Quantity must be a positive integer greater than 0",
-        type: "error",
-      });
-      return;
+      const quantityRaw = formData.quantity;
+      const quantityNumber = quantityRaw === "" ? null : Number(quantityRaw);
+      if (
+        quantityNumber === null ||
+        isNaN(quantityNumber) ||
+        quantityNumber <= 0 ||
+        !Number.isInteger(quantityNumber)
+      ) {
+        addNotification({
+          message: "Stock Quantity must be a positive integer greater than 0",
+          type: "error",
+        });
+        return;
+      }
     }
 
     setIsSaving(true);
     const toastId = addNotification({
-      message: "Preparing product data...",
+      message: draft ? "Saving draft..." : "Preparing product data...",
       type: "info",
       progress: 10,
     });
@@ -365,10 +374,12 @@ export default function ProductForm({
         ...formData,
         slug,
         category: formData.selectedCategory,
-        vat_rate: vatNumber,
-        price_brutto: priceNumber,
-        weight: weightNumber,
-        quantity: quantityNumber,
+        // For draft, pass null/undefined for price, weight, quantity if not filled
+        vat_rate: formData.vat_rate === "" ? null : Number(formData.vat_rate),
+        price_brutto:
+          formData.price_brutto === "" ? null : Number(formData.price_brutto),
+        weight: formData.weight === "" ? null : Number(formData.weight),
+        quantity: formData.quantity === "" ? null : Number(formData.quantity),
         rrp: sanitizeField(formData.rrp) === null ? null : Number(formData.rrp),
         asin: sanitizeField(formData.asin),
         ean: sanitizeField(formData.ean),
@@ -380,7 +391,9 @@ export default function ProductForm({
       };
 
       updateNotification(toastId, {
-        message: "Uploading images and saving product data...",
+        message: draft
+          ? "Saving draft..."
+          : "Uploading images and saving product data...",
         progress: 40,
       });
 
@@ -394,11 +407,9 @@ export default function ProductForm({
       if (!result.success) throw new Error(result.error);
 
       updateNotification(toastId, {
-        message: "Finalizing product information...",
+        message: draft ? "Draft saved!" : "Finalizing product information...",
         progress: 80,
       });
-
-      console.log("✅ ProductForm: Save API returned ID:", result.id);
 
       if (result.updatedImages) {
         const syncedImages = result.updatedImages.map((img) => ({
@@ -411,7 +422,9 @@ export default function ProductForm({
       }
 
       updateNotification(toastId, {
-        message: "Product saved successfully!",
+        message: draft
+          ? "Draft saved successfully!"
+          : "Product saved successfully!",
         type: "success",
         progress: 100,
       });
@@ -437,6 +450,12 @@ export default function ProductForm({
     }
   };
 
+  const handleSave = () => handleInternalSave({ draft: false });
+  const handleDraftSave = () => handleInternalSave({ draft: true });
+
+  // ------------------------------------------------------------------
+  // Universal import handler (unchanged)
+  // ------------------------------------------------------------------
   const handleUniversalBatchImport = (importedData: any) => {
     const updates: Partial<ProductFormState> = {};
 
@@ -480,7 +499,6 @@ export default function ProductForm({
       if (paragraphs.length) updates.paragraphs = paragraphs;
     }
 
-    // Limit imported images to 16
     if (importedData.images && importedData.images.length) {
       const limitedImages = importedData.images.slice(0, 16);
       const newImages = limitedImages.map((url: string, idx: number) => ({
@@ -534,6 +552,9 @@ export default function ProductForm({
     });
   };
 
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
   return (
     <div className="w-full min-h-screen flex flex-col gap-2">
       <ProductFormHeader
@@ -542,7 +563,8 @@ export default function ProductForm({
         isSaving={isSaving}
         isFormValid={isFormValid}
         shouldShowSave={shouldShowSave}
-        onSave={handleInternalSave}
+        onSave={handleSave}
+        onDraftSave={handleDraftSave}
         selectedCategory={formData.selectedCategory}
         hasPendingUploads={formData.images.some((i) => i.needsUpload)}
         uuid={mode === "edit" ? formData.id : undefined}

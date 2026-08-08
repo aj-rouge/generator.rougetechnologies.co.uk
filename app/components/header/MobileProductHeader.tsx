@@ -26,6 +26,7 @@ interface MobileProductHeaderProps {
   isFormValid: boolean;
   shouldShowSave: boolean;
   onSave: () => void;
+  onDraftSave?: () => void;
   selectedCategory?: string;
   hasPendingUploads?: boolean;
   uuid?: string;
@@ -44,6 +45,7 @@ export function MobileProductHeader({
   isFormValid,
   shouldShowSave,
   onSave,
+  onDraftSave,
   selectedCategory,
   hasPendingUploads,
   uuid,
@@ -159,6 +161,7 @@ export function MobileProductHeader({
                       : title || "Create New Product"}
                   </h1>
                 </CopyToClipboard>
+
                 <UniversalImportButton
                   onImport={onUniversalImport}
                   disabled={!selectedCategory}
@@ -166,6 +169,17 @@ export function MobileProductHeader({
                   condition={condition}
                   categoryKeywords={categoryKeywords}
                 />
+
+                {onDraftSave && (
+                  <button
+                    onClick={onDraftSave}
+                    disabled={isSaving || !isFormValid}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save as Draft
+                  </button>
+                )}
+
                 {isEdit && (shopifyId || baselinkerId) && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -203,6 +217,7 @@ export function MobileProductHeader({
                     </div>
                   </div>
                 )}
+
                 {isEdit && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -228,6 +243,7 @@ export function MobileProductHeader({
                     </div>
                   </div>
                 )}
+
                 <div className="flex justify-between">
                   <DarkModeToggle />
                   {isEdit && (

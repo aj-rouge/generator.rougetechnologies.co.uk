@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
   const maxFeatures = searchParams.get("maxFeatures");
   const minFeedbacks = searchParams.get("minFeedbacks");
   const maxFeedbacks = searchParams.get("maxFeedbacks");
+  const draftParam = searchParams.get("draft") === "true";
 
   const countFilters = {
     image_count: {
@@ -76,7 +77,8 @@ export async function GET(request: NextRequest) {
       sortBy,
       identifierRules,
       countFilters,
-      db, // <-- pass db
+      db,
+      draft: draftParam,
     });
 
     return NextResponse.json(products);

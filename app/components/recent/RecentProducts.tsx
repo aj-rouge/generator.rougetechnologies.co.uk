@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Inbox, RefreshCw, LayoutGrid, Table } from "lucide-react";
+import { Inbox, RefreshCw, LayoutGrid, Table, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "./ProductCard";
 import { ProductsTable } from "./ProductsTable";
@@ -114,6 +114,10 @@ export default function RecentProducts({
       },
     };
   });
+
+  const [draftFilter, setDraftFilter] = useState(
+    searchParams.get("draft") === "true",
+  );
 
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -232,6 +236,7 @@ export default function RecentProducts({
       params.set("minFeedbacks", countFilters.feedbacks_count.min.toString());
     if (countFilters.feedbacks_count?.max !== undefined)
       params.set("maxFeedbacks", countFilters.feedbacks_count.max.toString());
+    if (draftFilter) params.set("draft", "true");
     const newUrl = `?${params.toString()}`;
     if (newUrl !== window.location.search)
       router.push(newUrl, { scroll: false });
@@ -242,6 +247,7 @@ export default function RecentProducts({
     category,
     identifierRules,
     countFilters,
+    draftFilter,
     router,
   ]);
 
@@ -268,6 +274,7 @@ export default function RecentProducts({
           sortOrder,
         });
         if (category) params.append("category", category);
+        if (draftFilter) params.append("draft", "true");
         if (Object.keys(identifierRules).length > 0)
           params.append("identifierRules", JSON.stringify(identifierRules));
         if (countFilters.image_count?.min !== undefined)
@@ -341,6 +348,7 @@ export default function RecentProducts({
       category,
       identifierRules,
       countFilters,
+      draftFilter,
       updateUrlParams,
       clearSelections,
     ],
@@ -362,6 +370,7 @@ export default function RecentProducts({
     category,
     identifierRules,
     countFilters,
+    draftFilter,
     fetchProducts,
   ]);
 
@@ -385,6 +394,7 @@ export default function RecentProducts({
     setSortField("updated_at");
     setSortOrder("DESC");
     setLimit(10);
+    setDraftFilter(false);
   }, []);
 
   const formatDate = (timestamp: number) =>
@@ -472,6 +482,8 @@ export default function RecentProducts({
           isSyncingSelected={isSyncingSelected}
           syncPlatform={syncPlatform}
           setSyncPlatform={setSyncPlatform}
+          draftFilter={draftFilter}
+          onToggleDraftFilter={() => setDraftFilter(!draftFilter)}
         />
       </div>
 

@@ -23,6 +23,7 @@ interface ProductFormHeaderProps {
   isFormValid: boolean;
   shouldShowSave: boolean;
   onSave: () => void;
+  onDraftSave?: () => void;
   selectedCategory?: string;
   hasPendingUploads?: boolean;
   uuid?: string;

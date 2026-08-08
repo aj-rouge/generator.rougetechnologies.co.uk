@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Package,
   Loader2,
+  FileText,
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -70,16 +71,22 @@ interface TimelineFiltersProps {
   isSyncingSelected?: boolean;
   syncPlatform?: "shopify" | "baselinker";
   setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
+  draftFilter?: boolean;
+  onToggleDraftFilter?: () => void;
 }
 
 export const MobileFiltersBar = ({
   loading,
   fetchRecent,
   onOpenSheet,
+  draftFilter,
+  onToggleDraftFilter,
 }: {
   loading: boolean;
   fetchRecent: () => void;
   onOpenSheet: () => void;
+  draftFilter?: boolean;
+  onToggleDraftFilter?: () => void;
 }) => {
   return (
     <motion.div
@@ -93,6 +100,19 @@ export const MobileFiltersBar = ({
         </h2>
       </div>
       <div className="flex items-center gap-2">
+        {onToggleDraftFilter && (
+          <button
+            onClick={onToggleDraftFilter}
+            className={`flex items-center gap-1 p-2 text-sm font-medium rounded-md border transition-colors ${
+              draftFilter
+                ? "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300"
+                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+            title="Show drafts only"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+        )}
         <motion.button
           onClick={fetchRecent}
           disabled={loading}
@@ -150,6 +170,8 @@ export const MobileFiltersSheet = ({
     isSyncingSelected = false,
     syncPlatform = "shopify",
     setSyncPlatform,
+    draftFilter = false,
+    onToggleDraftFilter,
   } = filtersProps;
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -246,12 +268,28 @@ export const MobileFiltersSheet = ({
                 </div>
               )}
               {!selectionMode && (
-                <button
-                  onClick={onToggleSelectionMode}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
-                >
-                  <CheckSquare className="w-4 h-4" /> Select mode
-                </button>
+                <>
+                  <button
+                    onClick={onToggleSelectionMode}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 border rounded-lg"
+                  >
+                    <CheckSquare className="w-4 h-4" /> Select mode
+                  </button>
+                  {/* Draft toggle in sheet */}
+                  {onToggleDraftFilter && (
+                    <button
+                      onClick={onToggleDraftFilter}
+                      className={`w-full flex items-center justify-center gap-2 px-3 py-2 border rounded-lg transition-colors ${
+                        draftFilter
+                          ? "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300"
+                          : "bg-white dark:bg-gray-800 border-gray-300 text-gray-700"
+                      }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      {draftFilter ? "Showing drafts only" : "Show drafts only"}
+                    </button>
+                  )}
+                </>
               )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

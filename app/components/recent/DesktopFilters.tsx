@@ -16,6 +16,7 @@ import {
   X,
   ShoppingBag,
   Package,
+  FileText,
 } from "lucide-react";
 import {
   CountFiltersType,
@@ -72,6 +73,8 @@ interface DesktopFiltersProps {
   isSyncingSelected?: boolean;
   syncPlatform?: "shopify" | "baselinker";
   setSyncPlatform?: (platform: "shopify" | "baselinker") => void;
+  draftFilter?: boolean;
+  onToggleDraftFilter?: () => void;
 }
 
 const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
@@ -101,6 +104,8 @@ export const DesktopFilters = ({
   isSyncingSelected = false,
   syncPlatform = "shopify",
   setSyncPlatform,
+  draftFilter = false,
+  onToggleDraftFilter,
 }: DesktopFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -181,6 +186,20 @@ export const DesktopFilters = ({
               <CheckSquare className="w-4 h-4" /> Select
             </button>
           )}
+          {onToggleDraftFilter && (
+            <button
+              onClick={onToggleDraftFilter}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
+                draftFilter
+                  ? "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300"
+                  : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Drafts</span>
+            </button>
+          )}
+
           <CategoryFilter
             value={categoryFilter.selected}
             onChange={categoryFilter.setSelected}

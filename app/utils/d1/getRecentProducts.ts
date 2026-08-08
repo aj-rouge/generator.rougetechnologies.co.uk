@@ -62,6 +62,7 @@ export const getRecentProducts = async (options: {
   identifierRules?: Partial<Record<IdentifierField, IdentifierRule>>;
   countFilters?: CountFiltersType;
   db: D1Database;
+  draft?: boolean;
 }) => {
   const {
     limit = 10,
@@ -72,6 +73,7 @@ export const getRecentProducts = async (options: {
     identifierRules = {},
     countFilters = {},
     db,
+    draft,
   } = options;
 
   let query = `SELECT * FROM v_product_complete`;
@@ -83,7 +85,11 @@ export const getRecentProducts = async (options: {
     conditions.push(`category_slug = ?`);
     params.push(category);
   }
-
+  if (draft) {
+    conditions.push(
+      `(image_count = 0 OR features_count = 0 OR paragraphs_count = 0)`,
+    );
+  }
   for (const [field, rule] of Object.entries(identifierRules)) {
     if (rule === "required") {
       conditions.push(`(${field} IS NOT NULL AND ${field} != '')`);
