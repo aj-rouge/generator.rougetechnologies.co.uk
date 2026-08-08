@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
 import {
   Clock,
   Calendar,
@@ -10,9 +9,8 @@ import {
   AlignLeft,
   Image as ImageIcon,
   Box,
-  Copy,
-  Check,
   FileText,
+  Clipboard,
 } from "lucide-react";
 import { NoteTooltip } from "./NoteTooltip";
 import { CopyToClipboard } from "../CopyToClipboard";
@@ -160,19 +158,28 @@ export const ProductCard = ({
             {hasNote && <NoteTooltip note={product.note} />}
           </div>
 
-          {/* Title row with copy button */}
+          {/* Title row with copy and duplicate buttons */}
           <div className="flex items-center justify-between gap-1">
             <Link href={`/products/${product.id}`} className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 hover:text-blue-600 transition-colors text-sm sm:text-base">
                 {product.title}
               </h3>
             </Link>
-            <CopyToClipboard
-              value={product.title}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              successMessage="Title copied"
-              iconSize={14}
-            />
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <CopyToClipboard
+                value={product.title}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                successMessage="Title copied"
+                iconSize={14}
+              />
+              <Link
+                href={`/create?duplicate=${product.id}`}
+                className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                title="Duplicate product"
+              >
+                <Clipboard className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
           {/* ID badges */}

@@ -5,6 +5,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 
 const parseProductJson = (product: any) => {
   if (!product) return null;
+
   const parse = (field: any) => {
     if (typeof field === "string") {
       try {
@@ -15,15 +16,19 @@ const parseProductJson = (product: any) => {
     }
     return field;
   };
+
+  const ensureArray = (value: any) => (Array.isArray(value) ? value : []);
+
   return {
     ...product,
-    seo_sections: parse(product.seo_sections) || [],
-    paragraphs: parse(product.paragraphs) || [],
-    features: parse(product.features) || [],
-    images: parse(product.images) || [],
-    feedbacks: parse(product.feedbacks) || [],
-    category_keywords: parse(product.category_keywords_json) || [],
-    condition_options: parse(product.condition_options) || [],
+    seo_sections: ensureArray(parse(product.seo_sections)),
+    paragraphs: ensureArray(parse(product.paragraphs)),
+    features: ensureArray(parse(product.features)),
+    images: ensureArray(parse(product.images)),
+    feedbacks: ensureArray(parse(product.feedbacks)),
+    specifications: ensureArray(parse(product.specifications)), // <-- ADDED
+    category_keywords: ensureArray(parse(product.category_keywords_json)),
+    condition_options: ensureArray(parse(product.condition_options)),
   };
 };
 
@@ -48,10 +53,6 @@ export interface CountFiltersType {
   feedbacks_count?: CountFilter;
 }
 
-/**
- * Fetch recent products with optional filters and sorting.
- * @param options - Configuration options; requires `db` instance.
- */
 export const getRecentProducts = async (options: {
   limit?: number;
   offset?: number;
@@ -60,7 +61,7 @@ export const getRecentProducts = async (options: {
   sortBy?: "created_at" | "updated_at";
   identifierRules?: Partial<Record<IdentifierField, IdentifierRule>>;
   countFilters?: CountFiltersType;
-  db: D1Database; // <-- now required
+  db: D1Database;
 }) => {
   const {
     limit = 10,
@@ -70,12 +71,8 @@ export const getRecentProducts = async (options: {
     sortBy = "updated_at",
     identifierRules = {},
     countFilters = {},
-    db, // <-- required
+    db,
   } = options;
-
-  // Optional: you can keep the test query for debugging, but now it uses `db`
-  const test = await executeQuery("SELECT 1 as test", [], db);
-  console.log("[getRecentProducts] Test query result:", test);
 
   let query = `SELECT * FROM v_product_complete`;
   const params: any[] = [];
@@ -125,49 +122,12 @@ export const getRecentProducts = async (options: {
   query += ` ORDER BY ${sortBy} ${order} LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
-  console.log(`[getRecentProducts] SQL: ${query}`);
-  console.log(`[getRecentProducts] Params:`, params);
-
   try {
-    console.log("[getRecentProducts] Calling executeQuery...");
-    const results = await executeQuery(query, params, db); // <-- pass db
-    console.log(
-      "[getRecentProducts] executeQuery returned, raw results count:",
-      results?.length,
-    );
-
-    // Log the first raw row (if any) to see structure
-    if (results && results.length > 0) {
-      console.log(
-        "[getRecentProducts] First raw row (keys):",
-        Object.keys(results[0]),
-      );
-      console.log(
-        "[getRecentProducts] First raw row sample:",
-        JSON.stringify(results[0]).slice(0, 300),
-      );
-    }
-
-    // Parse each row individually with error catching
-    const parsedProducts = (results || []).map((row, index) => {
-      try {
-        return parseProductJson(row);
-      } catch (parseErr) {
-        console.error(
-          `[getRecentProducts] ❌ Parse error at index ${index}:`,
-          parseErr,
-        );
-        console.error(`[getRecentProducts] Raw row:`, row);
-        throw parseErr;
-      }
-    });
-
-    console.log(
-      `[getRecentProducts] Successfully parsed ${parsedProducts.length} products`,
-    );
+    const results = await executeQuery(query, params, db);
+    const parsedProducts = (results || []).map((row) => parseProductJson(row));
     return parsedProducts;
   } catch (error) {
-    console.error(`[getRecentProducts] ❌ Fatal error after query:`, error);
+    console.error(`[getRecentProducts] ❌ Error:`, error);
     throw error;
   }
 };

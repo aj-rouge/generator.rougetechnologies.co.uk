@@ -2,9 +2,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw, LayoutGrid, Table } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "./ProductCard";
+import { ProductsTable } from "./ProductsTable";
 import { TimelineFilters } from "./TimelineFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -23,7 +24,6 @@ interface RecentProductsProps {
   categories?: any[];
 }
 
-// Added explicit type interface for the bulk synchronization responses
 interface SyncApiResponse {
   success?: boolean;
   message?: string;
@@ -48,16 +48,17 @@ export default function RecentProducts({
   const [limit, setLimit] = useState<LimitOption>(
     (Number(searchParams.get("limit")) as LimitOption) || 10,
   );
-  const [hasMore, setHasMore] = useState(
-    initialProducts.length === limit, // only if we fetched exactly `limit` items
-  );
+  const [hasMore, setHasMore] = useState(initialProducts.length === limit);
   const [offset, setOffset] = useState(initialProducts.length);
   const offsetRef = useRef(offset);
 
-  // Keep ref in sync with state
+  // View mode
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
+
   // Filter states
   const [sortField, setSortField] = useState<SortField>(
     (searchParams.get("sortBy") as SortField) || "updated_at",
@@ -65,7 +66,6 @@ export default function RecentProducts({
   const [sortOrder, setSortOrder] = useState<SortOrder>(
     (searchParams.get("sortOrder") as SortOrder) || "DESC",
   );
-
   const [category, setCategory] = useState(searchParams.get("category") || "");
   const [identifierRules, setIdentifierRules] = useState<
     Partial<Record<IdentifierField, IdentifierRule>>
@@ -128,7 +128,6 @@ export default function RecentProducts({
     "shopify",
   );
 
-  // Helpers
   const hasShopifyId = (p: any) =>
     p.shopify_id && p.shopify_id !== "" && p.shopify_id !== null;
   const hasBaselinkerId = (p: any) =>
@@ -178,11 +177,8 @@ export default function RecentProducts({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productIds: Array.from(selectedIds) }),
       });
-
-      // Cleanly cast standard response data schema using custom interface structure
       const data = (await res.json()) as SyncApiResponse;
       if (!res.ok) throw new Error(data.error);
-
       updateNotification(toastId, {
         message:
           data.message ||
@@ -204,12 +200,10 @@ export default function RecentProducts({
     }
   };
 
-  // Toggle order helper
   const toggleOrder = useCallback(() => {
     setSortOrder((prev) => (prev === "DESC" ? "ASC" : "DESC"));
   }, []);
 
-  // URL sync & fetch logic (unchanged, but keep clearSelections on filter change)
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (limit !== 10) params.set("limit", limit.toString());
@@ -250,6 +244,7 @@ export default function RecentProducts({
     countFilters,
     router,
   ]);
+
   const isFetching = useRef(false);
 
   const fetchProducts = useCallback(
@@ -325,7 +320,7 @@ export default function RecentProducts({
           setProducts(newProducts);
           setHasMore(newProducts.length === limit);
           setOffset(newProducts.length);
-          clearSelections(); // clear selections when filter changes
+          clearSelections();
         }
         if (!append) updateUrlParams();
       } catch (error) {
@@ -415,6 +410,37 @@ export default function RecentProducts({
 
   return (
     <div className="w-full max-w-6xl md:px-0">
+      {/* View toggle row 
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-1 bg-gray-50 dark:bg-gray-800/50">
+          <button
+            onClick={() => setViewMode("card")}
+            className={`p-1.5 rounded transition-colors ${
+              viewMode === "card"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            }`}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            className={`p-1.5 rounded transition-colors ${
+              viewMode === "table"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            }`}
+            aria-label="Table view"
+          >
+            <Table className="w-4 h-4" />
+          </button>
+        </div>
+        <span className="text-xs text-gray-400">
+          {viewMode === "card" ? "Grid" : "Table"} view
+        </span>
+      </div>
+*/}
       <div className="mb-4 space-y-3">
         <TimelineFilters
           sort={{
@@ -475,9 +501,9 @@ export default function RecentProducts({
                 <RefreshCw className="w-4 h-4" /> Refresh list
               </button>
             </div>
-          ) : (
+          ) : viewMode === "card" ? (
             <motion.div
-              key="results"
+              key="results-card"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="grid gap-2 grid-cols-1 sm:grid-cols-2 overflow-y-auto"
@@ -495,6 +521,31 @@ export default function RecentProducts({
                   onToggle={() => handleToggleProduct(product.id)}
                 />
               ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="results-table"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <ProductsTable
+                products={products}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                onSort={(field) => {
+                  if (field === sortField) {
+                    toggleOrder();
+                  } else {
+                    setSortField(field as SortField);
+                    setSortOrder("DESC");
+                  }
+                }}
+                formatDate={formatDate}
+                categoryNameMap={categoryNameMap}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleProduct={handleToggleProduct}
+              />
             </motion.div>
           )}
         </AnimatePresence>

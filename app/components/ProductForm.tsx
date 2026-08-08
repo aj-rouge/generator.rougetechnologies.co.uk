@@ -181,7 +181,7 @@ export default function ProductForm({
 
   // If initialData changes (e.g., navigation), update form
   useEffect(() => {
-    if (mode === "edit" && initialData) {
+    if (initialData && (mode === "edit" || mode === "create")) {
       setFormData({
         ...INITIAL_FORM_STATE,
         ...initialData,
