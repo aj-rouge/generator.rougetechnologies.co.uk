@@ -51,17 +51,32 @@ export async function GET(request: NextRequest) {
   // 3. Native Edge FTS search (title weighted at 5.0, sku weighted at 2.0)
   const ftsResults = await executeQuery(
     `
-    SELECT p.id, p.slug, p.title, p.sku, p.ean, p.asin, p.baselinker_id, p.shopify_id, p.category, p.updated_at,
-           bm25(products_search, 5.0, 2.0) as score
-    FROM products_search
-    JOIN products p ON p.id = products_search.product_id
-    WHERE products_search MATCH ?
-    ORDER BY score ASC, p.updated_at DESC
+  SELECT p.id, p.slug, p.title, p.sku, p.ean, p.asin, p.baselinker_id, p.shopify_id, p.category, p.updated_at,
+         bm25(products_search, 5.0, 2.0) as score
+  FROM products_search
+  JOIN products p ON p.id = products_search.product_id
+  WHERE products_search MATCH ?
+  ORDER BY score ASC, p.updated_at DESC
+  LIMIT 20
+  `,
+    [ftsQuery],
+    db,
+  );
+
+  // If FTS yields nothing, try a case‑insensitive LIKE on SKU and title
+  if (!ftsResults || ftsResults.length === 0) {
+    const likeResults = await executeQuery(
+      `
+    SELECT id, slug, title, sku, ean, asin, baselinker_id, shopify_id, category, updated_at
+    FROM products
+    WHERE LOWER(sku) LIKE ? OR LOWER(title) LIKE ?
     LIMIT 20
     `,
-    [ftsQuery],
-    db, // <-- pass db
-  );
+      [`%${query.toLowerCase()}%`, `%${query.toLowerCase()}%`],
+      db,
+    );
+    return NextResponse.json({ results: likeResults || [] });
+  }
 
   return NextResponse.json({ results: ftsResults || [] });
 }

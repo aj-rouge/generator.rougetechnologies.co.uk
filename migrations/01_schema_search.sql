@@ -15,21 +15,7 @@ BEGIN
   VALUES (
     new.id,
     lower(new.title),
-    lower(
-      replace(
-        replace(
-          replace(
-            replace(
-              replace(new.sku, ' ', ''),
-              '-', ''
-            ),
-            '_', ''
-          ),
-          '/', ''
-        ),
-        '.', ''
-      )
-    )
+    lower(new.sku)   -- ✅ no replacements
   );
 END;
 
@@ -48,21 +34,7 @@ BEGIN
   VALUES (
     new.id,
     lower(new.title),
-    lower(
-      replace(
-        replace(
-          replace(
-            replace(
-              replace(new.sku, ' ', ''),
-              '-', ''
-            ),
-            '_', ''
-          ),
-          '/', ''
-        ),
-        '.', ''
-      )
-    )
+    lower(new.sku)   -- ✅ no replacements
   );
 END;
 
@@ -71,20 +43,6 @@ INSERT OR IGNORE INTO products_search (product_id, title, sku)
 SELECT
   id,
   lower(title),
-  lower(
-    replace(
-      replace(
-        replace(
-          replace(
-            replace(sku, ' ', ''),
-            '-', ''
-          ),
-          '_', ''
-        ),
-        '/', ''
-      ),
-      '.', ''
-    )
-  )
+  lower(sku)   -- ✅ no replacements
 FROM products
 WHERE id IS NOT NULL;
