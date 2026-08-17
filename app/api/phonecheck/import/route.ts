@@ -1,3 +1,4 @@
+// ./app/api/phonecheck/import/route.ts
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -19,11 +20,12 @@ interface ImportRecord {
   lpn: string;
   note?: string;
   failed?: string;
+  category?: string; // per-record category – now required
 }
 
 interface ImportRequest {
   records: ImportRecord[];
-  categorySlug: string;
+  // categorySlug removed – each record must provide its own category
 }
 
 // Mapping PhoneCheck grade → our condition string
@@ -114,17 +116,11 @@ export async function POST(req: Request) {
     const db = (env as any).DB;
 
     const body = (await req.json()) as ImportRequest;
-    const { records, categorySlug } = body;
+    const { records } = body;
 
     if (!records || !Array.isArray(records) || records.length === 0) {
       return NextResponse.json(
         { success: false, error: "No records provided" },
-        { status: 400 },
-      );
-    }
-    if (!categorySlug) {
-      return NextResponse.json(
-        { success: false, error: "Category is required" },
         { status: 400 },
       );
     }
@@ -151,6 +147,7 @@ export async function POST(req: Request) {
         lpn,
         note,
         failed,
+        category,
       } = record;
 
       // Basic validation
@@ -161,6 +158,17 @@ export async function POST(req: Request) {
           title: "",
           error:
             "Missing required fields (Make, Model, Color, Memory, Grade, LPN)",
+        });
+        continue;
+      }
+
+      // Category is now required per record
+      if (!category) {
+        results.push({
+          success: false,
+          sku: "",
+          title: "",
+          error: "Category missing for this record",
         });
         continue;
       }
@@ -198,7 +206,7 @@ export async function POST(req: Request) {
 
       // Slug: use unique SKU as suffix to guarantee uniqueness
       const slugBase = generateSeoSlug(title);
-      const slug = `${categorySlug}/${slugBase}-${sku}`;
+      const slug = `${category}/${slugBase}-${sku}`;
 
       const productId = uuidv4();
 
@@ -209,7 +217,7 @@ export async function POST(req: Request) {
         sku: sku,
         condition: condition,
         note: combinedNote || null,
-        category: categorySlug,
+        category: category, // use per-record category
         vat_rate: 20,
         rrp: null,
         weight: null,

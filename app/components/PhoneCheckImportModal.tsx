@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
 import {
   X,
@@ -9,10 +9,11 @@ import {
   Check,
   AlertTriangle,
   AlertCircle,
+  CheckSquare,
 } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
 
-// Define the response from the import API
+// ---- Types ----
 interface ImportApiResponse {
   success: boolean;
   results: Array<{
@@ -44,6 +45,7 @@ interface ImportRow extends PhoneCheckRecord {
   selected: boolean;
   generatedTitle: string;
   generatedSku: string;
+  category?: string; // per‑row category (overrides global if set)
   error?: string; // validation error from CSV
   importError?: string; // error from import API
 }
@@ -51,10 +53,63 @@ interface ImportRow extends PhoneCheckRecord {
 interface PhoneCheckImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  categories: any[];
+  categories: any[]; // hierarchical category tree
   onImportComplete: () => void;
 }
 
+// ---- Helper: flatten categories with indentation ----
+function flattenCategories(
+  cats: any[],
+  prefix = "",
+): Array<{ slug: string; name: string }> {
+  let result: Array<{ slug: string; name: string }> = [];
+  for (const cat of cats) {
+    result.push({ slug: cat.slug, name: prefix + cat.name });
+    if (cat.children && cat.children.length) {
+      result = result.concat(flattenCategories(cat.children, prefix + "  "));
+    }
+  }
+  return result;
+}
+
+// ---- Helper: sanitise for SKU ----
+const sanitiseForSku = (value: string) =>
+  value
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 4);
+
+// ---- Helper: generate SKU ----
+const generateSku = (
+  make: string,
+  model: string,
+  memory: string,
+  color: string,
+  lpn: string,
+  grade: string,
+) => {
+  const makePart = sanitiseForSku(make) || "XXXX";
+  const modelPart = sanitiseForSku(model) || "XXXX";
+  const colorPart = sanitiseForSku(color) || "XXXX";
+  const memoryClean = memory.replace(/\s/g, "").toUpperCase();
+  const lpnClean = lpn.replace(/[^A-Z0-9]/g, "").toUpperCase();
+  const gradeClean = grade.replace(/[^A-Z0-9-]/g, "").toUpperCase();
+  return `${makePart}-PHO-${modelPart}-${memoryClean}-${colorPart}-${lpnClean}-${gradeClean}`;
+};
+
+// ---- Helper: generate title ----
+const generateTitle = (
+  make: string,
+  model: string,
+  color: string,
+  memory: string,
+  batteryHealth: string,
+) => {
+  const battery = parseInt(batteryHealth, 10) || 0;
+  return `${make} ${model} ${color} ${memory} ${battery}% Fully Working`;
+};
+
+// ---- Main Component ----
 export default function PhoneCheckImportModal({
   isOpen,
   onClose,
@@ -65,14 +120,21 @@ export default function PhoneCheckImportModal({
 
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [globalCategory, setGlobalCategory] = useState("");
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Flatten categories for dropdowns
+  const flatCategories = useMemo(
+    () => flattenCategories(categories),
+    [categories],
+  );
+
+  // Reset
   const reset = () => {
     setRows([]);
-    setSelectedCategory("");
+    setGlobalCategory("");
     setIsProcessing(false);
   };
 
@@ -81,6 +143,7 @@ export default function PhoneCheckImportModal({
     onClose();
   };
 
+  // File handling
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
@@ -158,6 +221,7 @@ export default function PhoneCheckImportModal({
               batteryHealth,
             ),
             generatedSku: generateSku(make, model, memory, color, lpn, grade),
+            category: undefined, // per‑row category not set yet
             error,
             importError: undefined,
           };
@@ -174,41 +238,95 @@ export default function PhoneCheckImportModal({
     });
   };
 
-  // Helper functions (same as in API)
-  const sanitiseForSku = (value: string) =>
-    value
-      .toUpperCase()
-      .replace(/[^A-Z0-9-]/g, "")
-      .slice(0, 4);
-
-  const generateSku = (
-    make: string,
-    model: string,
-    memory: string,
-    color: string,
-    lpn: string,
-    grade: string,
+  // ---- Row field update ----
+  const updateRowField = <K extends keyof ImportRow>(
+    id: string,
+    field: K,
+    value: ImportRow[K],
   ) => {
-    const makePart = sanitiseForSku(make) || "XXXX";
-    const modelPart = sanitiseForSku(model) || "XXXX";
-    const colorPart = sanitiseForSku(color) || "XXXX";
-    const memoryClean = memory.replace(/\s/g, "").toUpperCase();
-    const lpnClean = lpn.replace(/[^A-Z0-9]/g, "").toUpperCase();
-    const gradeClean = grade.replace(/[^A-Z0-9-]/g, "").toUpperCase();
-    return `${makePart}-PHO-${modelPart}-${memoryClean}-${colorPart}-${lpnClean}-${gradeClean}`;
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        const updated = { ...row, [field]: value };
+
+        // If one of the base fields changed, recalc title, SKU, and error
+        const baseFields: (keyof ImportRow)[] = [
+          "make",
+          "model",
+          "memory",
+          "color",
+          "grade",
+          "lpn",
+          "batteryHealth",
+        ];
+        if (baseFields.includes(field)) {
+          // Recalculate title and SKU
+          updated.generatedTitle = generateTitle(
+            updated.make,
+            updated.model,
+            updated.color,
+            updated.memory,
+            updated.batteryHealth,
+          );
+          updated.generatedSku = generateSku(
+            updated.make,
+            updated.model,
+            updated.memory,
+            updated.color,
+            updated.lpn,
+            updated.grade,
+          );
+
+          // Re‑validate
+          const errors: string[] = [];
+          if (!updated.make) errors.push("Make missing");
+          if (!updated.model) errors.push("Model missing");
+          if (!updated.color) errors.push("Color missing");
+          if (!updated.memory) errors.push("Memory missing");
+          if (!updated.grade) errors.push("Grade missing");
+          if (!updated.lpn) errors.push("LPN missing");
+          updated.error = errors.length > 0 ? errors.join("; ") : undefined;
+        }
+
+        return updated;
+      }),
+    );
   };
 
-  const generateTitle = (
-    make: string,
-    model: string,
-    color: string,
-    memory: string,
-    batteryHealth: string,
-  ) => {
-    const battery = parseInt(batteryHealth, 10) || 0;
-    return `${make} ${model} ${color} ${memory} ${battery}% Fully Working`;
+  // ---- Select all valid rows ----
+  const selectAllValid = () => {
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        selected: !row.error && !row.importError,
+      })),
+    );
   };
 
+  // ---- Bulk apply category to selected rows ----
+  const applyCategoryToSelected = (categorySlug: string) => {
+    if (!categorySlug) {
+      addNotification({
+        message: "Please select a category to apply",
+        type: "error",
+      });
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) =>
+        row.selected && !row.error && !row.importError
+          ? { ...row, category: categorySlug }
+          : row,
+      ),
+    );
+    addNotification({
+      message: `Category applied to selected rows`,
+      type: "success",
+      duration: 2000,
+    });
+  };
+
+  // ---- Toggle row selection ----
   const toggleRow = (id: string) => {
     setRows((prev) =>
       prev.map((row) =>
@@ -217,28 +335,26 @@ export default function PhoneCheckImportModal({
     );
   };
 
-  const updateField = (
-    id: string,
-    field: "generatedTitle" | "generatedSku",
-    value: string,
-  ) => {
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === id
-          ? { ...row, [field]: value, importError: undefined } // clear import error when editing
-          : row,
-      ),
-    );
-  };
-
+  // ---- Import ----
   const handleImport = async () => {
-    const selectedRows = rows.filter((r) => r.selected && !r.error);
+    const selectedRows = rows.filter(
+      (r) => r.selected && !r.error && !r.importError,
+    );
     if (selectedRows.length === 0) {
-      addNotification({ message: "No rows selected", type: "error" });
+      addNotification({ message: "No valid rows selected", type: "error" });
       return;
     }
-    if (!selectedCategory) {
-      addNotification({ message: "Please select a category", type: "error" });
+
+    // Check that each selected row has a category (either global or per‑row)
+    const missingCategory = selectedRows.some(
+      (r) => !r.category && !globalCategory,
+    );
+    if (missingCategory) {
+      addNotification({
+        message:
+          "Please select a global category or assign a per‑row category for all selected items",
+        type: "error",
+      });
       return;
     }
 
@@ -257,12 +373,13 @@ export default function PhoneCheckImportModal({
         failed: row.failed,
         title: row.generatedTitle,
         sku: row.generatedSku,
+        category: row.category || globalCategory, // per‑row override or global
       }));
 
       const res = await fetch("/api/phonecheck/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ records, categorySlug: selectedCategory }),
+        body: JSON.stringify({ records }), // removed global category – each record has its own
       });
 
       const result = (await res.json()) as ImportApiResponse;
@@ -279,15 +396,13 @@ export default function PhoneCheckImportModal({
       // Update rows: keep only failed ones, mark with importError
       const updatedRows = rows
         .map((row) => {
-          if (!row.selected || row.error) return row; // not selected or already invalid
+          if (!row.selected || row.error) return row;
           if (successMap.has(row.generatedSku)) {
-            // Succeeded: remove from list
-            return null;
+            return null; // remove succeeded
           } else if (failureMap.has(row.generatedSku)) {
             const fail = failureMap.get(row.generatedSku);
             return { ...row, importError: fail.error || "Unknown error" };
           }
-          // Should not happen, but keep just in case
           return row;
         })
         .filter((row): row is ImportRow => row !== null);
@@ -296,7 +411,6 @@ export default function PhoneCheckImportModal({
       const failureCount = failureMap.size;
 
       if (failureCount > 0) {
-        // Keep modal open, show warning
         setRows(updatedRows);
         addNotification({
           message: `Imported ${successCount} product(s), ${failureCount} failed. Please review errors below.`,
@@ -304,7 +418,6 @@ export default function PhoneCheckImportModal({
           duration: 8000,
         });
       } else {
-        // All succeeded
         addNotification({
           message: `Successfully imported ${successCount} product(s).`,
           type: "success",
@@ -326,7 +439,7 @@ export default function PhoneCheckImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-800">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-full max-h-[95vh] flex flex-col border border-gray-200 dark:border-gray-800">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -343,24 +456,58 @@ export default function PhoneCheckImportModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Category selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category for imported products
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
-              disabled={isProcessing}
-            >
-              <option value="">Select a category...</option>
-              {categories.map((cat) => (
-                <option key={cat.slug} value={cat.slug}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+          {/* Global category + actions row */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Global Category (applies to rows without per‑row selection)
+              </label>
+              <select
+                value={globalCategory}
+                onChange={(e) => setGlobalCategory(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700"
+                disabled={isProcessing}
+              >
+                <option value="">Select a category...</option>
+                {flatCategories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={selectAllValid}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium border rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                disabled={isProcessing || rows.length === 0}
+              >
+                <CheckSquare className="w-4 h-4" />
+                Select All Valid
+              </button>
+              {/* Bulk category apply */}
+              <div className="flex gap-2">
+                <select
+                  id="bulk-category"
+                  className="px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-sm"
+                  disabled={
+                    isProcessing || rows.filter((r) => r.selected).length === 0
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) applyCategoryToSelected(val);
+                    e.target.value = ""; // reset
+                  }}
+                >
+                  <option value="">Apply category to selected</option>
+                  {flatCategories.map((cat) => (
+                    <option key={cat.slug} value={cat.slug}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* File drop zone */}
@@ -407,6 +554,7 @@ export default function PhoneCheckImportModal({
                     <th className="p-2 text-left">LPN</th>
                     <th className="p-2 text-left min-w-[120px]">Title</th>
                     <th className="p-2 text-left min-w-[120px]">SKU</th>
+                    <th className="p-2 text-left">Category</th>
                     <th className="p-2 text-center">Select</th>
                     <th className="p-2 text-left min-w-[150px]">Status</th>
                   </tr>
@@ -422,26 +570,100 @@ export default function PhoneCheckImportModal({
                       }
                     >
                       <td className="p-2">{row.id.split("-")[1]}</td>
-                      <td className="p-2">{row.make}</td>
-                      <td className="p-2">{row.model}</td>
-                      <td className="p-2">{row.memory}</td>
-                      <td className="p-2">{row.color}</td>
-                      <td className="p-2">{row.grade}</td>
-                      <td className="p-2">{row.batteryHealth}</td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.make}
+                          onChange={(e) =>
+                            updateRowField(row.id, "make", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.model}
+                          onChange={(e) =>
+                            updateRowField(row.id, "model", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.memory}
+                          onChange={(e) =>
+                            updateRowField(row.id, "memory", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.color}
+                          onChange={(e) =>
+                            updateRowField(row.id, "color", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.grade}
+                          onChange={(e) =>
+                            updateRowField(row.id, "grade", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.batteryHealth}
+                          onChange={(e) =>
+                            updateRowField(
+                              row.id,
+                              "batteryHealth",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
                       <td className="p-2">{row.working}</td>
-                      <td className="p-2">{row.lpn}</td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.lpn}
+                          onChange={(e) =>
+                            updateRowField(row.id, "lpn", e.target.value)
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        />
+                      </td>
                       <td className="p-2">
                         <input
                           type="text"
                           value={row.generatedTitle}
                           onChange={(e) =>
-                            updateField(
+                            updateRowField(
                               row.id,
                               "generatedTitle",
                               e.target.value,
                             )
                           }
-                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600"
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
                           disabled={isProcessing}
                         />
                       </td>
@@ -450,18 +672,45 @@ export default function PhoneCheckImportModal({
                           type="text"
                           value={row.generatedSku}
                           onChange={(e) =>
-                            updateField(row.id, "generatedSku", e.target.value)
+                            updateRowField(
+                              row.id,
+                              "generatedSku",
+                              e.target.value,
+                            )
                           }
                           className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 font-mono text-xs"
                           disabled={isProcessing}
                         />
+                      </td>
+                      <td className="p-2">
+                        <select
+                          value={row.category || ""}
+                          onChange={(e) =>
+                            updateRowField(
+                              row.id,
+                              "category",
+                              e.target.value || undefined,
+                            )
+                          }
+                          className="w-full px-1 py-0.5 border rounded dark:bg-gray-800 dark:border-gray-600 text-sm"
+                          disabled={isProcessing}
+                        >
+                          <option value="">(global)</option>
+                          {flatCategories.map((cat) => (
+                            <option key={cat.slug} value={cat.slug}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="p-2 text-center">
                         <input
                           type="checkbox"
                           checked={row.selected}
                           onChange={() => toggleRow(row.id)}
-                          disabled={!!row.error || isProcessing}
+                          disabled={
+                            !!row.error || !!row.importError || isProcessing
+                          }
                           className="accent-blue-600"
                         />
                       </td>
@@ -504,7 +753,6 @@ export default function PhoneCheckImportModal({
               onClick={handleImport}
               disabled={
                 isProcessing ||
-                !selectedCategory ||
                 rows.filter((r) => r.selected && !r.error && !r.importError)
                   .length === 0
               }
