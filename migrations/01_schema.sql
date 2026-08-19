@@ -209,6 +209,18 @@ CREATE TABLE IF NOT EXISTS note_templates (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE TABLE IF NOT EXISTS usage_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task TEXT,
+  model TEXT,
+  prompt_tokens INTEGER,
+  completion_tokens INTEGER,
+  total_tokens INTEGER,
+  request_timestamp INTEGER,
+  rate_limit_remaining INTEGER,
+  rate_limit_reset INTEGER
+);
+
 -- =====================================================
 -- Indexes for joins
 -- =====================================================

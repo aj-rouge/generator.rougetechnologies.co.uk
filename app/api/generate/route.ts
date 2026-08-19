@@ -1,6 +1,7 @@
+// app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getGroqClient } from "../../utils/groq/groq-client"; // <-- changed import
+import { getGroqClient } from "../../utils/groq/groq-client";
 import { executeQuery } from "../../utils/d1/execute";
 import {
   compilePrompt,
@@ -9,6 +10,12 @@ import {
 import type { D1Database } from "@cloudflare/workers-types";
 
 export const dynamic = "force-dynamic";
+
+// --- Helper: strip reasoning tokens (safety net) ---
+function stripThinkTags(text: string): string {
+  const stripped = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return stripped || text;
+}
 
 // Type definitions
 export interface GenerateTitleInput {
@@ -78,13 +85,21 @@ const handleTitle = async (payload: GenerateTitleInput, db: D1Database) => {
   const template = await getPromptTemplate("title", db);
   const prompt = compilePrompt(template, data);
 
-  // Use getGroqClient() instead of the top‑level import
   const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    { temperature: 0.3, maxTokens: 60 },
+    {
+      temperature: 0.3,
+      maxTokens: 60,
+      reasoningEffort: "none",
+    },
   );
   if (!result.success) throw new Error(result.error);
-  const title = result.data!.replace(/^["']|["']$/g, "").trim();
+
+  let title = stripThinkTags(result.data!);
+  title = title.replace(/^["']|["']$/g, "").trim();
+
+  await storeUsage(db, "title", result);
+
   return { title };
 };
 
@@ -121,12 +136,46 @@ const handleSku = async (
   const template = await getPromptTemplate("sku", db);
   const prompt = compilePrompt(template, data);
 
+  // First attempt
   const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    { temperature: 0.2, maxTokens: 20, stop: ["\n"] },
+    {
+      temperature: 0.2,
+      maxTokens: 30,
+      reasoningEffort: "none",
+    },
   );
   if (!result.success) throw new Error(result.error);
-  const sku = result.data!.replace(/^["']|["']$/g, "").trim();
+
+  let sku = stripThinkTags(result.data!);
+  sku = sku.replace(/^["']|["']$/g, "").trim();
+
+  // Retry if empty
+  if (!sku) {
+    console.warn("[handleSku] Empty response, retrying with maxTokens: 40");
+    const retryResult = await getGroqClient().chatCompletion<string>(
+      [{ role: "user", content: prompt }],
+      {
+        temperature: 0.2,
+        maxTokens: 40,
+        reasoningEffort: "none",
+      },
+    );
+    if (!retryResult.success) throw new Error(retryResult.error);
+    sku = stripThinkTags(retryResult.data!);
+    sku = sku.replace(/^["']|["']$/g, "").trim();
+  }
+
+  if (!sku) {
+    throw new Error(
+      "Generated SKU is empty – please check the prompt or model response.",
+    );
+  }
+
+  await storeUsage(db, "sku", result); // or retryResult if retry happened
+
+  console.log(`[handleSku] Clean SKU: "${sku}"`);
+
   return { sku };
 };
 
@@ -158,17 +207,27 @@ const handleParagraphs = async (
 
   const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    { temperature: 0.5, maxTokens: 800 },
+    {
+      temperature: 0.5,
+      maxTokens: 800,
+      reasoningEffort: "none",
+    },
   );
   if (!result.success) throw new Error(result.error);
-  let paragraphs = result
-    .data!.split(/\n\s*\n/)
+
+  let raw = stripThinkTags(result.data!);
+  let paragraphs = raw
+    .split(/\n\s*\n/)
     .map((p: string) => p.trim())
     .filter((p: string) => p.length > 0)
     .slice(0, 5);
+
   if (paragraphs.some((p: string) => p.length < 100)) {
     throw new Error("Generated paragraphs are too short – try regenerating.");
   }
+
+  await storeUsage(db, "paragraphs", result);
+
   return { paragraphs };
 };
 
@@ -196,10 +255,16 @@ const handleFeatures = async (
 
   const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    { temperature: 0.4, maxTokens: 800 },
+    {
+      temperature: 0.4,
+      maxTokens: 800,
+      reasoningEffort: "none",
+    },
   );
   if (!result.success) throw new Error(result.error);
-  const lines = result.data!.split("\n").filter((l: string) => l.trim());
+
+  const raw = stripThinkTags(result.data!);
+  const lines = raw.split("\n").filter((l: string) => l.trim());
   const features = lines
     .map((line: string) => {
       const colonIndex = line.indexOf(":");
@@ -213,6 +278,9 @@ const handleFeatures = async (
     .filter(Boolean);
   if (features.length < 3)
     throw new Error("Generated fewer than 3 valid features");
+
+  await storeUsage(db, "features", result);
+
   return { features: features.slice(0, 8) };
 };
 
@@ -240,13 +308,45 @@ const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
 
   const result = await getGroqClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    { temperature: 0.3, maxTokens: 150 },
+    {
+      temperature: 0.3,
+      maxTokens: 150,
+      reasoningEffort: "none",
+    },
   );
   if (!result.success) throw new Error(result.error);
-  let note = result.data!.trim();
+
+  let note = stripThinkTags(result.data!);
+  note = note.trim();
   if (!note || note.length < 3) note = null;
+
+  await storeUsage(db, "note", result);
+
   return { note };
 };
+
+// ---------- Helper to store usage ----------
+async function storeUsage(db: D1Database, task: string, result: any) {
+  if (!result.usage) return;
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  await executeQuery(
+    `INSERT INTO usage_logs 
+     (task, model, prompt_tokens, completion_tokens, total_tokens,
+      request_timestamp, rate_limit_remaining, rate_limit_reset)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      task,
+      model,
+      result.usage.prompt_tokens || 0,
+      result.usage.completion_tokens || 0,
+      result.usage.total_tokens || 0,
+      Date.now(),
+      result.rateLimit?.remaining || 0,
+      result.rateLimit?.reset || 0,
+    ],
+    db,
+  );
+}
 
 // ---------- Task Registry ----------
 const taskHandlers: Record<string, TaskHandler> = {

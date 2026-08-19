@@ -7,12 +7,31 @@ interface GroqOptions {
   retries?: number;
   retryDelay?: number;
   stop?: string | string[];
+  reasoningEffort?: "none" | "low" | "medium" | "high";
 }
 
-interface GroqResponse<T> {
+export interface GroqUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  queue_time?: number;
+  prompt_time?: number;
+  completion_time?: number;
+  total_time?: number;
+}
+
+export interface GroqRateLimit {
+  limit: number;
+  remaining: number;
+  reset: number;
+}
+
+export interface GroqResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+  usage?: GroqUsage;
+  rateLimit?: GroqRateLimit;
 }
 
 interface GroqChatCompletionResponse {
@@ -21,6 +40,7 @@ interface GroqChatCompletionResponse {
       content?: string;
     };
   }>;
+  usage?: GroqUsage;
 }
 
 export class GroqClient {
@@ -28,11 +48,10 @@ export class GroqClient {
   private baseURL: string;
   private defaultModel: string;
 
-  // Constructor now takes the API key explicitly
   constructor(apiKey: string) {
     this.apiKey = apiKey;
     this.baseURL = "https://api.groq.com/openai/v1";
-    this.defaultModel = "llama-3.3-70b-versatile";
+    this.defaultModel = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
   }
 
   async chatCompletion<T = string>(
@@ -46,6 +65,7 @@ export class GroqClient {
       retries = 2,
       retryDelay = 1000,
       stop,
+      reasoningEffort,
     } = options || {};
 
     const promptContent = messages.map((m) => m.content).join("\n");
@@ -59,6 +79,7 @@ export class GroqClient {
       temperature,
       maxTokens,
       stop,
+      reasoningEffort,
       messagesCount: messages.length,
       promptPreview,
     });
@@ -76,8 +97,12 @@ export class GroqClient {
           temperature,
           max_tokens: maxTokens,
         };
-        if (stop) {
-          requestBody.stop = stop;
+        if (stop) requestBody.stop = stop;
+
+        // Only send reasoning_effort if the model is Qwen (supports "none")
+        const isQwen = model.startsWith("qwen/");
+        if (reasoningEffort && isQwen) {
+          requestBody.reasoning_effort = reasoningEffort;
         }
 
         const response = await fetch(`${this.baseURL}/chat/completions`, {
@@ -144,7 +169,25 @@ export class GroqClient {
           parsed = content as unknown as T;
         }
 
-        return { success: true, data: parsed };
+        const usage = data.usage;
+        const rateLimit = {
+          limit: parseInt(
+            response.headers.get("x-ratelimit-limit-requests") || "0",
+          ),
+          remaining: parseInt(
+            response.headers.get("x-ratelimit-remaining-requests") || "0",
+          ),
+          reset: parseInt(
+            response.headers.get("x-ratelimit-reset-requests") || "0",
+          ),
+        };
+
+        return {
+          success: true,
+          data: parsed,
+          usage,
+          rateLimit,
+        };
       } catch (err) {
         lastError = err as Error;
         console.error(
@@ -168,7 +211,7 @@ export class GroqClient {
   }
 }
 
-// ---------- Lazy singleton factory ----------
+// ---------- Lazy singleton ----------
 let clientInstance: GroqClient | null = null;
 
 export function getGroqClient(): GroqClient {
