@@ -1,6 +1,6 @@
 // app/components/SaveButton.jsx
 import { useState } from "react";
-import { Save, Loader2 } from "lucide-react";
+import { Save, FileText, Loader2 } from "lucide-react";
 import SaveConfirmationModal from "./SaveConfirmationModal";
 
 export default function SaveButton({
@@ -45,7 +45,6 @@ export default function SaveButton({
     setSaveStatus(null);
   };
 
-  // Determine button label and styling
   const isCreate = mode === "create";
   const buttonLabel = isComplete
     ? isCreate
@@ -53,9 +52,13 @@ export default function SaveButton({
       : "Save Changes"
     : "Save as Draft";
 
+  // Different icons for draft vs complete
+  const ButtonIcon = isComplete ? Save : FileText;
+
+  // Distinct styles
   const buttonStyle = isComplete
     ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-    : "bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-600";
+    : "bg-amber-600 hover:bg-amber-700 text-white shadow-md"; // amber for draft
 
   return (
     <>
@@ -78,7 +81,7 @@ export default function SaveButton({
           {isSaving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Save className="w-4 h-4" />
+            <ButtonIcon className="w-4 h-4" />
           )}
           <span>{isSaving ? "Saving..." : buttonLabel}</span>
         </button>

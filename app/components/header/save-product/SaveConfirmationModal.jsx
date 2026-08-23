@@ -1,5 +1,12 @@
 // app/components/SaveConfirmationModal.jsx
-import { Save, Loader2, AlertTriangle, X, CheckCircle } from "lucide-react";
+import {
+  Save,
+  FileText,
+  Loader2,
+  AlertTriangle,
+  X,
+  CheckCircle,
+} from "lucide-react";
 
 export default function SaveConfirmationModal({
   isOpen,
@@ -31,13 +38,19 @@ export default function SaveConfirmationModal({
   const getIcon = () => {
     if (saveStatus === "success") return <CheckCircle className="w-6 h-6" />;
     if (saveStatus === "error") return <AlertTriangle className="w-6 h-6" />;
-    return <Save className="w-6 h-6" />;
+    return isComplete ? (
+      <Save className="w-6 h-6" />
+    ) : (
+      <FileText className="w-6 h-6" />
+    );
   };
 
   const getIconColor = () => {
     if (saveStatus === "success") return "text-green-600 dark:text-green-500";
     if (saveStatus === "error") return "text-red-600 dark:text-red-500";
-    return "text-blue-600 dark:text-blue-500";
+    return isComplete
+      ? "text-blue-600 dark:text-blue-500"
+      : "text-amber-600 dark:text-amber-500";
   };
 
   const getMessage = () => {
@@ -58,7 +71,7 @@ export default function SaveConfirmationModal({
           </p>
         )}
         {!isComplete && (
-          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+          <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
             Some required fields are missing. This will be saved as a draft.
           </p>
         )}
@@ -71,6 +84,11 @@ export default function SaveConfirmationModal({
       ? "Create Product"
       : "Save Changes"
     : "Save as Draft";
+
+  // Confirm button style matches the main button
+  const confirmButtonStyle = isComplete
+    ? "bg-blue-600 hover:bg-blue-700 text-white"
+    : "bg-amber-700 hover:bg-amber-900 text-white";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -120,7 +138,7 @@ export default function SaveConfirmationModal({
           <div className="flex items-center justify-end gap-3 p-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 rounded-b-xl">
             <button
               onClick={onConfirmSave}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+              className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${confirmButtonStyle}`}
             >
               <Save className="w-4 h-4" />
               {confirmLabel}
