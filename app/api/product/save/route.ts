@@ -8,7 +8,7 @@ import {
   moveExistingToTemp,
   processImages,
 } from "../../../utils/images/productImageService";
-import { executeBatch } from "../../../utils/d1/execute";
+import { executeBatch, executeQuery } from "../../../utils/d1/execute";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
 
@@ -103,10 +103,54 @@ interface D1BatchStatement {
   params: any[];
 }
 
+// ----------------------------------------------------------------------
+// Helpers for batched inserts with chunking
+// ----------------------------------------------------------------------
+
+/** Chunk an array into smaller arrays of a given max size. */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 /**
- * Packs all mutations into a single atomic native D1 transaction block.
- * Now requires a `db` instance.
+ * Build a list of batched INSERT statements for a given table and rows.
+ * Each statement stays under the SQLite variable limit (~999) by chunking.
  */
+function buildBatchedInsert(
+  tableName: string,
+  columns: string[],
+  rows: any[][], // each inner array is a row of values
+  maxRowsPerStatement: number = 100, // safety margin
+): D1BatchStatement[] {
+  if (rows.length === 0) return [];
+
+  const placeholdersPerRow = columns.length;
+  // SQLite's max variables is 999; keep total params <= 500 to be safe.
+  const maxAllowedRows = Math.floor(500 / placeholdersPerRow);
+  const effectiveChunkSize = Math.min(maxRowsPerStatement, maxAllowedRows, 1);
+
+  const statements: D1BatchStatement[] = [];
+  const chunks = chunkArray(rows, effectiveChunkSize);
+
+  for (const chunk of chunks) {
+    const placeholders = chunk
+      .map(() => `(${columns.map(() => "?").join(", ")})`)
+      .join(", ");
+    const sql = `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES ${placeholders}`;
+    const params = chunk.flat();
+    statements.push({ sql, params });
+  }
+
+  return statements;
+}
+
+// ----------------------------------------------------------------------
+// Updated upsert function with batched inserts and final count update
+// ----------------------------------------------------------------------
 async function upsertProductData(
   productId: string,
   data: ProductData,
@@ -171,86 +215,131 @@ async function upsertProductData(
     ],
   });
 
-  // 2. Paragraphs
+  // 2. Delete all child records (single statements per table)
   queue.push({
     sql: "DELETE FROM product_paragraphs WHERE product_id = ?",
     params: [productId],
   });
-  if (data.paragraphs?.length) {
-    data.paragraphs.forEach((content, index) => {
-      queue.push({
-        sql: "INSERT INTO product_paragraphs (product_id, paragraph_order, content, created_at) VALUES (?, ?, ?, ?)",
-        params: [productId, index + 1, content, now],
-      });
-    });
-  }
-
-  // 3. Features
   queue.push({
     sql: "DELETE FROM product_features WHERE product_id = ?",
     params: [productId],
   });
-  if (data.features?.length) {
-    data.features.forEach((feature, index) => {
-      queue.push({
-        sql: "INSERT INTO product_features (product_id, feature_order, title, description, created_at) VALUES (?, ?, ?, ?, ?)",
-        params: [productId, index + 1, feature.title, feature.description, now],
-      });
-    });
-  }
-
-  // 4. Specifications
   queue.push({
     sql: "DELETE FROM product_specifications WHERE product_id = ?",
     params: [productId],
   });
-  if (data.specifications?.length) {
-    data.specifications.forEach((spec, index) => {
-      queue.push({
-        sql: "INSERT INTO product_specifications (product_id, spec_order, key, value, created_at) VALUES (?, ?, ?, ?, ?)",
-        params: [productId, index + 1, spec.key, spec.value, now],
-      });
-    });
-  }
-
-  // 5. Images
   queue.push({
     sql: "DELETE FROM product_images WHERE product_id = ?",
     params: [productId],
   });
-  if (finalizedImages.length) {
-    finalizedImages.forEach((img, index) => {
-      queue.push({
-        sql: "INSERT INTO product_images (product_id, image_order, url, s3_path, alt_text, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        params: [
-          productId,
-          index + 1,
-          img.s3_path,
-          img.s3_path,
-          img.alt_text,
-          now,
-        ],
-      });
-    });
-  }
-
-  // 6. Feedbacks
   queue.push({
     sql: "DELETE FROM product_feedbacks WHERE product_id = ?",
     params: [productId],
   });
-  if (data.feedbacks?.length) {
-    data.feedbacks.forEach((fb, index) => {
-      queue.push({
-        sql: "INSERT INTO product_feedbacks (product_id, name, content, count, created_at) VALUES (?, ?, ?, ?, ?)",
-        params: [productId, fb.name, fb.content, fb.count || 0, now],
-      });
-    });
+
+  // 3. Batched inserts for paragraphs
+  if (data.paragraphs?.length) {
+    const rows = data.paragraphs.map((content, index) => [
+      productId,
+      index + 1,
+      content,
+      now,
+    ]);
+    const stmts = buildBatchedInsert(
+      "product_paragraphs",
+      ["product_id", "paragraph_order", "content", "created_at"],
+      rows,
+    );
+    queue.push(...stmts);
   }
 
-  // Execute batch – pass db
+  // 4. Batched inserts for features
+  if (data.features?.length) {
+    const rows = data.features.map((feature, index) => [
+      productId,
+      index + 1,
+      feature.title,
+      feature.description,
+      now,
+    ]);
+    const stmts = buildBatchedInsert(
+      "product_features",
+      ["product_id", "feature_order", "title", "description", "created_at"],
+      rows,
+    );
+    queue.push(...stmts);
+  }
+
+  // 5. Batched inserts for specifications
+  if (data.specifications?.length) {
+    const rows = data.specifications.map((spec, index) => [
+      productId,
+      index + 1,
+      spec.key,
+      spec.value,
+      now,
+    ]);
+    const stmts = buildBatchedInsert(
+      "product_specifications",
+      ["product_id", "spec_order", "key", "value", "created_at"],
+      rows,
+    );
+    queue.push(...stmts);
+  }
+
+  // 6. Batched inserts for images
+  if (finalizedImages.length) {
+    const rows = finalizedImages.map((img, index) => [
+      productId,
+      index + 1,
+      img.s3_path, // url column
+      img.s3_path, // s3_path column (same value)
+      img.alt_text,
+      now,
+    ]);
+    const stmts = buildBatchedInsert(
+      "product_images",
+      ["product_id", "image_order", "url", "s3_path", "alt_text", "created_at"],
+      rows,
+    );
+    queue.push(...stmts);
+  }
+
+  // 7. Batched inserts for feedbacks
+  if (data.feedbacks?.length) {
+    const rows = data.feedbacks.map((fb) => [
+      productId,
+      fb.name,
+      fb.content,
+      fb.count || 0,
+      now,
+    ]);
+    const stmts = buildBatchedInsert(
+      "product_feedbacks",
+      ["product_id", "name", "content", "count", "created_at"],
+      rows,
+    );
+    queue.push(...stmts);
+  }
+
+  // 8. Recompute all counts in one single UPDATE (replaces triggers)
+  queue.push({
+    sql: `
+      UPDATE products SET
+        image_count = (SELECT COUNT(*) FROM product_images WHERE product_id = ?),
+        specs_count = (SELECT COUNT(*) FROM product_specifications WHERE product_id = ?),
+        paragraphs_count = (SELECT COUNT(*) FROM product_paragraphs WHERE product_id = ?),
+        features_count = (SELECT COUNT(*) FROM product_features WHERE product_id = ?),
+        feedbacks_count = (SELECT COUNT(*) FROM product_feedbacks WHERE product_id = ?)
+      WHERE id = ?
+    `,
+    params: [productId, productId, productId, productId, productId, productId],
+  });
+
+  // Execute the whole batch atomically
   await executeBatch(queue, db);
 }
+
 // ----------------------------------------------------------------------
 // Helper: Partial update – only baselinker_id via SKU
 // ----------------------------------------------------------------------
@@ -280,7 +369,6 @@ async function updateBaselinkerId(
 // API Route Handlers
 // ----------------------------------------------------------------------
 export async function POST(req: Request) {
-  // 1. Fetch the D1 binding at the start
   const { env } = await getCloudflareContext({ async: true });
   const db = (env as any).DB;
   const bucket = (env as any).UPLOADS_BUCKET;
@@ -289,6 +377,7 @@ export async function POST(req: Request) {
   try {
     const newData = (await req.json()) as any;
 
+    // Partial update (baselinker_id only)
     if (newData.partial === true && newData.sku) {
       const { sku, baselinker_id } = newData;
       if (baselinker_id === undefined) {
@@ -297,7 +386,6 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      // Pass db to updateBaselinkerId
       await updateBaselinkerId(sku, baselinker_id, db);
       return NextResponse.json({
         success: true,
@@ -305,6 +393,7 @@ export async function POST(req: Request) {
       });
     }
 
+    // Sanitize inputs
     function sanitizeString(value: any): any {
       if (value === null || value === undefined) return null;
       if (typeof value !== "string") return value;
@@ -339,8 +428,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Pass db to getProductById
-    // Check if we have an ID to look up
+    // Get existing product and determine ID
     let existing = null;
     let productId: string;
     if (
@@ -357,10 +445,10 @@ export async function POST(req: Request) {
       productId = uuidv4();
     }
 
+    // Handle image migration
     if (existing?.images) {
       await moveExistingToTemp(productSlug, existing.images, bucket);
     }
-
     const finalizedImages = await processImages(
       newData.images || [],
       newData.category,
@@ -370,17 +458,25 @@ export async function POST(req: Request) {
       images,
     );
 
-    // 3. Pass db to upsertProductData
-    const existingCreatedAt = existing?.created_at;
+    // --- BEGIN CRITICAL OPTIMIZATION ---
+    // Disable foreign key checks for this connection to avoid per‑row FK reads
+    await executeQuery("PRAGMA foreign_keys = OFF", [], db);
 
-    await upsertProductData(
-      productId,
-      { ...newData, slug: productSlug } as ProductData,
-      finalizedImages,
-      !!existing,
-      db,
-      existingCreatedAt,
-    );
+    try {
+      const existingCreatedAt = existing?.created_at;
+      await upsertProductData(
+        productId,
+        { ...newData, slug: productSlug } as ProductData,
+        finalizedImages,
+        !!existing,
+        db,
+        existingCreatedAt,
+      );
+    } finally {
+      // Re‑enable foreign key checks
+      await executeQuery("PRAGMA foreign_keys = ON", [], db);
+    }
+    // --- END OPTIMIZATION ---
 
     const updatedImages = finalizedImages.map((img) => ({
       url: img.url,
@@ -391,6 +487,7 @@ export async function POST(req: Request) {
       uploadStatus: "completed",
     }));
 
+    // Clean up unused R2 objects
     await cleanupImagesFromR2(
       newData.category,
       productSlug,
@@ -414,9 +511,8 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  // 1. Fetch the D1 binding at the start
   const { env } = await getCloudflareContext({ async: true });
-  const db = (env as any).DB as D1Database;
+  const db = (env as any).DB;
 
   try {
     const body = (await req.json()) as {
@@ -432,7 +528,6 @@ export async function PATCH(req: Request) {
       );
     }
 
-    // Pass db to updateBaselinkerId
     await updateBaselinkerId(sku, baselinker_id, db);
     return NextResponse.json({
       success: true,

@@ -110,6 +110,7 @@ export const executeQuery = async (
       return results;
     }
 
+    // Mutation (INSERT, UPDATE, DELETE, PRAGMA)
     if (isDev()) {
       console.log("[executeQuery] Executing mutation via stmt.run()...");
     }
@@ -119,6 +120,12 @@ export const executeQuery = async (
       console.log(
         `[executeQuery] Mutation succeeded, changes: ${meta?.changes || 0}`,
       );
+      // --- ADD PERFORMANCE LOGGING ---
+      console.log(`[executeQuery] 📊 Statement stats:
+        - rows_read: ${meta?.rows_read || 0}
+        - rows_written: ${meta?.rows_written || 0}
+        - duration: ${meta?.duration || 0}ms
+      `);
     }
     return {
       success: response.success,
@@ -169,6 +176,28 @@ export const executeBatch = async (
 
     if (isDev()) {
       console.log(`[executeBatch] Batch executed, ${results.length} results`);
+
+      // --- AGGREGATE PERFORMANCE STATS FOR THE ENTIRE BATCH ---
+      let totalRowsRead = 0;
+      let totalRowsWritten = 0;
+      let totalDuration = 0;
+      for (const result of results) {
+        if (result.meta) {
+          totalRowsRead += result.meta.rows_read || 0;
+          totalRowsWritten += result.meta.rows_written || 0;
+          totalDuration += result.meta.duration || 0;
+        }
+      }
+      console.log(`[executeBatch] 📊 BATCH STATS:
+        - total rows_read: ${totalRowsRead}
+        - total rows_written: ${totalRowsWritten}
+        - total duration: ${totalDuration}ms
+      `);
+      results.forEach((r, i) => {
+        console.log(
+          `  Stmt ${i + 1}: rows_read=${r.meta?.rows_read || 0}, rows_written=${r.meta?.rows_written || 0}`,
+        );
+      });
     }
     return results;
   } catch (error) {

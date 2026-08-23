@@ -70,8 +70,8 @@ export class GroqClient {
 
     const promptContent = messages.map((m) => m.content).join("\n");
     const promptPreview =
-      promptContent.length > 200
-        ? promptContent.slice(0, 200) + "..."
+      promptContent.length > 10000
+        ? promptContent.slice(0, 10000) + "..."
         : promptContent;
 
     console.log("[GroqClient] Request:", {
@@ -149,7 +149,7 @@ export class GroqClient {
         }
 
         const responsePreview =
-          content.length > 200 ? content.slice(0, 200) + "..." : content;
+          content.length > 10000 ? content.slice(0, 10000) + "..." : content;
         console.log("[GroqClient] Success:", {
           responseLength: content.length,
           preview: responsePreview,
