@@ -9,6 +9,7 @@ export default function SaveConfirmationModal({
   errorMessage,
   onConfirmSave,
   mode,
+  isComplete,
 }) {
   if (!isOpen) return null;
 
@@ -20,7 +21,11 @@ export default function SaveConfirmationModal({
   const getTitle = () => {
     if (saveStatus === "success") return "Saved!";
     if (saveStatus === "error") return "Save Failed";
-    return mode === "create" ? "Save Product" : "Save Changes";
+    return isComplete
+      ? mode === "create"
+        ? "Save Product"
+        : "Save Changes"
+      : "Save as Draft";
   };
 
   const getIcon = () => {
@@ -42,18 +47,30 @@ export default function SaveConfirmationModal({
     if (saveStatus === "error") {
       return errorMessage || "An error occurred while saving.";
     }
+    const action = isComplete ? "save" : "save as draft";
     return (
       <>
-        Are you sure you want to save{" "}
+        Are you sure you want to {action}{" "}
         <span className="font-bold">&quot;{productTitle}&quot;</span>?
         {mode === "create" && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             This will create a new product in the database.
           </p>
         )}
+        {!isComplete && (
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+            Some required fields are missing. This will be saved as a draft.
+          </p>
+        )}
       </>
     );
   };
+
+  const confirmLabel = isComplete
+    ? mode === "create"
+      ? "Create Product"
+      : "Save Changes"
+    : "Save as Draft";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -106,7 +123,7 @@ export default function SaveConfirmationModal({
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
-              {mode === "create" ? "Create Product" : "Save Changes"}
+              {confirmLabel}
             </button>
             <button
               onClick={handleClose}

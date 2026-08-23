@@ -26,7 +26,7 @@ const parseProductJson = (product: any) => {
     features: ensureArray(parse(product.features)),
     images: ensureArray(parse(product.images)),
     feedbacks: ensureArray(parse(product.feedbacks)),
-    specifications: ensureArray(parse(product.specifications)), // <-- ADDED
+    specifications: ensureArray(parse(product.specifications)),
     category_keywords: ensureArray(parse(product.category_keywords_json)),
     condition_options: ensureArray(parse(product.condition_options)),
   };
@@ -86,9 +86,18 @@ export const getRecentProducts = async (options: {
     params.push(category);
   }
   if (draft) {
-    conditions.push(
-      `(image_count = 0 OR features_count = 0 OR paragraphs_count = 0)`,
-    );
+    conditions.push(`
+      (
+        vat_rate IS NULL OR vat_rate < 0 OR vat_rate > 30
+        OR price_brutto IS NULL OR price_brutto <= 0
+        OR rrp IS NULL OR rrp <= 0
+        OR weight IS NULL OR weight <= 0
+        OR quantity IS NULL OR quantity <= 0
+        OR image_count = 0
+        OR features_count = 0
+        OR paragraphs_count = 0
+      )
+    `);
   }
   for (const [field, rule] of Object.entries(identifierRules)) {
     if (rule === "required") {

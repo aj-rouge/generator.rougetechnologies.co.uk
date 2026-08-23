@@ -1,3 +1,4 @@
+// app/components/forms/ProductFormHeader.tsx (wrapper)
 "use client";
 
 import { useState, useEffect } from "react";
@@ -23,7 +24,6 @@ interface ProductFormHeaderProps {
   isFormValid: boolean;
   shouldShowSave: boolean;
   onSave: () => void;
-  onDraftSave?: () => void;
   selectedCategory?: string;
   hasPendingUploads?: boolean;
   uuid?: string;
@@ -33,6 +33,7 @@ interface ProductFormHeaderProps {
   onUniversalImport?: (data: any) => void;
   condition?: string;
   categoryKeywords?: string[];
+  isComplete: boolean;
 }
 
 export default function ProductFormHeader(props: ProductFormHeaderProps) {

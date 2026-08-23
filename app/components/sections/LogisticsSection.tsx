@@ -134,10 +134,18 @@ export default function LogisticsSection({
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <option value="">-- Select a shipping method --</option>
-              <option value="RM Tracked 48 (Letters)">RM Tracked 48 (Letters)</option>
-              <option value="RM Tracked 48 (Parcels)">RM Tracked 48 (Parcels)</option>
-              <option value="RM Tracked 24 (Letters)">RM Tracked 24 (Letters)</option>
-              <option value="RM Tracked 24 (Parcels)">RM Tracked 24 (Parcels)</option>
+              <option value="RM Tracked 48 (Letters)">
+                RM Tracked 48 (Letters)
+              </option>
+              <option value="RM Tracked 48 (Parcels)">
+                RM Tracked 48 (Parcels)
+              </option>
+              <option value="RM Tracked 24 (Letters)">
+                RM Tracked 24 (Letters)
+              </option>
+              <option value="RM Tracked 24 (Parcels)">
+                RM Tracked 24 (Parcels)
+              </option>
               <option value="RM Special Delivery">RM Special Delivery</option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

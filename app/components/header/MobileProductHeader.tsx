@@ -1,3 +1,4 @@
+// app/components/header/MobileProductHeader.tsx
 "use client";
 
 import Link from "next/link";
@@ -26,7 +27,6 @@ interface MobileProductHeaderProps {
   isFormValid: boolean;
   shouldShowSave: boolean;
   onSave: () => void;
-  onDraftSave?: () => void;
   selectedCategory?: string;
   hasPendingUploads?: boolean;
   uuid?: string;
@@ -36,6 +36,7 @@ interface MobileProductHeaderProps {
   onUniversalImport?: (data: any) => void;
   condition?: string;
   categoryKeywords?: string[];
+  isComplete: boolean;
 }
 
 export function MobileProductHeader({
@@ -45,7 +46,6 @@ export function MobileProductHeader({
   isFormValid,
   shouldShowSave,
   onSave,
-  onDraftSave,
   selectedCategory,
   hasPendingUploads,
   uuid,
@@ -55,6 +55,7 @@ export function MobileProductHeader({
   onUniversalImport,
   condition,
   categoryKeywords,
+  isComplete,
 }: MobileProductHeaderProps) {
   const isEdit = mode === "edit";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -93,6 +94,7 @@ export function MobileProductHeader({
               shouldShowSave={shouldShowSave}
               mode={mode}
               productTitle={title}
+              isComplete={isComplete}
             />
             <button
               onClick={() => setIsMenuOpen(true)}
@@ -169,16 +171,6 @@ export function MobileProductHeader({
                   condition={condition}
                   categoryKeywords={categoryKeywords}
                 />
-
-                {onDraftSave && (
-                  <button
-                    onClick={onDraftSave}
-                    disabled={isSaving || !isFormValid}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Save as Draft
-                  </button>
-                )}
 
                 {isEdit && (shopifyId || baselinkerId) && (
                   <div className="space-y-2">

@@ -1,3 +1,4 @@
+// app/components/header/DesktopProductHeader.tsx
 "use client";
 
 import Link from "next/link";
@@ -17,7 +18,6 @@ interface DesktopProductHeaderProps {
   isFormValid: boolean;
   shouldShowSave: boolean;
   onSave: () => void;
-  onDraftSave?: () => void;
   selectedCategory?: string;
   hasPendingUploads?: boolean;
   uuid?: string;
@@ -27,6 +27,7 @@ interface DesktopProductHeaderProps {
   onUniversalImport?: (data: any) => void;
   condition?: string;
   categoryKeywords?: string[];
+  isComplete: boolean; // new
 }
 
 export function DesktopProductHeader({
@@ -36,7 +37,6 @@ export function DesktopProductHeader({
   isFormValid,
   shouldShowSave,
   onSave,
-  onDraftSave,
   selectedCategory,
   hasPendingUploads,
   uuid,
@@ -46,6 +46,7 @@ export function DesktopProductHeader({
   onUniversalImport,
   condition,
   categoryKeywords,
+  isComplete,
 }: DesktopProductHeaderProps) {
   const isEdit = mode === "edit";
   const copyValue = title || (isEdit ? "Untitled" : "Create New Product");
@@ -139,15 +140,6 @@ export function DesktopProductHeader({
                 baselinkerId={baselinkerId}
               />
             </div>
-            {onDraftSave && (
-              <button
-                onClick={onDraftSave}
-                disabled={isSaving || !isFormValid}
-                className="px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-all bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save as Draft
-              </button>
-            )}
             <SaveButton
               onSave={onSave}
               isSaving={isSaving}
@@ -155,6 +147,7 @@ export function DesktopProductHeader({
               shouldShowSave={shouldShowSave}
               mode={mode}
               productTitle={title}
+              isComplete={isComplete}
             />
           </div>
         </div>
@@ -184,15 +177,6 @@ export function DesktopProductHeader({
                 condition={condition}
                 categoryKeywords={categoryKeywords}
               />
-              {onDraftSave && (
-                <button
-                  onClick={onDraftSave}
-                  disabled={isSaving || !isFormValid}
-                  className="px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 whitespace-nowrap transition-all bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Save as Draft
-                </button>
-              )}
               <SaveButton
                 onSave={onSave}
                 isSaving={isSaving}
@@ -200,6 +184,7 @@ export function DesktopProductHeader({
                 shouldShowSave={shouldShowSave}
                 mode={mode}
                 productTitle={title}
+                isComplete={isComplete}
               />
             </div>
           </div>

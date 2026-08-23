@@ -240,7 +240,7 @@ export default function ProductForm({
 
   const hasChanges = useMemo(() => {
     if (mode !== "edit" || !initialData) return false;
-    const getNormalizedData = (data: any, isInitial = false) => ({
+    const getNormalizedData = (data, isInitial = false) => ({
       title: data?.title || "",
       condition: data?.condition || "",
       paragraphs: data?.paragraphs || [],
@@ -253,11 +253,19 @@ export default function ProductForm({
       selectedCategory: isInitial
         ? data?.category || ""
         : data?.selectedCategory || "",
-      images: (data?.images || []).map((img: any) => ({
+      images: (data?.images || []).map((img) => ({
         url: img.url,
         s3Path: img.s3Path,
         altText: img.altText,
       })),
+      vat_rate: data?.vat_rate ?? "",
+      price_brutto: data?.price_brutto ?? "",
+      rrp: data?.rrp ?? "",
+      weight: data?.weight ?? "",
+      quantity: data?.quantity ?? "",
+      shipping_method: data?.shipping_method || "",
+      sku: data?.sku || "",
+      specifications: data?.specifications || [],
     });
     const current = getNormalizedData(formData);
     const original = getNormalizedData(initialData, true);
@@ -290,12 +298,97 @@ export default function ProductForm({
   };
 
   // --------------------------------------------------------
-  // Internal save handler with optional draft mode
+  // Compute draft status (for enabling/disabling pricing/logistics)
+  // --------------------------------------------------------
+  const isDraft = useMemo(() => {
+    if (mode !== "edit") return false;
+    const missingNumeric =
+      formData.vat_rate === "" ||
+      formData.vat_rate === null ||
+      formData.price_brutto === "" ||
+      formData.price_brutto === null ||
+      formData.rrp === "" ||
+      formData.rrp === null ||
+      formData.weight === "" ||
+      formData.weight === null ||
+      formData.quantity === "" ||
+      formData.quantity === null;
+    const missingContent =
+      formData.images.length === 0 ||
+      formData.paragraphs.length === 0 ||
+      formData.features.length === 0;
+    return missingNumeric || missingContent;
+  }, [
+    mode,
+    formData.vat_rate,
+    formData.price_brutto,
+    formData.rrp,
+    formData.weight,
+    formData.quantity,
+    formData.images.length,
+    formData.paragraphs.length,
+    formData.features.length,
+  ]);
+
+  // --------------------------------------------------------
+  // Compute completeness for the Save button label and behaviour
+  // --------------------------------------------------------
+  const isComplete = useMemo(() => {
+    if (!isFormValid) return false;
+    const hasContent =
+      formData.images.length > 0 &&
+      formData.features.length > 0 &&
+      formData.paragraphs.length > 0;
+
+    const vat = formData.vat_rate;
+    const price = formData.price_brutto;
+    const rrp = formData.rrp;
+    const weight = formData.weight;
+    const quantity = formData.quantity;
+
+    const hasNumbers =
+      vat !== "" &&
+      vat !== null &&
+      !isNaN(vat) &&
+      vat >= 0 &&
+      vat <= 30 &&
+      price !== "" &&
+      price !== null &&
+      !isNaN(price) &&
+      price > 0 &&
+      rrp !== "" &&
+      rrp !== null &&
+      !isNaN(rrp) &&
+      rrp > 0 &&
+      weight !== "" &&
+      weight !== null &&
+      !isNaN(weight) &&
+      weight > 0 &&
+      quantity !== "" &&
+      quantity !== null &&
+      !isNaN(quantity) &&
+      quantity > 0 &&
+      Number.isInteger(quantity);
+
+    return hasContent && hasNumbers;
+  }, [
+    isFormValid,
+    formData.images.length,
+    formData.features.length,
+    formData.paragraphs.length,
+    formData.vat_rate,
+    formData.price_brutto,
+    formData.rrp,
+    formData.weight,
+    formData.quantity,
+  ]);
+
+  // --------------------------------------------------------
+  // Internal save handler with draft/complete logic
   // --------------------------------------------------------
   const handleInternalSave = async (options?: { draft?: boolean }) => {
     const { draft = false } = options || {};
 
-    // Basic validation: title and category are always required
     if (!isFormValid) {
       addNotification({
         message: "Please set a title and category",
@@ -304,7 +397,7 @@ export default function ProductForm({
       return;
     }
 
-    // Skip all numeric validations when saving as draft
+    // Full validation only when not draft
     if (!draft) {
       const MAX_VAT_RATE = 30;
       const vatRaw = formData.vat_rate;
@@ -374,7 +467,6 @@ export default function ProductForm({
         ...formData,
         slug,
         category: formData.selectedCategory,
-        // For draft, pass null/undefined for price, weight, quantity if not filled
         vat_rate: formData.vat_rate === "" ? null : Number(formData.vat_rate),
         price_brutto:
           formData.price_brutto === "" ? null : Number(formData.price_brutto),
@@ -450,8 +542,13 @@ export default function ProductForm({
     }
   };
 
-  const handleSave = () => handleInternalSave({ draft: false });
-  const handleDraftSave = () => handleInternalSave({ draft: true });
+  // --------------------------------------------------------
+  // Unified save handler – decides draft or complete based on isComplete
+  // --------------------------------------------------------
+  const handleSaveOrDraft = () => {
+    // If complete, save as complete (with validation); otherwise as draft
+    return handleInternalSave({ draft: !isComplete });
+  };
 
   // ------------------------------------------------------------------
   // Universal import handler (unchanged)
@@ -563,8 +660,7 @@ export default function ProductForm({
         isSaving={isSaving}
         isFormValid={isFormValid}
         shouldShowSave={shouldShowSave}
-        onSave={handleSave}
-        onDraftSave={handleDraftSave}
+        onSave={handleSaveOrDraft}
         selectedCategory={formData.selectedCategory}
         hasPendingUploads={formData.images.some((i) => i.needsUpload)}
         uuid={mode === "edit" ? formData.id : undefined}
@@ -574,6 +670,7 @@ export default function ProductForm({
         onUniversalImport={handleUniversalBatchImport}
         condition={formData.condition}
         categoryKeywords={currentCategoryKeywords}
+        isComplete={isComplete}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4">
         <PricingSection
@@ -581,14 +678,14 @@ export default function ProductForm({
           price_brutto={formData.price_brutto}
           rrp={formData.rrp}
           onUpdate={updateForm}
-          disabled={mode === "edit"}
+          disabled={mode === "edit" && !isDraft}
         />
         <LogisticsSection
           weight={formData.weight}
           quantity={formData.quantity}
           shipping_method={formData.shipping_method}
           onUpdate={updateForm}
-          disabled={mode === "edit"}
+          disabled={mode === "edit" && !isDraft}
         />
         <CategorySelector
           selectedCategory={formData.selectedCategory}
