@@ -345,8 +345,77 @@ FROM categories c;
 -- VIEW for categories with children, condition groups, and eBay links
 -- =====================================================
 DROP VIEW IF EXISTS v_category_tree;
+
 CREATE VIEW v_category_tree AS
-SELECT 
+WITH
+-- 1. Product counts per category
+product_counts AS (
+  SELECT category, COUNT(*) AS cnt
+  FROM products
+  GROUP BY category
+),
+
+-- 2. Condition groups with options as JSON array
+condition_groups AS (
+  SELECT
+    c.id,
+    c.group_key,
+    c.group_name,
+    json_group_array(co.option_value ORDER BY co.option_order) AS options
+  FROM conditions c
+  LEFT JOIN condition_options co ON c.id = co.condition_group_id
+  GROUP BY c.id
+),
+
+-- 3. Enriched categories (product_count and condition_group JSON)
+categories_with_details AS (
+  SELECT
+    cat.id,
+    cat.slug,
+    cat.name,
+    cat.parent_category,
+    cat.condition_group_id,
+    cat.ebay_store_link,
+    cat.keywords,
+    cat.created_at,
+    cat.updated_at,
+    COALESCE(pc.cnt, 0) AS product_count,
+    CASE
+      WHEN c.id IS NOT NULL THEN
+        json_object(
+          'group_key', c.group_key,
+          'group_name', c.group_name,
+          'options', json(c.options)   -- 👈 explicit JSON parsing
+        )
+      ELSE NULL
+    END AS condition_group
+  FROM categories cat
+  LEFT JOIN product_counts pc ON cat.slug = pc.category
+  LEFT JOIN condition_groups c ON cat.condition_group_id = c.id
+),
+
+-- 4. Children JSON grouped by parent
+children_aggregated AS (
+  SELECT
+    parent_category,
+    json_group_array(
+      json_object(
+        'slug', slug,
+        'name', name,
+        'condition_group_id', condition_group_id,
+        'ebay_store_link', ebay_store_link,
+        'keywords', keywords,
+        'product_count', product_count,
+        'condition_group', condition_group
+      ) ORDER BY name
+    ) AS children
+  FROM categories_with_details
+  WHERE parent_category IS NOT NULL
+  GROUP BY parent_category
+)
+
+-- 5. Final top‑level categories with children
+SELECT
   cat.id,
   cat.slug,
   cat.name,
@@ -356,46 +425,13 @@ SELECT
   cat.keywords,
   cat.created_at,
   cat.updated_at,
-  (SELECT COUNT(*) FROM products WHERE category = cat.slug) as product_count,
-  json_object(
-    'group_key', c.group_key,
-    'group_name', c.group_name,
-    'options', (
-      SELECT json_group_array(option_value ORDER BY option_order)
-      FROM condition_options 
-      WHERE condition_group_id = c.id
-    )
-  ) as condition_group,
-  (
-    SELECT json_group_array(
-      json_object(
-        'slug', child.slug,
-        'name', child.name,
-        'condition_group_id', child.condition_group_id,
-        'ebay_store_link', child.ebay_store_link,
-        'keywords', child.keywords,
-        'product_count', (SELECT COUNT(*) FROM products WHERE category = child.slug),
-        'condition_group', (
-          SELECT json_object(
-            'group_key', c2.group_key,
-            'group_name', c2.group_name,
-            'options', (
-              SELECT json_group_array(option_value ORDER BY option_order)
-              FROM condition_options 
-              WHERE condition_group_id = c2.id
-            )
-          )
-          FROM conditions c2
-          WHERE c2.id = child.condition_group_id
-        )
-      ) ORDER BY child.name
-    )
-    FROM categories child
-    WHERE child.parent_category = cat.slug
-  ) as children
-FROM categories cat
-LEFT JOIN conditions c ON cat.condition_group_id = c.id
-WHERE cat.parent_category IS NULL;
+  cat.product_count,
+  cat.condition_group,
+  COALESCE(agg.children, '[]') AS children
+FROM categories_with_details cat
+LEFT JOIN children_aggregated agg ON cat.slug = agg.parent_category
+WHERE cat.parent_category IS NULL
+ORDER BY cat.id ASC;
 
 CREATE TRIGGER update_product_image_count_insert AFTER INSERT ON product_images
 BEGIN

@@ -49,6 +49,7 @@ export async function getCategories(options: { db: D1Database }) {
     [],
     db, // <-- pass the db instance
   );
+  console.log("rows_read:", rawCategories.meta?.rows_read);
 
   console.log(
     `[getCategories] Raw categories count: ${rawCategories?.length || 0}`,
