@@ -296,27 +296,40 @@ export default function ProductForm({
       return { ...prev, ...processed };
     });
   };
-
-  // --------------------------------------------------------
-  // Compute draft status (for enabling/disabling pricing/logistics)
-  // --------------------------------------------------------
+  // Helper to safely convert number|"" to number or null if invalid
+  const getNumberOrNull = (value: number | ""): number | null => {
+    if (value === "" || value === null || value === undefined) return null;
+    const num = Number(value);
+    if (isNaN(num)) return null;
+    return num;
+  };
   const isDraft = useMemo(() => {
     if (mode !== "edit") return false;
+
+    const vat = getNumberOrNull(formData.vat_rate);
+    const price = getNumberOrNull(formData.price_brutto);
+    const rrp = getNumberOrNull(formData.rrp);
+    const weight = getNumberOrNull(formData.weight);
+    const quantity = getNumberOrNull(formData.quantity);
+
     const missingNumeric =
-      formData.vat_rate === "" ||
-      formData.vat_rate === null ||
-      formData.price_brutto === "" ||
-      formData.price_brutto === null ||
-      formData.rrp === "" ||
-      formData.rrp === null ||
-      formData.weight === "" ||
-      formData.weight === null ||
-      formData.quantity === "" ||
-      formData.quantity === null;
+      vat === null ||
+      vat < 0 ||
+      vat > 30 ||
+      price === null ||
+      price <= 0 ||
+      rrp === null ||
+      rrp <= 0 ||
+      weight === null ||
+      weight <= 0 ||
+      quantity === null ||
+      quantity <= 0;
+
     const missingContent =
       formData.images.length === 0 ||
       formData.paragraphs.length === 0 ||
       formData.features.length === 0;
+
     return missingNumeric || missingContent;
   }, [
     mode,
@@ -335,42 +348,33 @@ export default function ProductForm({
   // --------------------------------------------------------
   const isComplete = useMemo(() => {
     if (!isFormValid) return false;
+
+    const vat = getNumberOrNull(formData.vat_rate);
+    const price = getNumberOrNull(formData.price_brutto);
+    const rrp = getNumberOrNull(formData.rrp);
+    const weight = getNumberOrNull(formData.weight);
+    const quantity = getNumberOrNull(formData.quantity);
+
     const hasContent =
       formData.images.length > 0 &&
       formData.features.length > 0 &&
       formData.paragraphs.length > 0;
 
-    const vat = formData.vat_rate;
-    const price = formData.price_brutto;
-    const rrp = formData.rrp;
-    const weight = formData.weight;
-    const quantity = formData.quantity;
-
-    const hasNumbers =
-      vat !== "" &&
+    const hasValidNumbers =
       vat !== null &&
-      !isNaN(vat) &&
       vat >= 0 &&
       vat <= 30 &&
-      price !== "" &&
       price !== null &&
-      !isNaN(price) &&
       price > 0 &&
-      rrp !== "" &&
       rrp !== null &&
-      !isNaN(rrp) &&
       rrp > 0 &&
-      weight !== "" &&
       weight !== null &&
-      !isNaN(weight) &&
       weight > 0 &&
-      quantity !== "" &&
       quantity !== null &&
-      !isNaN(quantity) &&
       quantity > 0 &&
       Number.isInteger(quantity);
 
-    return hasContent && hasNumbers;
+    return hasContent && hasValidNumbers;
   }, [
     isFormValid,
     formData.images.length,
