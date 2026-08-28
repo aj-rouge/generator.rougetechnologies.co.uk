@@ -164,9 +164,9 @@ export default function ProductForm({
           url: img.url,
           s3Path: img.s3Path,
           altText: img.altText,
-          isUploaded: !!img.s3Path,
-          needsUpload: false,
-          uploadStatus: "completed" as const,
+          isUploaded: img.isUploaded ?? !!img.s3Path,
+          needsUpload: img.needsUpload ?? false,
+          uploadStatus: img.uploadStatus ?? "completed",
         })),
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {
@@ -197,13 +197,14 @@ export default function ProductForm({
         baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
         shopify_id: sanitizeField(initialData.shopify_id) ?? "",
         sku: sanitizeField(initialData.sku) ?? "",
+        // ✅ inside useEffect
         images: (initialData.images || []).map((img: any) => ({
           url: img.url,
           s3Path: img.s3Path,
           altText: img.altText,
-          isUploaded: !!img.s3Path,
-          needsUpload: false,
-          uploadStatus: "completed" as const,
+          isUploaded: img.isUploaded ?? !!img.s3Path,
+          needsUpload: img.needsUpload ?? false,
+          uploadStatus: img.uploadStatus ?? "completed",
         })),
         ebayLink: initialData.ebayLink || "",
         seoSectionData: initialData.seoSectionData || {

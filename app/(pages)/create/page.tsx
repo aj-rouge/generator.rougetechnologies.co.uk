@@ -1,4 +1,5 @@
 // app/(pages)/create/page.tsx
+
 import { getCategories } from "../../utils/d1/category/getCategories";
 import { getProductById } from "../../utils/d1/product/readProduct";
 import ProductForm from "../../components/ProductForm";
@@ -13,7 +14,6 @@ export default async function CreatePage({
 }) {
   const { env } = await getCloudflareContext({ async: true });
   const db = (env as any).DB;
-
   const { duplicate } = await searchParams;
 
   let initialData = null;
@@ -23,23 +23,30 @@ export default async function CreatePage({
       transformToForm: true,
     });
     if (product) {
-      // Duplicate: clear all unique identifiers
       initialData = {
         ...product,
-        id: undefined, // new ID will be generated
-        sku: "", // user must provide a new SKU
+        id: undefined,
+        sku: "",
         baselinker_id: "",
         shopify_id: "",
         ean: "",
         asin: "",
-        // Keep title, description, images, specs, etc.
       };
+      if (initialData.images) {
+        initialData.images = initialData.images.map((img: any) => ({
+          ...img,
+          s3Path: null,
+          isUploaded: false,
+          needsUpload: true,
+          uploadStatus: "pending",
+        }));
+      }
     }
-    // If product not found, proceed with empty form (no error)
   }
 
   const categories = await getCategories({ db });
 
+  // ✅ Always return ProductForm, with or without initialData
   return (
     <ProductForm
       mode="create"
