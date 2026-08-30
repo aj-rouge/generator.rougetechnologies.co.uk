@@ -147,6 +147,8 @@ export default function AdminCategoriesPage() {
       if (!res.ok) throw new Error("Failed to fetch categories");
       // In fetchCategories()
       const data = (await res.json()) as Category[];
+      console.log("Raw categories data:", JSON.stringify(data, null, 2));
+
       setCategories(data);
     } catch (err: any) {
       addNotification({ message: err.message, type: "error" });
@@ -216,44 +218,53 @@ export default function AdminCategoriesPage() {
 
   // Render tree recursively
   const renderTree = (nodes: Category[], level = 0) => {
-    return nodes.map((cat) => (
-      <div key={cat.slug} style={{ paddingLeft: level * 16 }}>
-        <div
-          className={`flex items-center gap-2 py-2 px-2 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition ${
-            selectedSlug === cat.slug ? "bg-blue-50 dark:bg-blue-900/30" : ""
-          }`}
-          onClick={() => handleSelectCategory(cat.slug)}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleExpand(cat.slug);
-            }}
-            className="p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+    return nodes.map((cat) => {
+      const hasChildren = cat.children && cat.children.length > 0;
+      return (
+        <div key={cat.slug} style={{ paddingLeft: level * 16 }}>
+          <div
+            className={`flex items-center gap-2 py-2 px-2 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition ${
+              selectedSlug === cat.slug ? "bg-blue-50 dark:bg-blue-900/30" : ""
+            }`}
+            onClick={() => handleSelectCategory(cat.slug)}
           >
-            {expanded.has(cat.slug) ? (
-              <ChevronDown className="w-4 h-4" />
+            {/* Only render chevron if has children */}
+            {hasChildren ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(cat.slug);
+                }}
+                className="p-0.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                {expanded.has(cat.slug) ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              // Add a placeholder to keep alignment consistent
+              <span className="w-5 h-5" />
             )}
-          </button>
-          {expanded.has(cat.slug) ? (
-            <FolderOpen className="w-4 h-4 text-blue-500" />
-          ) : (
-            <Folder className="w-4 h-4 text-blue-400" />
-          )}
-          <span className="text-sm font-medium">{cat.name}</span>
-          <span className="text-xs text-gray-400 ml-auto">
-            ({cat.product_count})
-          </span>
-        </div>
-        {expanded.has(cat.slug) && cat.children && cat.children.length > 0 && (
-          <div className="border-l-2 border-gray-200 dark:border-gray-700 ml-3">
-            {renderTree(cat.children, level + 1)}
+            {expanded.has(cat.slug) ? (
+              <FolderOpen className="w-4 h-4 text-blue-500" />
+            ) : (
+              <Folder className="w-4 h-4 text-blue-400" />
+            )}
+            <span className="text-sm font-medium">{cat.name}</span>
+            <span className="text-xs text-gray-400 ml-auto">
+              ({cat.product_count})
+            </span>
           </div>
-        )}
-      </div>
-    ));
+          {hasChildren && expanded.has(cat.slug) && (
+            <div className="border-l-2 border-gray-200 dark:border-gray-700 ml-3">
+              {renderTree(cat.children, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   // Save category
@@ -394,7 +405,7 @@ export default function AdminCategoriesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow p-6"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow px-6"
               >
                 {fetchingDetail ? (
                   <div className="flex items-center justify-center h-64">
@@ -402,7 +413,7 @@ export default function AdminCategoriesPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-4 self-start sticky top-0 bg-white dark:bg-gray-800 z-10 py-4 rounded-md shadow">
                       <div>
                         <h2 className="text-xl font-bold flex items-center gap-2">
                           <FileText className="w-5 h-5 text-blue-500" />
@@ -600,7 +611,7 @@ export default function AdminCategoriesPage() {
                                     onChange={(e) =>
                                       updateParagraph(idx, pIdx, e.target.value)
                                     }
-                                    rows={2}
+                                    rows={8}
                                     className="flex-1 p-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                     placeholder="Paragraph text..."
                                   />
