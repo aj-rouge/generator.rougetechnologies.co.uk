@@ -230,6 +230,8 @@ CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(produ
 CREATE INDEX IF NOT EXISTS idx_product_feedbacks_product_id ON product_feedbacks(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warnings) WHERE warnings IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_note_templates_name ON note_templates(name);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_request_timestamp ON usage_logs(request_timestamp);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_task ON usage_logs(task);
 
 -- =====================================================
 -- VIEW for full product data (no category enrichment)
