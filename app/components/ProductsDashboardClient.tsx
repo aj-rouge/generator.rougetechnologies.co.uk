@@ -152,7 +152,7 @@ export default function ProductsDashboardClient({
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       <LayoutDashboard className="w-4 h-4" />
-                      Dashboard
+                      Manage AI Usage
                     </Link>
                   </motion.div>
                 </motion.div>

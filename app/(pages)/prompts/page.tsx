@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import { useNotification } from "../../context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +12,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Home,
 } from "lucide-react";
 
 interface PromptTemplate {
@@ -165,16 +167,23 @@ export default function AdminPromptsPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex items-center gap-3 mb-2"
-      >
-        <FileText className="w-8 h-8 text-blue-500" />
-        <h1 className="text-2xl font-bold">AI Prompt Templates</h1>
-      </motion.div>
-
+      {/* Header */}{" "}
+      <div className="w-full flex justify-between items-center">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3 mb-2"
+        >
+          <FileText className="w-8 h-8 text-blue-500" />
+          <h1 className="text-2xl font-bold">AI Prompt Templates</h1>
+        </motion.div>{" "}
+        <Link
+          href="/"
+          className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
+      </div>
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -187,7 +196,6 @@ export default function AdminPromptsPage() {
         </code>{" "}
         placeholders. The following variables are available for each task:
       </motion.p>
-
       {/* Table */}
       <motion.div
         variants={stagger}

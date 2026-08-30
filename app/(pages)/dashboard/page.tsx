@@ -1,6 +1,6 @@
 // app/dashboard/page.tsx
 "use client";
-
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BarChart,
@@ -18,6 +18,7 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  Home,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -86,10 +87,18 @@ function DashboardSkeleton() {
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-4">
       {/* Header – static title and icon */}
-      <h1 className="text-3xl font-bold flex items-center gap-2">
-        <Activity className="w-8 h-8 text-purple-500" />
-        Groq Usage Dashboard
-      </h1>
+      <div className="w-full flex justify-between items-center">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <Activity className="w-8 h-8 text-purple-500" />
+          AI Usage Dashboard
+        </h1>
+        <Link
+          href="/"
+          className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
+      </div>
 
       {/* Stats Cards – static labels, icons, pulsing values */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -139,7 +148,6 @@ function DashboardSkeleton() {
           </div>
         </div>
       </div>
-
       {/* Daily Chart – static heading, pulsing chart area */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
         <h2 className="text-xl font-semibold mb-4">
@@ -147,7 +155,6 @@ function DashboardSkeleton() {
         </h2>
         <div className="w-full h-[300px] bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
       </div>
-
       {/* Usage by Task – static heading, pulsing items */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
         <h2 className="text-xl font-semibold mb-4">Usage by Task</h2>
@@ -163,7 +170,6 @@ function DashboardSkeleton() {
           ))}
         </div>
       </div>
-
       {/* Logs Table – static headers, pulsing rows and pagination info */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
         <h2 className="text-xl font-semibold mb-4">Recent Logs</h2>
@@ -302,15 +308,23 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-4">
-      <motion.h1
-        className="text-3xl font-bold flex items-center gap-2"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Activity className="w-8 h-8 text-purple-500" />
-        Groq Usage Dashboard
-      </motion.h1>
+      <div className="w-full flex justify-between items-center">
+        <motion.h1
+          className="text-3xl font-bold flex items-center gap-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Activity className="w-8 h-8 text-purple-500" />
+          AI Usage Dashboard
+        </motion.h1>
+        <Link
+          href="/"
+          className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
+      </div>
 
       {/* Stats Cards */}
       <motion.div
