@@ -37,7 +37,7 @@ interface ProductFormHeaderProps {
 }
 
 export default function ProductFormHeader(props: ProductFormHeaderProps) {
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useMediaQuery("(max-width: 1024px)");
 
   if (isMobile) {
     return <MobileProductHeader {...props} />;

@@ -677,7 +677,7 @@ export default function ProductForm({
         categoryKeywords={currentCategoryKeywords}
         isComplete={isComplete}
       />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4 xl:mt-36">
         <PricingSection
           vat_rate={formData.vat_rate}
           price_brutto={formData.price_brutto}

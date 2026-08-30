@@ -61,7 +61,7 @@ export function DesktopProductHeader({
   );
 
   return (
-    <div className="sticky top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
+    <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-4">
       {isEdit ? (
         <div className="py-4">
           <div className="flex flex-wrap justify-between items-center gap-3">
