@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useNotification } from "../../context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +20,7 @@ import {
   Tag,
   Link as LinkIcon,
   Layers,
+  Home,
 } from "lucide-react";
 
 // ---------- Types ----------
@@ -352,15 +354,26 @@ export default function AdminCategoriesPage() {
   if (loading) return <CategoriesSkeleton />;
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Layers className="w-8 h-8 text-purple-500" />
-        <h1 className="text-2xl font-bold">Category Management</h1>
+    <div className="max-w-7xl mx-auto p-4 flex flex-col gap-4">
+      <div className="w-full flex justify-between items-center">
+        <motion.h1
+          className="text-3xl font-bold flex items-center gap-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Layers className="w-8 h-8 text-purple-500" />
+          Category Management
+        </motion.h1>
+        <Link
+          href="/"
+          className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tree sidebar */}
-        <div className="lg:col-span-1">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-1 self-start sticky top-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Folder className="w-5 h-5" />
@@ -371,7 +384,6 @@ export default function AdminCategoriesPage() {
             </div>
           </div>
         </div>
-
         {/* Detail panel */}
         <div className="lg:col-span-2">
           <AnimatePresence mode="wait">
