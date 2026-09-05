@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { getRecentProducts } from "../utils/d1/getRecentProducts";
 import { getCategories } from "../utils/d1/category/getCategories";
 import ProductsDashboardClient from "../components/ProductsDashboardClient";
-import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- add import
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 export const dynamic = "force-dynamic";
@@ -24,9 +24,45 @@ function parseIntParam(
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
+// ------------------------------------------------------------------
+// Skeleton fallback component
+// ------------------------------------------------------------------
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col items-center gap-4 p-4 min-h-screen">
+      {/* Header */}
+      <div className="w-full flex justify-between items-center gap-3">
+        <div className="w-24 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        <div className="flex gap-2 items-center">
+          <div className="w-24 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+          <div className="w-24 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        </div>
+      </div>
+
+      {/* Search bar placeholder */}
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+      </div>
+
+      {/* Product grid skeleton */}
+      <div className="w-full max-w-6xl grid gap-2 grid-cols-1 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-[200px] sm:h-[224px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// Main page
+// ------------------------------------------------------------------
 export default async function Page(props: { searchParams: SearchParams }) {
   try {
-    // 1. Fetch the D1 binding at the start
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
 
@@ -74,7 +110,6 @@ export default async function Page(props: { searchParams: SearchParams }) {
       countFilters,
     });
 
-    // 2. Pass `db` to both promises
     const categoriesPromise = getCategories({ db }).catch((err) => {
       console.error("[Page] ❌ getCategories failed:", err);
       throw err;
@@ -85,7 +120,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
       category,
       sortBy,
       countFilters,
-      db, // <-- pass db
+      db,
     }).catch((err) => {
       console.error("[Page] ❌ getRecentProducts failed:", err);
       throw err;
@@ -110,7 +145,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
     );
 
     return (
-      <Suspense fallback={<div className="p-4">Loading dashboard...</div>}>
+      <Suspense fallback={<DashboardSkeleton />}>
         <ProductsDashboardClient
           initialProducts={initialProducts}
           categories={categories}

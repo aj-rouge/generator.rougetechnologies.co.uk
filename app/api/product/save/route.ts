@@ -11,6 +11,7 @@ import {
 import { executeBatch, executeQuery } from "../../../utils/d1/execute";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
+import { measureTime, logMetric } from "../../../utils/performance";
 
 // ----------------------------------------------------------------------
 // Helper to format D1/SQLite errors into user‑friendly messages
@@ -149,7 +150,7 @@ function buildBatchedInsert(
 }
 
 // ----------------------------------------------------------------------
-// Updated upsert function with batched inserts and final count update
+// Updated upsert function with logging
 // ----------------------------------------------------------------------
 async function upsertProductData(
   productId: string,
@@ -374,10 +375,12 @@ export async function POST(req: Request) {
   const bucket = (env as any).UPLOADS_BUCKET;
   const images = (env as any).IMAGES;
 
+  const totalStart = performance.now();
+
   try {
     const newData = (await req.json()) as any;
 
-    // Partial update (baselinker_id only)
+    // Partial update (baselinker_id only) – log minimal
     if (newData.partial === true && newData.sku) {
       const { sku, baselinker_id } = newData;
       if (baselinker_id === undefined) {
@@ -387,6 +390,7 @@ export async function POST(req: Request) {
         );
       }
       await updateBaselinkerId(sku, baselinker_id, db);
+      logMetric("product_save_partial", 1, { sku });
       return NextResponse.json({
         success: true,
         message: `Updated baselinker_id for SKU ${sku}`,
@@ -436,64 +440,83 @@ export async function POST(req: Request) {
       typeof newData.id === "string" &&
       newData.id.trim() !== ""
     ) {
-      existing = await getProductById(newData.id, {
-        db,
-        transformToForm: true,
-      });
+      // Measure getProductById
+      existing = await measureTime("getProductById", async () =>
+        getProductById(newData.id, { db, transformToForm: true }),
+      );
       productId = existing?.id || uuidv4();
     } else {
       productId = uuidv4();
     }
 
-    // Handle image migration
+    // --- 1. Move existing images to temp (measured) ---
     if (existing?.images) {
-      await moveExistingToTemp(productSlug, existing.images, bucket);
+      await measureTime("moveExistingToTemp", async () =>
+        moveExistingToTemp(productSlug, existing.images, bucket),
+      );
     }
-    const finalizedImages = await processImages(
-      newData.images || [],
-      newData.category,
-      productSlug,
-      existing?.images || [],
-      bucket,
-      images,
+
+    // --- 2. Process new images (measured) ---
+    const finalizedImages = await measureTime("processImages", async () =>
+      processImages(
+        newData.images || [],
+        newData.category,
+        productSlug,
+        existing?.images || [],
+        bucket,
+        images,
+      ),
     );
 
-    // --- BEGIN CRITICAL OPTIMIZATION ---
-    // Disable foreign key checks for this connection to avoid per‑row FK reads
-    await executeQuery("PRAGMA foreign_keys = OFF", [], db);
+    // --- 3. Upsert product data (measured) ---
+    await measureTime("upsertProductData", async () => {
+      // Disable foreign key checks
+      await executeQuery("PRAGMA foreign_keys = OFF", [], db);
+      try {
+        const existingCreatedAt = existing?.created_at;
+        await upsertProductData(
+          productId,
+          { ...newData, slug: productSlug } as ProductData,
+          finalizedImages,
+          !!existing,
+          db,
+          existingCreatedAt,
+        );
+      } finally {
+        await executeQuery("PRAGMA foreign_keys = ON", [], db);
+      }
+    });
 
-    try {
-      const existingCreatedAt = existing?.created_at;
-      await upsertProductData(
-        productId,
-        { ...newData, slug: productSlug } as ProductData,
+    // --- 4. Cleanup unused R2 objects (measured) ---
+    await measureTime("cleanupImagesFromR2", async () =>
+      cleanupImagesFromR2(
+        newData.category,
+        productSlug,
         finalizedImages,
-        !!existing,
-        db,
-        existingCreatedAt,
-      );
-    } finally {
-      // Re‑enable foreign key checks
-      await executeQuery("PRAGMA foreign_keys = ON", [], db);
-    }
-    // --- END OPTIMIZATION ---
+        bucket,
+      ),
+    );
 
+    // Build response (unchanged)
     const updatedImages = finalizedImages.map((img) => ({
       url: img.url,
       s3Path: img.s3_path,
       altText: img.alt_text,
       isUploaded: true,
       needsUpload: false,
-      uploadStatus: "completed",
+      uploadStatus: "completed" as const,
     }));
 
-    // Clean up unused R2 objects
-    await cleanupImagesFromR2(
-      newData.category,
-      productSlug,
-      finalizedImages,
-      bucket,
-    );
+    // Log final metric with breakdown
+    const totalDuration = performance.now() - totalStart;
+    logMetric("product_save_total", Math.round(totalDuration), {
+      product_id: productId,
+      image_count: finalizedImages.length,
+      paragraphs: newData.paragraphs?.length || 0,
+      features: newData.features?.length || 0,
+      specs: newData.specifications?.length || 0,
+      is_update: !!existing,
+    });
 
     return NextResponse.json({
       success: true,
@@ -503,6 +526,8 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("💥 Save Error:", error);
+    // Also log error metric
+    logMetric("product_save_error", 1, { error: error.message });
     return NextResponse.json(
       { success: false, error: formatDatabaseError(error) },
       { status: 500 },
