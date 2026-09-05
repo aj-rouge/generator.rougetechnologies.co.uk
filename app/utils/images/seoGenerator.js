@@ -1,6 +1,5 @@
 export function generateSeoSlug(text) {
   if (!text) return "";
-
   return text
     .toLowerCase()
     .trim()
