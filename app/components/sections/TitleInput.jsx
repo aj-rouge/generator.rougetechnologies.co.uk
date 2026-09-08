@@ -11,7 +11,7 @@ import { AIGenerateButton } from "../AIGenerateButton";
 
 const TITLE_CONFIG = {
   MIN_LENGTH: 50,
-  MAX_LENGTH: 80,
+  // MAX_LENGTH: 80,  // COMMENTED: 80-character limit removed
   DISPLAY_KEYWORDS_LIMIT: 3,
 };
 
@@ -138,9 +138,10 @@ export default function TitleInput({
     if (!hasCategory) {
       return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500";
     }
-    if (title.length > TITLE_CONFIG.MAX_LENGTH) {
-      return "border-red-300 dark:border-red-500 focus:ring-red-500";
-    }
+    // COMMENTED: 80-character limit removed – no red border for exceeding max
+    // if (title.length > TITLE_CONFIG.MAX_LENGTH) {
+    //   return "border-red-300 dark:border-red-500 focus:ring-red-500";
+    // }
     if (title.length < TITLE_CONFIG.MIN_LENGTH) {
       return "border-yellow-300 dark:border-yellow-500 focus:ring-yellow-500";
     }
@@ -199,23 +200,23 @@ export default function TitleInput({
                 {Math.min(1, categoryKeywords.length)} required
               </span>
             )}
+            {/* COMMENTED: character count with max limit removed – show only current length */}
             <span
               className={`text-sm ${
-                title.length > TITLE_CONFIG.MAX_LENGTH
-                  ? "text-red-600 dark:text-red-400"
-                  : title.length < TITLE_CONFIG.MIN_LENGTH && hasCategory
-                    ? "text-yellow-600 dark:text-yellow-400"
-                    : hasCategory
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-gray-500 dark:text-gray-400"
+                title.length < TITLE_CONFIG.MIN_LENGTH && hasCategory
+                  ? "text-yellow-600 dark:text-yellow-400"
+                  : hasCategory
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-gray-500 dark:text-gray-400"
               }`}
             >
-              {title.length}/{TITLE_CONFIG.MAX_LENGTH} chars
+              {title.length} chars
               {hasCategory &&
                 title.length < TITLE_CONFIG.MIN_LENGTH &&
                 ` (need ${TITLE_CONFIG.MIN_LENGTH - title.length} more)`}
-              {title.length > TITLE_CONFIG.MAX_LENGTH &&
-                ` (${title.length - TITLE_CONFIG.MAX_LENGTH} over)`}
+              {/* COMMENTED: over-limit message removed */}
+              {/* {title.length > TITLE_CONFIG.MAX_LENGTH &&
+                ` (${title.length - TITLE_CONFIG.MAX_LENGTH} over)`} */}
             </span>
           </div>
         </div>
@@ -243,10 +244,11 @@ export default function TitleInput({
             className={`flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 
                        dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600
                        ${getInputBorderColor()}`}
-            maxLength={TITLE_CONFIG.MAX_LENGTH}
+            // COMMENTED: maxLength attribute removed (no character limit)
+            // maxLength={TITLE_CONFIG.MAX_LENGTH}
             placeholder={
               hasCategory
-                ? `E.g., "Your Product ${categoryKeywords[0]}" or "Premium ${categoryKeywords[1]}"... (${TITLE_CONFIG.MIN_LENGTH}-${TITLE_CONFIG.MAX_LENGTH} chars)`
+                ? `E.g., "Your Product ${categoryKeywords[0]}" or "Premium ${categoryKeywords[1]}"... (min ${TITLE_CONFIG.MIN_LENGTH} chars)`
                 : "Select a category first to see title suggestions"
             }
             disabled={!hasCategory}
@@ -257,9 +259,11 @@ export default function TitleInput({
           <LengthIndicatorBar
             currentLength={title.length}
             minLength={TITLE_CONFIG.MIN_LENGTH}
-            maxLength={TITLE_CONFIG.MAX_LENGTH}
+            // COMMENTED: maxLength prop removed – no upper limit shown
+            // maxLength={TITLE_CONFIG.MAX_LENGTH}
+            maxLength={9999} // effectively no limit (workaround)
             showMinLine
-            showMaxLine
+            showMaxLine={false} // hide the max line since we removed the limit
             barHeight="h-2"
           />
         )}
