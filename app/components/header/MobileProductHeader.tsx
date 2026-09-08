@@ -83,7 +83,7 @@ export function MobileProductHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-3 py-2">
+      <div className="fixed top-0 z-40 w-full bg-gray-200 dark:bg-black border-b border-gray-300 dark:border-gray-800 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <HomeButton />
           <div className="flex items-center gap-2">
