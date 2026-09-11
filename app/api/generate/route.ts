@@ -128,6 +128,7 @@ const handleSku = async (
     "Excellent Refurbished": "EX-REF",
     "Very Good Refurbished": "VG-REF",
     "Good Refurbished": "GD-REF",
+    "For parts or not working": "PARTS",
   };
   const conditionCode = conditionMap[condition] || "";
 

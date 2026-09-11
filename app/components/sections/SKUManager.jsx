@@ -30,6 +30,7 @@ const mapConditionToAbbreviation = (condition) => {
     "Excellent Refurbished": "EX-REF",
     "Very Good Refurbished": "VG-REF",
     "Good Refurbished": "GD-REF",
+    "For parts or not working": "PARTS",
   };
   return map[condition] || null;
 };
@@ -80,7 +81,7 @@ const validateSkuFormat = (sku) => {
   }
 
   // Valid condition codes: single-part and hyphenated
-  const validSimpleConditions = ["NEW", "USE"];
+  const validSimpleConditions = ["NEW", "USE", "PARTS"];
   const validHyphenatedConditions = ["EX-REF", "VG-REF", "GD-REF"];
 
   // Check last segment for simple codes
@@ -110,7 +111,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     if (!sku) return null;
     const parts = sku.split("-");
     const lastSegment = parts[parts.length - 1];
-    const validSimple = ["NEW", "USE"];
+    const validSimple = ["NEW", "USE", "PARTS"];
     if (validSimple.includes(lastSegment)) return lastSegment;
     if (parts.length >= 2) {
       const lastTwo = parts.slice(-2).join("-");
@@ -173,7 +174,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
         id: 4,
         name: "Condition Code Valid",
         description:
-          "Last segment(s) must be a valid condition code (NEW, USE, EX-REF, VG-REF, GD-REF)",
+          "Last segment(s) must be a valid condition code (NEW, USE, PARTS, EX-REF, VG-REF, GD-REF)",
         check: () => isValidCondition,
         importance: "critical",
         condition: !!sku,

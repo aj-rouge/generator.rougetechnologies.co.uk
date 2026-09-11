@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       "Excellent Refurbished": "EX-REF",
       "Very Good Refurbished": "VG-REF",
       "Good Refurbished": "GD-REF",
+      "For parts or not working": "PARTS",
     };
 
     const conditionCode = conditionMap[condition];
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
   - EX-REF = Excellent Refurbished
   - VG-REF = Very Good Refurbished
   - GD-REF = Good Refurbished
+  - PARTS = For parts or not working
 - Use only uppercase letters, numbers, and hyphens.
 - Derive brand, product type, key specs, and colour from the product title.
 - Make the SKU unique and consistent with existing patterns.
