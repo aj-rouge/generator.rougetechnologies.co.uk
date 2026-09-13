@@ -1,16 +1,16 @@
-// lib/decodo/universal.ts
+// app/utils/scrape/universal.ts
 
-import * as cheerio from "cheerio";
-import { scrapeEbayProduct } from "../ebay";
-import { extractCurrysMetadata, scrapeCurrysProductImages } from "../currys";
-import { fetchRawHtml } from "../decodo";
 import { fetchProductByASIN, searchAmazonByEAN } from "../amazon";
+import { extractCurrysMetadata } from "../currys";
+import { scrapeEbayProduct } from "../ebay";
 
 export type UniversalScrapeResult = {
   source: "ebay" | "amazon" | "currys";
   product: {
     title: string;
     price?: string | number;
+    priceExVat?: number;
+    priceIncVat?: number;
     rrp?: string | number;
     description?: string;
     images: string[];
@@ -19,9 +19,15 @@ export type UniversalScrapeResult = {
   seller?: any;
   itemSpecifics?: Record<string, string>;
   specifications?: Array<{ key: string; value: string }>;
+  variants?: Array<{
+    name: string;
+    priceExVat?: number;
+    url?: string;
+    image?: string;
+    isCurrent?: boolean;
+  }>;
 };
 
-// Helper to filter out condition‑related specification keys
 function filterSpecifications(
   specs: Array<{ key: string; value: string }> | undefined,
 ): Array<{ key: string; value: string }> | undefined {
@@ -40,7 +46,6 @@ export async function scrapeUniversal(
     if (!result.success) throw new Error(result.error);
     const { product, seller, itemSpecifics } = result.data;
 
-    // Filter out condition keys from specifications
     const rawSpecs = itemSpecifics
       ? Object.entries(itemSpecifics).map(([key, value]) => ({
           key,
@@ -49,7 +54,6 @@ export async function scrapeUniversal(
       : [];
     const specifications = filterSpecifications(rawSpecs);
 
-    let rrp: number | undefined = undefined;
     return {
       source: "ebay",
       product: {
@@ -58,7 +62,6 @@ export async function scrapeUniversal(
           product.price !== "N/A"
             ? parseFloat(product.price.replace(/[^0-9.-]/g, ""))
             : undefined,
-        rrp,
         description: product.description,
         images: product.allImages || [],
         brand: product.brand !== "N/A" ? product.brand : undefined,
@@ -69,59 +72,24 @@ export async function scrapeUniversal(
     };
   }
 
-  // 2. Currys URL
+  // 2. Currys URL — single metadata call returns images too (cache-shared)
   if (identifier.includes("currys.co.uk")) {
-    const images = await scrapeCurrysProductImages(identifier);
     const metadata = await extractCurrysMetadata(identifier);
-    const html = await fetchRawHtml(identifier);
-    const $ = cheerio.load(html);
-
-    let title = metadata.productName || "";
-    if (!title) {
-      const titleSelectors = [
-        "h1.product-name",
-        'h1[data-test="product-title"]',
-        "h1.pdp-product-title",
-      ];
-      for (const sel of titleSelectors) {
-        const t = $(sel).first().text().trim();
-        if (t) {
-          title = t;
-          break;
-        }
-      }
-    }
-
-    let price = metadata.price;
-    if (!price) {
-      const priceText = $('[data-test="product-price"], .price .value')
-        .first()
-        .text()
-        .trim();
-      if (priceText) price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
-    }
-
-    let rrp: number | undefined;
-    const wasPriceElem = $('.price-date, [data-test="was-price"]').first();
-    if (wasPriceElem.length) {
-      const wasText = wasPriceElem.text().trim();
-      const match = wasText.match(/Was\s*£([\d,]+(?:\.\d{2})?)/i);
-      if (match) rrp = parseFloat(match[1].replace(/,/g, ""));
-    }
-
-    // Filter out condition keys from Currys specifications
     const specifications = filterSpecifications(metadata.specifications);
 
     return {
       source: "currys",
       product: {
-        title: title || "",
-        price,
-        rrp,
-        images,
+        title: metadata.productName || "",
+        price: metadata.price,
+        priceExVat: metadata.priceExVat,
+        priceIncVat: metadata.priceIncVat,
+        images: metadata.images ?? [],
         brand: metadata.brand,
+        description: metadata.description,
       },
       specifications,
+      variants: metadata.variants,
     };
   }
 
@@ -173,21 +141,21 @@ export async function scrapeUniversal(
 
     const images = productData.images || [];
     let description = "";
-    if (
-      productData.bullet_points &&
-      typeof productData.bullet_points === "string"
-    )
+    if (typeof productData.bullet_points === "string")
       description = productData.bullet_points;
     else if (Array.isArray(productData.description)) {
-      const textItems = productData.description.filter(
-        (item: any) => typeof item === "string" && !item.match(/^https?:\/\//),
-      );
-      description = textItems.join("\n\n");
+      description = productData.description
+        .filter(
+          (item: any) =>
+            typeof item === "string" && !item.match(/^https?:\/\//),
+        )
+        .join("\n\n");
     } else if (typeof productData.description === "string")
       description = productData.description;
 
     const brand = productData.brand || productData.product_details?.Brand || "";
-    let rawSpecs: Array<{ key: string; value: string }> = [];
+
+    const rawSpecs: Array<{ key: string; value: string }> = [];
     if (
       productData.product_details &&
       typeof productData.product_details === "object"
@@ -198,19 +166,11 @@ export async function scrapeUniversal(
         }
       }
     }
-    // Filter out condition keys from Amazon specifications
     const specifications = filterSpecifications(rawSpecs);
 
     return {
       source: "amazon",
-      product: {
-        title,
-        price,
-        rrp,
-        images,
-        description,
-        brand,
-      },
+      product: { title, price, rrp, images, description, brand },
       specifications,
     };
   }

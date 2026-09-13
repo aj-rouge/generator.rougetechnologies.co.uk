@@ -1,4 +1,4 @@
-// lib/decodo/amazon.ts
+// app/utils/scrape/amazon.ts
 
 import { decodoRequest } from "./decodo";
 
@@ -17,9 +17,8 @@ export async function searchAmazonByQuery(
       page_from: "1",
     });
 
-    // Log full Decodo response for debugging
     console.log(
-      `[Decodo Amazon Search] Response for query "${query}":\n`,
+      `[Decodo Amazon Search] Response for "${query}":`,
       JSON.stringify(response, null, 2),
     );
 
@@ -44,7 +43,7 @@ export async function searchAmazonByQuery(
     return null;
   } catch (error) {
     console.error(
-      `[Decodo Amazon Search] Error searching for query "${query}":`,
+      `[Decodo Amazon Search] Error searching for "${query}":`,
       error,
     );
     return null;
@@ -65,18 +64,14 @@ export async function fetchProductByASIN(
       domain,
     });
 
-    // Log full Decodo response for debugging
     console.log(
-      `[Decodo Amazon Product] Response for ASIN "${asin}":\n`,
+      `[Decodo Amazon Product] Response for "${asin}":`,
       JSON.stringify(response, null, 2),
     );
 
     return response?.results?.[0]?.content?.results || null;
   } catch (error) {
-    console.error(
-      `[Decodo Amazon Product] Error fetching ASIN "${asin}":`,
-      error,
-    );
+    console.error(`[Decodo Amazon Product] Error for "${asin}":`, error);
     return null;
   }
 }
@@ -126,53 +121,4 @@ export function extractEANFromProduct(
  */
 export async function searchAmazonByEAN(ean: string): Promise<string | null> {
   return searchAmazonByQuery(ean, "co.uk");
-}
-
-/**
- * Fetch only product images by ASIN (used by the unified function).
- */
-async function fetchProductImagesByASIN(asin: string): Promise<string[]> {
-  const productData = await fetchProductByASIN(asin);
-  return productData?.images || [];
-}
-
-/**
- * Unified entrypoint: accepts ASIN, EAN, or Currys URL and returns images + metadata.
- * For Currys, it delegates to the Currys module.
- */
-export async function fetchAmazonProductImages(identifier: string): Promise<{
-  images: string[];
-  asin?: string;
-  source?: "ASIN" | "EAN" | "Currys" | "URL";
-  metadata?: {
-    productName?: string;
-    brand?: string;
-  };
-}> {
-  // If it's a Currys URL, delegate to currys module (avoid circular import via dynamic import)
-  if (identifier.includes("currys.co.uk")) {
-    const { scrapeCurrysProductImages, extractCurrysMetadata } =
-      await import("./currys");
-    const images = await scrapeCurrysProductImages(identifier);
-    const metadata = await extractCurrysMetadata(identifier);
-    return { images, source: "Currys", metadata };
-  }
-
-  // Handle generic URLs (not supported for Amazon)
-  if (identifier.startsWith("http://") || identifier.startsWith("https://")) {
-    throw new Error(
-      "Only Currys.co.uk URLs are currently supported. For Amazon, use ASIN or EAN.",
-    );
-  }
-
-  const isASIN = /^[A-Z0-9]{10}$/i.test(identifier);
-  if (isASIN) {
-    const images = await fetchProductImagesByASIN(identifier);
-    return { images, asin: identifier, source: "ASIN" };
-  } else {
-    const asin = await searchAmazonByEAN(identifier);
-    if (!asin) throw new Error(`No product found for EAN: ${identifier}`);
-    const images = await fetchProductImagesByASIN(asin);
-    return { images, asin, source: "EAN" };
-  }
 }

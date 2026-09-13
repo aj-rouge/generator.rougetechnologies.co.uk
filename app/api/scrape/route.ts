@@ -4,9 +4,8 @@ import {
   fetchProductByASIN,
   searchAmazonByQuery,
 } from "../../utils/scrape/amazon";
+import { extractCurrysMetadata } from "../../utils/scrape/currys";
 
-
-// 1. TYPE DEFINITIONS: Explicitly structure incoming body data parameters
 interface ScrapeRequestBody {
   identifier?: string;
   query?: string;
@@ -15,18 +14,42 @@ interface ScrapeRequestBody {
 
 export async function POST(req: Request) {
   try {
-    // 2. FIXED CAST: Typecast incoming parsed JSON data body cleanly
     const body = (await req.json()) as ScrapeRequestBody;
     const { identifier, query, domain = "co.uk" } = body;
 
+    // Currys URLs — single metadata call returns images too.
     if (identifier && identifier.includes("currys.co.uk")) {
+      const host = (() => {
+        try {
+          return new URL(identifier).hostname.toLowerCase();
+        } catch {
+          return "";
+        }
+      })();
+      const isBusiness = host === "business.currys.co.uk";
+
+      const meta = await extractCurrysMetadata(identifier);
+
       return NextResponse.json({
         success: true,
-        source: "Currys",
+        source: isBusiness ? "Currys Business" : "Currys",
+        storefront: isBusiness ? "business" : "retail",
         asin: null,
-        ean: null,
-        message:
-          "Currys URLs are handled by the image scraping utility directly",
+        ean: meta.ean ?? null,
+        title: meta.productName,
+        brand: meta.brand,
+        price: meta.price,
+        priceExVat: meta.priceExVat,
+        priceIncVat: meta.priceIncVat,
+        images: meta.images ?? [],
+        specifications: meta.specifications ?? [],
+        features: meta.features ?? [],
+        variants: meta.variants ?? [],
+        description: meta.description,
+        stock: meta.stock,
+        sku: meta.sku,
+        mpn: meta.mpn,
+        breadcrumbs: meta.breadcrumbs,
       });
     }
 
@@ -40,62 +63,38 @@ export async function POST(req: Request) {
     if (isASIN) {
       console.log(`Identifier is ASIN: ${identifier}`);
       asin = identifier;
-
-      // Fetch product details
       productData = await fetchProductByASIN(asin, domain);
-
-      // Try to extract EAN from product details
-      if (productData) {
-        ean = extractEANFromProduct(productData);
-      }
+      if (productData) ean = extractEANFromProduct(productData);
     } else if (isEAN) {
-      // Identifier is an EAN - search for ASIN first
       console.log(`Identifier is EAN: ${identifier}`);
       ean = identifier;
-
-      // Search for ASIN using the EAN
       asin = await searchAmazonByQuery(identifier, domain);
-
       if (asin) {
-        // Fetch product details to verify/update EAN
         productData = await fetchProductByASIN(asin, domain);
-
-        // EAN from product data might be more accurate
         if (productData) {
           const extractedEan = extractEANFromProduct(productData);
-          if (extractedEan) {
-            ean = extractedEan;
-          }
+          if (extractedEan) ean = extractedEan;
         }
       }
     } else if (query || identifier) {
       const searchTerm = query || identifier;
       console.log(`Searching by title: ${searchTerm}`);
-
-      // Search for ASIN using the title
       asin = await searchAmazonByQuery(searchTerm, domain);
-
       if (asin) {
-        // Fetch product details to get EAN
         productData = await fetchProductByASIN(asin, domain);
-
-        if (productData) {
-          ean = extractEANFromProduct(productData);
-        }
+        if (productData) ean = extractEANFromProduct(productData);
       }
     }
 
     if (asin && !productData) {
       productData = await fetchProductByASIN(asin, domain);
-      if (productData) {
-        ean = extractEANFromProduct(productData);
-      }
+      if (productData) ean = extractEANFromProduct(productData);
     }
 
     const response = {
       success: !!(asin || productData),
-      asin: asin,
-      ean: ean,
+      asin,
+      ean,
       title: productData?.title || productData?.product_name,
       brand: productData?.brand,
       images: productData?.images || [],
@@ -109,7 +108,9 @@ export async function POST(req: Request) {
       );
     } else {
       console.log(
-        `⚠️ Partial IDs: ASIN[${response.asin || "MISSING"}] EAN[${response.ean || "MISSING"}]`,
+        `⚠️ Partial IDs: ASIN[${response.asin || "MISSING"}] EAN[${
+          response.ean || "MISSING"
+        }]`,
       );
     }
 

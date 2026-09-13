@@ -76,7 +76,7 @@ export function IdentifierForm({
             type="text"
             value={currysUrl}
             onChange={(e) => setCurrysUrl(e.target.value)}
-            placeholder="Currys URL"
+            placeholder="Currys/Business Currys URL"
             className="p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-black dark:text-white"
             disabled={isLoading}
           />
