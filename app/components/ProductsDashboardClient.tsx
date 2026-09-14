@@ -16,18 +16,23 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import { DarkModeToggle } from "./header/DarkModeToggle";
 import RecentProducts from "./recent/RecentProducts";
 import SearchBar from "./search/SearchBar";
-
+import { logout } from "../utils/auth/actions";
+import { ShieldCheck } from "lucide-react";
+import type { User } from "../utils/auth";
 interface ProductsDashboardClientProps {
+  user: User;
   initialProducts: any[];
   categories: any[];
   initialCountFilters: any;
 }
 
 export default function ProductsDashboardClient({
+  user,
   initialProducts,
   categories,
   initialCountFilters,
 }: ProductsDashboardClientProps) {
+  const showAdmin = user.role === "admin" || user.role === "dev";
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -83,12 +88,10 @@ export default function ProductsDashboardClient({
       {/* Header */}
       <div className="w-full flex justify-between items-center gap-3">
         {/* Logout button */}
-        <form
-          action={async () => {
-            const { logout } = await import("../actions/auth");
-            await logout();
-          }}
-        >
+        <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">
+          {user.name} ({user.role})
+        </span>
+        <form action={logout}>
           <button className="flex items-center gap-2 p-3 sm:px-4 sm:py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg">
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Log out</span>
@@ -154,7 +157,19 @@ export default function ProductsDashboardClient({
                       <LayoutDashboard className="w-4 h-4" />
                       Manage AI Usage
                     </Link>
-                  </motion.div>
+                  </motion.div>{" "}
+                  {showAdmin && (
+                    <motion.div variants={itemVariants}>
+                      <Link
+                        href="/admin/users"
+                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                        onClick={() => setIsDropdownOpen(false)}
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        Admin
+                      </Link>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

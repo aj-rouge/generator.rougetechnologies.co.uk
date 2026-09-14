@@ -4,6 +4,7 @@ import { getRecentProducts } from "../utils/d1/getRecentProducts";
 import { getCategories } from "../utils/d1/category/getCategories";
 import ProductsDashboardClient from "../components/ProductsDashboardClient";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { requireSession } from "../utils/auth";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ function DashboardSkeleton() {
 // Main page
 // ------------------------------------------------------------------
 export default async function Page(props: { searchParams: SearchParams }) {
+  const user = await requireSession("/"); // ← rename
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
@@ -147,6 +149,7 @@ export default async function Page(props: { searchParams: SearchParams }) {
     return (
       <Suspense fallback={<DashboardSkeleton />}>
         <ProductsDashboardClient
+          user={user}
           initialProducts={initialProducts}
           categories={categories}
           initialCountFilters={countFilters}

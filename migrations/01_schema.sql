@@ -220,7 +220,34 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   rate_limit_remaining INTEGER,
   rate_limit_reset INTEGER
 );
+CREATE TABLE users (
+  id            TEXT PRIMARY KEY,
+  email         TEXT UNIQUE NOT NULL,
+  name          TEXT NOT NULL UNIQUE,
+  role          TEXT NOT NULL DEFAULT 'employee',  -- 'admin' | 'dev' | 'employee'
+  password_hash TEXT NOT NULL,
+  is_active     INTEGER NOT NULL DEFAULT 1,
+  must_reset_pw INTEGER NOT NULL DEFAULT 0,
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL,
+  last_login_at INTEGER,
+  deleted_at    INTEGER DEFAULT NULL
+);
 
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE TABLE sessions (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  ip         TEXT,
+  user_agent TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_sessions_user    ON sessions(user_id);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
 -- =====================================================
 -- Indexes for joins
 -- =====================================================
