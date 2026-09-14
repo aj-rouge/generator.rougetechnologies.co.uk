@@ -44,7 +44,7 @@ export async function login(
     // Dummy verify to keep timing constant
     await verifyPassword(
       password,
-      "pbkdf2$sha256$210000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "pbkdf2$sha256$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     );
     return { error: "Invalid email or password" };
   }

@@ -1,7 +1,7 @@
 // PBKDF2-SHA256 via WebCrypto. Format: pbkdf2$sha256$<iterations>$<salt_b64>$<hash_b64>
 // Must match scripts/seed-sql.mjs output.
 
-const ITERATIONS = 210_000;
+const ITERATIONS = 100_000;
 const KEY_BITS = 256;
 const SALT_BYTES = 16;
 
