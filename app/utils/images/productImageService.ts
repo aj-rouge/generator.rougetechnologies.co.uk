@@ -66,7 +66,27 @@ export async function processImages(
       );
       let finalUrl = "";
 
-      if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
+      // ── NEW: copy from another product's R2 namespace ──────────────
+      if (img.copyFromR2 && img.sourceS3Path) {
+        const sourceKey = img.sourceS3Path
+          .replace(PUBLIC_DOMAIN, "")
+          .replace(/^\//, "");
+
+        const object = await bucket.get(sourceKey);
+        if (!object) {
+          throw new Error(`Source image not found in R2: ${sourceKey}`);
+        }
+        const buffer = await object.arrayBuffer();
+        await bucket.put(targetS3Path, buffer, {
+          httpMetadata: object.httpMetadata || {
+            contentType: "image/webp",
+            cacheControl: "public, max-age=31536000, immutable",
+          },
+        });
+        finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
+      }
+      // ─────────────────────────────────────────────────────────────
+      else if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
         const urlWithoutDomain = img.url.replace(PUBLIC_DOMAIN, "");
         const stagingKey = urlWithoutDomain.startsWith("/")
           ? urlWithoutDomain.slice(1)

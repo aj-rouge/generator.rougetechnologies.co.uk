@@ -93,7 +93,12 @@ export default function SortableImageItem({
             ★ Main Image
           </span>
         )}
-        {image.isUploaded && (
+        {image.copyFromR2 && !image.isUploaded && (
+          <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded text-[10px] uppercase font-bold tracking-wider">
+            ⎘ From Library
+          </span>
+        )}
+        {image.copyFromR2 && image.isUploaded && (
           <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded text-[10px] uppercase font-bold tracking-wider">
             ✓ Cloud Stored
           </span>

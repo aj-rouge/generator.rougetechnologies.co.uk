@@ -14,6 +14,7 @@ import { getStatusBadgeColorFromState } from "../../../utils/ui/statusHelpers";
 import { ValidationWrapper } from "../ValidationWrapper";
 import { ValidationRules } from "../ValidationRules";
 import AddImageButton from "./AddImageButton";
+import ImageLibraryModal from "./ImageLibraryModal";
 
 export default function ImagesManager({
   images,
@@ -103,7 +104,31 @@ export default function ImagesManager({
     if (allRulesPass) return "✅";
     return "⚠️";
   };
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const handleLibraryImport = (incoming) => {
+    setImages((prev) => {
+      // Deduplicate by source path
+      const existing = new Set(prev.map((i) => i.sourceS3Path).filter(Boolean));
+      const fresh = incoming.filter((i) => !existing.has(i.sourceS3Path));
 
+      const startIndex = prev.length;
+      const added = fresh.map((img, i) => {
+        const idx = startIndex + i;
+        return {
+          url: img.url,
+          sourceS3Path: img.sourceS3Path,
+          copyFromR2: true,
+          s3Path: generateSeoFileName(selectedCategory, title, idx + 1),
+          altText: generateSeoAltText(title, idx + 1),
+          isUploaded: false,
+          needsUpload: true,
+          uploadStatus: "pending",
+        };
+      });
+
+      return [...prev, ...added].slice(0, 16);
+    });
+  };
   return (
     <ValidationWrapper
       validationScore={validationScore}
@@ -149,10 +174,10 @@ export default function ImagesManager({
           )}
         </div>
       </button>
-
       <AnimatePresence initial={false}>
         {isOpen && (
           <motion.div
+            key="images-manager-body"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -169,7 +194,15 @@ export default function ImagesManager({
                 </div>
               ) : (
                 <>
-                  <div className="mb-4 flex justify-end">
+                  <div className="mb-4 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLibraryOpen(true)}
+                      disabled={!hasPrerequisites}
+                      className="px-3 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      📚 Import from Library
+                    </button>
                     <DownloadButton
                       images={images}
                       productTitle={title}
@@ -213,7 +246,13 @@ export default function ImagesManager({
             />
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>{" "}
+      {libraryOpen && (
+        <ImageLibraryModal
+          onClose={() => setLibraryOpen(false)}
+          onImport={handleLibraryImport}
+        />
+      )}
     </ValidationWrapper>
   );
 }
