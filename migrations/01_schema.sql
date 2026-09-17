@@ -209,6 +209,14 @@ CREATE TABLE IF NOT EXISTS note_templates (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE TABLE IF NOT EXISTS shipping_method_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,     -- Display name (shown in dropdown)
+  content TEXT NOT NULL,  -- Stored value (saved on the product)
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 CREATE TABLE IF NOT EXISTS usage_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   task TEXT,
@@ -234,8 +242,7 @@ CREATE TABLE users (
   deleted_at    INTEGER DEFAULT NULL
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+
 CREATE TABLE sessions (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL,
@@ -246,8 +253,7 @@ CREATE TABLE sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_sessions_user    ON sessions(user_id);
-CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+
 -- =====================================================
 -- Indexes for joins
 -- =====================================================
@@ -259,6 +265,12 @@ CREATE INDEX IF NOT EXISTS idx_product_images_warnings ON product_images(warning
 CREATE INDEX IF NOT EXISTS idx_note_templates_name ON note_templates(name);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_request_timestamp ON usage_logs(request_timestamp);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_task ON usage_logs(task);
+CREATE INDEX IF NOT EXISTS idx_shipping_method_templates_name ON shipping_method_templates(name);
+CREATE INDEX IF NOT EXISTS idx_shipping_method_templates_updated ON shipping_method_templates(updated_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user    ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 -- =====================================================
 -- VIEW for full product data (no category enrichment)
