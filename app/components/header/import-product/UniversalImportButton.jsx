@@ -11,6 +11,8 @@ export default function UniversalImportButton({
   categoryName = "",
   condition = "",
   categoryKeywords = [],
+  asin, // 👈 new
+  onAsinChange, // 👈 new
 }) {
   const [showModal, setShowModal] = useState(false);
 
@@ -41,6 +43,8 @@ export default function UniversalImportButton({
         categoryName={categoryName}
         condition={condition}
         categoryKeywords={categoryKeywords}
+        asin={asin} // 👈 new
+        onAsinChange={onAsinChange} // 👈 new
       />
     </>
   );

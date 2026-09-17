@@ -28,6 +28,8 @@ interface DesktopProductHeaderProps {
   condition?: string;
   categoryKeywords?: string[];
   isComplete: boolean; // new
+  asin?: string;
+  onAsinChange?: (value: string) => void;
 }
 
 export function DesktopProductHeader({
@@ -47,6 +49,8 @@ export function DesktopProductHeader({
   condition,
   categoryKeywords,
   isComplete,
+  asin,
+  onAsinChange,
 }: DesktopProductHeaderProps) {
   const isEdit = mode === "edit";
   const copyValue = title || (isEdit ? "Untitled" : "Create New Product");
@@ -91,6 +95,8 @@ export function DesktopProductHeader({
               categoryName={selectedCategory}
               condition={condition}
               categoryKeywords={categoryKeywords}
+              asin={asin}
+              onAsinChange={onAsinChange}
             />
             {(shopifyId || baselinkerId) && (
               <div className="flex items-center gap-2 mr-2 border-r border-gray-300 dark:border-gray-700 pr-3">
@@ -176,6 +182,8 @@ export function DesktopProductHeader({
                 categoryName={selectedCategory}
                 condition={condition}
                 categoryKeywords={categoryKeywords}
+                asin={asin}
+                onAsinChange={onAsinChange}
               />
               <SaveButton
                 onSave={onSave}

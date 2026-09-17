@@ -37,6 +37,8 @@ interface MobileProductHeaderProps {
   condition?: string;
   categoryKeywords?: string[];
   isComplete: boolean;
+  asin?: string;
+  onAsinChange?: (value: string) => void;
 }
 
 export function MobileProductHeader({
@@ -56,6 +58,8 @@ export function MobileProductHeader({
   condition,
   categoryKeywords,
   isComplete,
+  asin,
+  onAsinChange,
 }: MobileProductHeaderProps) {
   const isEdit = mode === "edit";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -170,6 +174,8 @@ export function MobileProductHeader({
                   categoryName={selectedCategory}
                   condition={condition}
                   categoryKeywords={categoryKeywords}
+                  asin={asin}
+                  onAsinChange={onAsinChange}
                 />
 
                 {isEdit && (shopifyId || baselinkerId) && (

@@ -175,6 +175,8 @@ interface UniversalImportModalProps {
   categoryName?: string;
   condition?: string;
   categoryKeywords?: string[];
+  asin?: string;
+  onAsinChange?: (value: string) => void;
 }
 
 export default function UniversalImportModal({
@@ -184,6 +186,8 @@ export default function UniversalImportModal({
   categoryName = "",
   condition = "",
   categoryKeywords = [],
+  asin,
+  onAsinChange,
 }: UniversalImportModalProps) {
   const {
     status,
@@ -410,6 +414,8 @@ export default function UniversalImportModal({
               isLoading={isLoading}
               errorMessage={errorMessage}
               onCancel={onClose}
+              initialAsin={asin} // 👈 new
+              onAsinChange={onAsinChange} // 👈 new
             />
           ) : (
             <div className="space-y-4">

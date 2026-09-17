@@ -676,6 +676,8 @@ export default function ProductForm({
         condition={formData.condition}
         categoryKeywords={currentCategoryKeywords}
         isComplete={isComplete}
+        asin={formData.asin}
+        onAsinChange={(val) => updateForm({ asin: val })}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4 mt-28 xl:mt-36">
         <PricingSection

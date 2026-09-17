@@ -34,6 +34,8 @@ interface ProductFormHeaderProps {
   condition?: string;
   categoryKeywords?: string[];
   isComplete: boolean;
+  asin?: string;
+  onAsinChange?: (value: string) => void;
 }
 
 export default function ProductFormHeader(props: ProductFormHeaderProps) {

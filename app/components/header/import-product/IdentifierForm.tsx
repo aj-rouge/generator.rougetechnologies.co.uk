@@ -7,6 +7,8 @@ interface IdentifierFormProps {
   isLoading: boolean;
   errorMessage: string;
   onCancel: () => void;
+  initialAsin?: string; // 👈 new
+  onAsinChange?: (value: string) => void; // 👈 new
 }
 
 export function IdentifierForm({
@@ -14,13 +16,18 @@ export function IdentifierForm({
   isLoading,
   errorMessage,
   onCancel,
+  initialAsin = "", // 👈 new
+  onAsinChange, // 👈 new
 }: IdentifierFormProps) {
   const [ean, setEan] = useState("");
-  const [asin, setAsin] = useState("");
+  const [asin, setAsin] = useState(initialAsin); // 👈 seed from prop
   const [ebayUrl, setEbayUrl] = useState("");
   const [amazonUrl, setAmazonUrl] = useState("");
   const [currysUrl, setCurrysUrl] = useState("");
-
+  const handleAsinChange = (value: string) => {
+    setAsin(value);
+    onAsinChange?.(value);
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const identifiers = [ean, asin, ebayUrl, amazonUrl, currysUrl]
@@ -51,7 +58,7 @@ export function IdentifierForm({
           <input
             type="text"
             value={asin}
-            onChange={(e) => setAsin(e.target.value)}
+            onChange={(e) => handleAsinChange(e.target.value)} // 👈 changed
             placeholder="ASIN (e.g., B08N5WRWND)"
             className="p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-black dark:text-white"
             disabled={isLoading}

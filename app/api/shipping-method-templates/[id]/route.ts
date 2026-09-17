@@ -1,3 +1,4 @@
+// app/api/shipping-method-templates/[id]/route.ts
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { executeQuery } from "../../../utils/d1/execute";
@@ -5,13 +6,14 @@ import { executeQuery } from "../../../utils/d1/execute";
 // PUT – update an existing shipping method template
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
 
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (isNaN(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid id" },
@@ -69,13 +71,14 @@ export async function PUT(
 // DELETE – remove a shipping method template
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
 
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (isNaN(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid id" },
