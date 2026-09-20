@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database, R2Bucket } from "@cloudflare/workers-types";
+import { getCurrentUser } from "../../../utils/auth";
 import { deleteProductById } from "../../../utils/d1/product/deleteProduct";
 
 interface DeleteProductRequestBody {
@@ -24,9 +25,17 @@ const deleteFolderRecursive = async (prefix: string, bucket: R2Bucket) => {
 };
 
 export async function POST(req: Request) {
-  console.log("🗑️ [START] Product Delete Request");
+  // ---- Auth ----
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
 
-  // Cast env to any to avoid TypeScript errors about unknown bindings
+  console.log(`🗑️ [START] Product Delete Request by ${user.name}`);
+
   const { env } = (await getCloudflareContext({ async: true })) as any;
   const db = env.DB as D1Database;
   const bucket = env.UPLOADS_BUCKET as R2Bucket;
@@ -35,28 +44,50 @@ export async function POST(req: Request) {
     const body = (await req.json()) as DeleteProductRequestBody;
     const { slug, category, uuid } = body;
 
+    if (!uuid) {
+      return NextResponse.json(
+        { success: false, error: "Missing product id" },
+        { status: 400 },
+      );
+    }
     if (!slug || !category) {
-      throw new Error("Missing slug or category for deletion");
+      return NextResponse.json(
+        { success: false, error: "Missing slug or category" },
+        { status: 400 },
+      );
     }
 
-    console.log(`🗑️ [1/3] Deleting images from R2 with prefix: ${slug}`);
-    await deleteFolderRecursive(slug, bucket);
+    // --- DB delete + audit, atomic ---
+    console.log(
+      `📊 [1/2] Deleting product ${uuid} from D1 and writing audit...`,
+    );
+    const result = await deleteProductById(uuid, db, user);
 
-    console.log("📊 [2/3] Syncing removal to D1...");
-    if (uuid) {
-      await deleteProductById(uuid, db);
-    } else {
-      console.log("⚠️ No explicit uuid provided, skipped DB deletion.");
+    if (result.changes === 0) {
+      console.log("ℹ️ No product found with that id — nothing to delete.");
+      return NextResponse.json({
+        success: true,
+        changes: 0,
+        alreadyDeleted: true,
+      });
     }
 
-    await deleteFolderRecursive(`temp/${slug}/`, bucket);
+    // --- R2 cleanup, best-effort ---
+    // If this fails, the row is already gone. Orphaned images are cosmetic.
+    console.log(`🗑️ [2/2] Cleaning up R2 for prefix: ${slug}`);
+    try {
+      await deleteFolderRecursive(slug, bucket);
+      await deleteFolderRecursive(`temp/${slug}/`, bucket);
+    } catch (r2Err: any) {
+      console.warn("⚠️ R2 cleanup failed (non-fatal):", r2Err.message);
+    }
 
     console.log("🏁 [FINISH] Delete completed successfully!");
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, changes: 1 });
   } catch (error: any) {
     console.error("💥 [DELETE ERROR]:", error.message);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || "Delete failed" },
       { status: 500 },
     );
   }

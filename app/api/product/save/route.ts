@@ -10,11 +10,14 @@ import {
 } from "../../../utils/images/productImageService";
 import { executeBatch, executeQuery } from "../../../utils/d1/execute";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { D1Database } from "@cloudflare/workers-types";
 import { measureTime, logMetric } from "../../../utils/performance";
+import { getCurrentUser, type User } from "../../../utils/auth";
+import { buildAuditStatementParts } from "../../../utils/audit/build";
+import { diffProduct } from "../../../utils/audit/diffProduct";
+import type { Diff } from "../../../utils/audit/types";
 
 // ----------------------------------------------------------------------
-// Helper to format D1/SQLite errors into user‑friendly messages
+// Helpers
 // ----------------------------------------------------------------------
 function formatDatabaseError(error: any): string {
   const message = error?.message || String(error);
@@ -32,7 +35,6 @@ function formatDatabaseError(error: any): string {
       option_value: "Option Value",
       category_slug: "Category Slug",
     };
-
     if (overrides[base]) return overrides[base];
     return base
       .split("_")
@@ -53,7 +55,7 @@ function formatDatabaseError(error: any): string {
         }
         return inner.split(":")[0] || inner;
       }
-    } catch (e) {}
+    } catch {}
   }
 
   const uniqueMatch = message.match(/UNIQUE constraint failed:\s*(\S+)/i);
@@ -66,7 +68,7 @@ function formatDatabaseError(error: any): string {
 }
 
 // ----------------------------------------------------------------------
-// Type Definitions
+// Types
 // ----------------------------------------------------------------------
 interface ProductData {
   id?: string;
@@ -104,11 +106,14 @@ interface D1BatchStatement {
   params: any[];
 }
 
-// ----------------------------------------------------------------------
-// Helpers for batched inserts with chunking
-// ----------------------------------------------------------------------
+interface AuditPayload {
+  user: User;
+  changes: Diff[];
+}
 
-/** Chunk an array into smaller arrays of a given max size. */
+// ----------------------------------------------------------------------
+// Batched insert helpers
+// ----------------------------------------------------------------------
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {
@@ -117,20 +122,15 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
-/**
- * Build a list of batched INSERT statements for a given table and rows.
- * Each statement stays under the SQLite variable limit (~999) by chunking.
- */
 function buildBatchedInsert(
   tableName: string,
   columns: string[],
-  rows: any[][], // each inner array is a row of values
-  maxRowsPerStatement: number = 100, // safety margin
+  rows: any[][],
+  maxRowsPerStatement: number = 100,
 ): D1BatchStatement[] {
   if (rows.length === 0) return [];
 
   const placeholdersPerRow = columns.length;
-  // SQLite's max variables is 999; keep total params <= 500 to be safe.
   const maxAllowedRows = Math.floor(500 / placeholdersPerRow);
   const effectiveChunkSize = Math.min(maxRowsPerStatement, maxAllowedRows, 1);
 
@@ -150,7 +150,9 @@ function buildBatchedInsert(
 }
 
 // ----------------------------------------------------------------------
-// Updated upsert function with logging
+// upsertProductData — now accepts an optional audit payload.
+// When present, the audit INSERT is appended to the same batch and runs
+// atomically with the mutation.
 // ----------------------------------------------------------------------
 async function upsertProductData(
   productId: string,
@@ -159,18 +161,19 @@ async function upsertProductData(
   isUpdate: boolean,
   db: any,
   createdAt?: number,
+  audit?: AuditPayload | null,
 ) {
   const now = Math.floor(Date.now() / 1000);
   const createdAtTimestamp = createdAt ?? now;
   const queue: D1BatchStatement[] = [];
 
-  // 1. Master Product Record Upsert
+  // 1. Master product record
   queue.push({
     sql: `
       INSERT INTO products (
         id, slug, title, sku, ean, asin,
         baselinker_id, shopify_id, category,
-        condition, note, 
+        condition, note,
         vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
         created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -216,7 +219,7 @@ async function upsertProductData(
     ],
   });
 
-  // 2. Delete all child records (single statements per table)
+  // 2. Clear child tables
   queue.push({
     sql: "DELETE FROM product_paragraphs WHERE product_id = ?",
     params: [productId],
@@ -238,7 +241,7 @@ async function upsertProductData(
     params: [productId],
   });
 
-  // 3. Batched inserts for paragraphs
+  // 3. Paragraphs
   if (data.paragraphs?.length) {
     const rows = data.paragraphs.map((content, index) => [
       productId,
@@ -246,15 +249,16 @@ async function upsertProductData(
       content,
       now,
     ]);
-    const stmts = buildBatchedInsert(
-      "product_paragraphs",
-      ["product_id", "paragraph_order", "content", "created_at"],
-      rows,
+    queue.push(
+      ...buildBatchedInsert(
+        "product_paragraphs",
+        ["product_id", "paragraph_order", "content", "created_at"],
+        rows,
+      ),
     );
-    queue.push(...stmts);
   }
 
-  // 4. Batched inserts for features
+  // 4. Features
   if (data.features?.length) {
     const rows = data.features.map((feature, index) => [
       productId,
@@ -263,15 +267,16 @@ async function upsertProductData(
       feature.description,
       now,
     ]);
-    const stmts = buildBatchedInsert(
-      "product_features",
-      ["product_id", "feature_order", "title", "description", "created_at"],
-      rows,
+    queue.push(
+      ...buildBatchedInsert(
+        "product_features",
+        ["product_id", "feature_order", "title", "description", "created_at"],
+        rows,
+      ),
     );
-    queue.push(...stmts);
   }
 
-  // 5. Batched inserts for specifications
+  // 5. Specifications
   if (data.specifications?.length) {
     const rows = data.specifications.map((spec, index) => [
       productId,
@@ -280,33 +285,42 @@ async function upsertProductData(
       spec.value,
       now,
     ]);
-    const stmts = buildBatchedInsert(
-      "product_specifications",
-      ["product_id", "spec_order", "key", "value", "created_at"],
-      rows,
+    queue.push(
+      ...buildBatchedInsert(
+        "product_specifications",
+        ["product_id", "spec_order", "key", "value", "created_at"],
+        rows,
+      ),
     );
-    queue.push(...stmts);
   }
 
-  // 6. Batched inserts for images
+  // 6. Images
   if (finalizedImages.length) {
     const rows = finalizedImages.map((img, index) => [
       productId,
       index + 1,
-      img.s3_path, // url column
-      img.s3_path, // s3_path column (same value)
+      img.s3_path,
+      img.s3_path,
       img.alt_text,
       now,
     ]);
-    const stmts = buildBatchedInsert(
-      "product_images",
-      ["product_id", "image_order", "url", "s3_path", "alt_text", "created_at"],
-      rows,
+    queue.push(
+      ...buildBatchedInsert(
+        "product_images",
+        [
+          "product_id",
+          "image_order",
+          "url",
+          "s3_path",
+          "alt_text",
+          "created_at",
+        ],
+        rows,
+      ),
     );
-    queue.push(...stmts);
   }
 
-  // 7. Batched inserts for feedbacks
+  // 7. Feedbacks
   if (data.feedbacks?.length) {
     const rows = data.feedbacks.map((fb) => [
       productId,
@@ -315,15 +329,16 @@ async function upsertProductData(
       fb.count || 0,
       now,
     ]);
-    const stmts = buildBatchedInsert(
-      "product_feedbacks",
-      ["product_id", "name", "content", "count", "created_at"],
-      rows,
+    queue.push(
+      ...buildBatchedInsert(
+        "product_feedbacks",
+        ["product_id", "name", "content", "count", "created_at"],
+        rows,
+      ),
     );
-    queue.push(...stmts);
   }
 
-  // 8. Recompute all counts in one single UPDATE (replaces triggers)
+  // 8. Recompute counts
   queue.push({
     sql: `
       UPDATE products SET
@@ -337,39 +352,97 @@ async function upsertProductData(
     params: [productId, productId, productId, productId, productId, productId],
   });
 
-  // Execute the whole batch atomically
+  // 9. Audit row — appended to the same batch.
+  //    Inserted after the mutation so the transaction rolls back atomically
+  //    if either the mutation or the audit insert fails.
+  if (audit) {
+    const { sql, params } = buildAuditStatementParts(audit.user, {
+      action: isUpdate ? "update" : "create",
+      entityType: "product",
+      entityId: productId,
+      entityLabel: data.title,
+      changes: isUpdate ? audit.changes : null,
+      metadata: {
+        image_count: finalizedImages.length,
+        paragraphs: data.paragraphs?.length ?? 0,
+        features: data.features?.length ?? 0,
+        specs: data.specifications?.length ?? 0,
+        feedbacks: data.feedbacks?.length ?? 0,
+        source: "product_save_route",
+      },
+    });
+    queue.push({ sql, params });
+  }
+
   await executeBatch(queue, db);
 }
 
 // ----------------------------------------------------------------------
-// Helper: Partial update – only baselinker_id via SKU
+// Partial update — baselinker_id via SKU. Now audited too.
 // ----------------------------------------------------------------------
 async function updateBaselinkerId(
   sku: string,
   baselinkerId: string | null,
   db: any,
+  actor: User,
 ) {
   const now = Math.floor(Date.now() / 1000);
-  const result = await executeBatch(
-    [
-      {
-        sql: `UPDATE products SET baselinker_id = ?, updated_at = ? WHERE sku = ?`,
-        params: [baselinkerId, now, sku],
-      },
-    ],
+
+  // Fetch the current row so we can diff and label it.
+  const before = await executeQuery(
+    `SELECT id, title, baselinker_id FROM products WHERE sku = ?`,
+    [sku],
     db,
   );
-
-  if (result?.[0]?.meta?.changes === 0) {
+  const row = before?.[0];
+  if (!row) {
     throw new Error(`No product found with SKU: ${sku}`);
   }
-  return true;
+
+  const changed = row.baselinker_id !== baselinkerId;
+
+  const statements: D1BatchStatement[] = [
+    {
+      sql: `UPDATE products SET baselinker_id = ?, updated_at = ? WHERE sku = ?`,
+      params: [baselinkerId, now, sku],
+    },
+  ];
+
+  if (changed) {
+    const { sql, params } = buildAuditStatementParts(actor, {
+      action: "update",
+      entityType: "product",
+      entityId: row.id,
+      entityLabel: row.title,
+      changes: [
+        {
+          field: "baselinker_id",
+          old: row.baselinker_id ?? null,
+          new: baselinkerId,
+        },
+      ],
+      metadata: { source: "partial_update", sku },
+    });
+    statements.push({ sql, params });
+  }
+
+  const result = await executeBatch(statements, db);
+  return result;
 }
 
-// ----------------------------------------------------------------------
-// API Route Handlers
-// ----------------------------------------------------------------------
+// ======================================================================
+// POST
+// ======================================================================
 export async function POST(req: Request) {
+  // ---- Auth ----
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+
   const { env } = await getCloudflareContext({ async: true });
   const db = (env as any).DB;
   const bucket = (env as any).UPLOADS_BUCKET;
@@ -380,7 +453,7 @@ export async function POST(req: Request) {
   try {
     const newData = (await req.json()) as any;
 
-    // Partial update (baselinker_id only) – log minimal
+    // ---- Partial update path ----
     if (newData.partial === true && newData.sku) {
       const { sku, baselinker_id } = newData;
       if (baselinker_id === undefined) {
@@ -389,7 +462,7 @@ export async function POST(req: Request) {
           { status: 400 },
         );
       }
-      await updateBaselinkerId(sku, baselinker_id, db);
+      await updateBaselinkerId(sku, baselinker_id, db, user);
       logMetric("product_save_partial", 1, { sku });
       return NextResponse.json({
         success: true,
@@ -397,7 +470,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Sanitize inputs
+    // ---- Sanitize ----
     function sanitizeString(value: any): any {
       if (value === null || value === undefined) return null;
       if (typeof value !== "string") return value;
@@ -432,15 +505,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get existing product and determine ID
-    let existing = null;
+    // ---- Fetch existing (for diff, and image handling) ----
+    let existing: any = null;
     let productId: string;
     if (
       newData.id &&
       typeof newData.id === "string" &&
       newData.id.trim() !== ""
     ) {
-      // Measure getProductById
       existing = await measureTime("getProductById", async () =>
         getProductById(newData.id, { db, transformToForm: true }),
       );
@@ -449,14 +521,19 @@ export async function POST(req: Request) {
       productId = uuidv4();
     }
 
-    // --- 1. Move existing images to temp (measured) ---
+    // ---- Compute diff BEFORE mutation, using in-memory snapshots ----
+    const changes = diffProduct(existing, newData);
+    const hasRealChanges = changes.length > 0;
+    const isUpdate = !!existing;
+    const auditPayload = isUpdate && !hasRealChanges ? null : { user, changes };
+    // ---- Move existing images to temp ----
     if (existing?.images) {
       await measureTime("moveExistingToTemp", async () =>
         moveExistingToTemp(productSlug, existing.images, bucket),
       );
     }
 
-    // --- 2. Process new images (measured) ---
+    // ---- Process new images ----
     const finalizedImages = await measureTime("processImages", async () =>
       processImages(
         newData.images || [],
@@ -468,26 +545,25 @@ export async function POST(req: Request) {
       ),
     );
 
-    // --- 3. Upsert product data (measured) ---
+    // ---- Upsert + audit, atomic ----
     await measureTime("upsertProductData", async () => {
-      // Disable foreign key checks
       await executeQuery("PRAGMA foreign_keys = OFF", [], db);
       try {
-        const existingCreatedAt = existing?.created_at;
         await upsertProductData(
           productId,
           { ...newData, slug: productSlug } as ProductData,
           finalizedImages,
           !!existing,
           db,
-          existingCreatedAt,
+          existing?.created_at,
+          auditPayload,
         );
       } finally {
         await executeQuery("PRAGMA foreign_keys = ON", [], db);
       }
     });
 
-    // --- 4. Cleanup unused R2 objects (measured) ---
+    // ---- Cleanup unused R2 objects ----
     await measureTime("cleanupImagesFromR2", async () =>
       cleanupImagesFromR2(
         newData.category,
@@ -497,7 +573,6 @@ export async function POST(req: Request) {
       ),
     );
 
-    // Build response (unchanged)
     const updatedImages = finalizedImages.map((img) => ({
       url: img.url,
       s3Path: img.s3_path,
@@ -507,7 +582,6 @@ export async function POST(req: Request) {
       uploadStatus: "completed" as const,
     }));
 
-    // Log final metric with breakdown
     const totalDuration = performance.now() - totalStart;
     logMetric("product_save_total", Math.round(totalDuration), {
       product_id: productId,
@@ -516,6 +590,7 @@ export async function POST(req: Request) {
       features: newData.features?.length || 0,
       specs: newData.specifications?.length || 0,
       is_update: !!existing,
+      change_count: changes.length,
     });
 
     return NextResponse.json({
@@ -526,7 +601,6 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("💥 Save Error:", error);
-    // Also log error metric
     logMetric("product_save_error", 1, { error: error.message });
     return NextResponse.json(
       { success: false, error: formatDatabaseError(error) },
@@ -535,7 +609,18 @@ export async function POST(req: Request) {
   }
 }
 
+// ======================================================================
+// PATCH — partial baselinker_id update via SKU. Now audited.
+// ======================================================================
 export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+
   const { env } = await getCloudflareContext({ async: true });
   const db = (env as any).DB;
 
@@ -553,7 +638,7 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await updateBaselinkerId(sku, baselinker_id, db);
+    await updateBaselinkerId(sku, baselinker_id, db, user);
     return NextResponse.json({
       success: true,
       message: `Updated baselinker_id for SKU ${sku}`,

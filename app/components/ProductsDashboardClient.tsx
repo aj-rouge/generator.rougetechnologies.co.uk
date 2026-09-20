@@ -11,14 +11,17 @@ import {
   Layers,
   Menu,
   ChevronDown,
+  ShieldCheck,
+  BarChart3,
+  History,
 } from "lucide-react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { DarkModeToggle } from "./header/DarkModeToggle";
 import RecentProducts from "./recent/RecentProducts";
 import SearchBar from "./search/SearchBar";
 import { logout } from "../utils/auth/actions";
-import { ShieldCheck } from "lucide-react";
 import type { User } from "../utils/auth";
+
 interface ProductsDashboardClientProps {
   user: User;
   initialProducts: any[];
@@ -36,7 +39,6 @@ export default function ProductsDashboardClient({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -50,7 +52,6 @@ export default function ProductsDashboardClient({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Dropdown animation variants
   const dropdownVariants: Variants = {
     hidden: {
       opacity: 0,
@@ -83,6 +84,9 @@ export default function ProductsDashboardClient({
     exit: { opacity: 0, x: -6, transition: { duration: 0.1 } },
   };
 
+  const itemClass =
+    "flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm";
+
   return (
     <div className="flex flex-col items-center gap-4 p-4 min-h-screen">
       {/* Header */}
@@ -98,9 +102,9 @@ export default function ProductsDashboardClient({
           </button>
         </form>
 
-        {/* Right side: Dropdown, DarkMode, New Product */}
+        {/* Right side */}
         <div className="flex gap-2 flex-wrap items-center">
-          {/* Dropdown Menu */}
+          {/* Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <motion.button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -131,44 +135,73 @@ export default function ProductsDashboardClient({
                   <motion.div variants={itemVariants}>
                     <Link
                       href="/prompts"
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                      className={itemClass}
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       <FileText className="w-4 h-4" />
                       Manage Prompts
                     </Link>
                   </motion.div>
+
                   <motion.div variants={itemVariants}>
                     <Link
                       href="/categories"
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                      className={itemClass}
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       <Layers className="w-4 h-4" />
                       Manage Categories
                     </Link>
                   </motion.div>
+
                   <motion.div variants={itemVariants}>
                     <Link
                       href="/dashboard"
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                      className={itemClass}
                       onClick={() => setIsDropdownOpen(false)}
                     >
                       <LayoutDashboard className="w-4 h-4" />
                       Manage AI Usage
                     </Link>
-                  </motion.div>{" "}
+                  </motion.div>
+
                   {showAdmin && (
-                    <motion.div variants={itemVariants}>
-                      <Link
-                        href="/admin/users"
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
-                        onClick={() => setIsDropdownOpen(false)}
-                      >
-                        <ShieldCheck className="w-4 h-4" />
-                        Admin
-                      </Link>
-                    </motion.div>
+                    <>
+                      <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+
+                      <motion.div variants={itemVariants}>
+                        <Link
+                          href="/admin/analytics"
+                          className={itemClass}
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          Analytics
+                        </Link>
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <Link
+                          href="/admin/activity"
+                          className={itemClass}
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <History className="w-4 h-4" />
+                          Activity
+                        </Link>
+                      </motion.div>
+
+                      <motion.div variants={itemVariants}>
+                        <Link
+                          href="/admin/users"
+                          className={itemClass}
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          Admin
+                        </Link>
+                      </motion.div>
+                    </>
                   )}
                 </motion.div>
               )}

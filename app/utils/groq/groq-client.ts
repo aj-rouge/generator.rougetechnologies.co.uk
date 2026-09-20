@@ -51,7 +51,7 @@ export class GroqClient {
   constructor(apiKey: string) {
     this.apiKey = apiKey;
     this.baseURL = "https://api.groq.com/openai/v1";
-    this.defaultModel = process.env.GROQ_MODEL || "qwen/qwen3.6-27b";
+    this.defaultModel = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
   }
 
   async chatCompletion<T = string>(

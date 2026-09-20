@@ -253,6 +253,97 @@ CREATE TABLE sessions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- =====================================================
+-- ACTIVITY LOG
+-- Append-only. Never UPDATE or DELETE.
+-- One row per mutation. Field diffs live in `changes` JSON.
+-- =====================================================
+CREATE TABLE activity_log (
+  id            TEXT PRIMARY KEY,
+
+  -- Actor (snapshotted — never joined)
+  user_id       TEXT,                 -- nullable for system/cron actions
+  user_name     TEXT NOT NULL,
+  user_email    TEXT NOT NULL,
+
+  -- What happened
+  action        TEXT NOT NULL,        -- 'create'|'update'|'delete'|'restore'
+                                      -- 'import'|'publish'|'ai_generate'|'login'
+  entity_type   TEXT NOT NULL,        -- 'product'|'product_specification'|'category'|...
+  entity_id     TEXT,
+  entity_label  TEXT,                 -- "Apple Studio Display 27\"", snapshot
+
+  -- Parent linkage — lets "who touched product Z?" catch child rows
+  parent_type   TEXT,                 -- e.g. 'product' when editing a specification
+  parent_id     TEXT,
+  parent_label  TEXT,
+
+  -- Human + machine-readable detail
+  summary       TEXT,                 -- "Changed price from £199.99 to £179.99"
+  changes       TEXT,                 -- JSON: [{"field":"...","old":...,"new":...}]
+  metadata      TEXT,                 -- JSON: {bulk_count, correlation_id, model, ...}
+
+  created_at    INTEGER NOT NULL
+);
+ALTER TABLE products            ADD COLUMN created_by TEXT;
+ALTER TABLE products            ADD COLUMN updated_by TEXT;
+
+ALTER TABLE categories          ADD COLUMN created_by TEXT;
+ALTER TABLE categories          ADD COLUMN updated_by TEXT;
+
+ALTER TABLE conditions          ADD COLUMN created_by TEXT;
+ALTER TABLE conditions          ADD COLUMN updated_by TEXT;
+
+ALTER TABLE condition_options   ADD COLUMN created_by TEXT;
+ALTER TABLE condition_options   ADD COLUMN updated_by TEXT;
+
+ALTER TABLE category_content    ADD COLUMN created_by TEXT;
+ALTER TABLE category_content    ADD COLUMN updated_by TEXT;
+
+ALTER TABLE product_images      ADD COLUMN created_by TEXT;
+ALTER TABLE product_images      ADD COLUMN updated_by TEXT;
+
+ALTER TABLE product_features    ADD COLUMN created_by TEXT;
+ALTER TABLE product_features    ADD COLUMN updated_by TEXT;
+
+ALTER TABLE product_paragraphs  ADD COLUMN created_by TEXT;
+ALTER TABLE product_paragraphs  ADD COLUMN updated_by TEXT;
+
+ALTER TABLE product_feedbacks   ADD COLUMN created_by TEXT;
+ALTER TABLE product_feedbacks   ADD COLUMN updated_by TEXT;
+
+ALTER TABLE product_specifications ADD COLUMN created_by TEXT;
+ALTER TABLE product_specifications ADD COLUMN updated_by TEXT;
+
+ALTER TABLE prompt_templates    ADD COLUMN created_by TEXT;
+ALTER TABLE prompt_templates    ADD COLUMN updated_by TEXT;
+
+ALTER TABLE note_templates      ADD COLUMN created_by TEXT;
+ALTER TABLE note_templates      ADD COLUMN updated_by TEXT;
+
+-- Field-level change counting (json_each over `changes`)
+-- Can't index JSON contents in SQLite, but the composite keeps the scan narrow.
+CREATE INDEX IF NOT EXISTS idx_activity_action_created
+  ON activity_log (action, created_at DESC);
+
+-- Per-user per-day rollups
+CREATE INDEX IF NOT EXISTS idx_activity_user_created
+  ON activity_log (user_id, created_at DESC);
+
+-- Global feed (newest first)
+CREATE INDEX idx_activity_time        ON activity_log (created_at DESC);
+
+-- Per-employee view: "what did Ben do on Tuesday?"
+CREATE INDEX idx_activity_user_time   ON activity_log (user_id, created_at DESC);
+
+-- Per-entity view: "show me every edit to product Z"
+CREATE INDEX idx_activity_entity_time ON activity_log (entity_type, entity_id, created_at DESC);
+
+-- Per-parent view: "who touched product Z (including its images, specs)?"
+CREATE INDEX idx_activity_parent_time ON activity_log (parent_type, parent_id, created_at DESC);
+
+-- Filter by action: "show me all deletions this week"
+CREATE INDEX idx_activity_action_time ON activity_log (action, created_at DESC);
 
 -- =====================================================
 -- Indexes for joins
