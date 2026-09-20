@@ -1,23 +1,36 @@
 // app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { getGroqClient } from "../../utils/groq/groq-client";
+import { getOpenRouterClient } from "../../utils/openrouter/openrouter-client";
 import { executeQuery } from "../../utils/d1/execute";
 import {
   compilePrompt,
   getPromptTemplate,
-} from "../../utils/groq/prompt-utils";
+} from "../../utils/openrouter/prompt-utils";
+import {
+  getModels,
+  orderModelsForTask,
+} from "../../utils/openrouter/models";
 import type { D1Database } from "@cloudflare/workers-types";
 
 export const dynamic = "force-dynamic";
 
-// --- Helper: strip reasoning tokens (safety net) ---
+// --- Helpers ---
 function stripThinkTags(text: string): string {
   const stripped = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   return stripped || text;
 }
 
-// Type definitions
+const SKU_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,38}[A-Z0-9]$/;
+function looksLikeSku(s: string): boolean {
+  return SKU_PATTERN.test(s);
+}
+
+// --- Task classification ---
+const REASONING_TASKS = new Set(["paragraphs", "features"]);
+const SHORT_TASKS = new Set(["title", "sku", "note"]);
+
+// --- Types ---
 export interface GenerateTitleInput {
   originalTitle: string;
   categoryName: string;
@@ -25,12 +38,10 @@ export interface GenerateTitleInput {
   specifications?: Array<{ key: string; value: string }>;
   brand?: string;
 }
-
 export interface GenerateSkuInput {
   title: string;
   condition: string;
 }
-
 export interface GenerateParagraphsInput {
   title: string;
   category?: string;
@@ -38,25 +49,37 @@ export interface GenerateParagraphsInput {
   features?: Array<{ title: string; description: string }>;
   keywords?: string[];
 }
-
 export interface GenerateFeaturesInput {
   title: string;
   category?: string;
   specifications?: Array<{ key: string; value: string }>;
   keywords?: string[];
 }
-
 export interface GenerateNoteInput {
   description: string;
   title?: string;
   category?: string;
 }
 
-type TaskHandler = (payload: any, db: D1Database) => Promise<any>;
+interface HandlerContext {
+  models: string[]; // ordered queue, primary first
+  requestedModel?: string;
+  requestId: string;
+}
+
+type TaskHandler = (
+  payload: any,
+  db: D1Database,
+  ctx: HandlerContext,
+) => Promise<any>;
 
 // ---------- Handlers ----------
 
-const handleTitle = async (payload: GenerateTitleInput, db: D1Database) => {
+const handleTitle = async (
+  payload: GenerateTitleInput,
+  db: D1Database,
+  ctx: HandlerContext,
+) => {
   const {
     originalTitle,
     categoryName,
@@ -74,38 +97,32 @@ const handleTitle = async (payload: GenerateTitleInput, db: D1Database) => {
     .join(", ");
   const keywordsStr = (categoryKeywords || []).join(", ");
 
-  const data = {
+  const template = await getPromptTemplate("title", db);
+  const prompt = compilePrompt(template, {
     originalTitle,
     categoryName,
     brandLine,
     specsStr: specsStr || "none",
     keywordsStr: keywordsStr || "none",
-  };
+  });
 
-  const template = await getPromptTemplate("title", db);
-  const prompt = compilePrompt(template, data);
-
-  const result = await getGroqClient().chatCompletion<string>(
+  const result = await getOpenRouterClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    {
-      temperature: 0.3,
-      maxTokens: 60,
-      reasoningEffort: "none",
-    },
+    { models: ctx.models, temperature: 0.3, maxTokens: 80 },
   );
   if (!result.success) throw new Error(result.error);
 
   let title = stripThinkTags(result.data!);
   title = title.replace(/^["']|["']$/g, "").trim();
 
-  await storeUsage(db, "title", result);
-
+  await storeUsage(db, "title", result.modelUsed || ctx.models[0], result);
   return { title };
 };
 
 const handleSku = async (
   payload: { title: string; condition: string },
   db: D1Database,
+  ctx: HandlerContext,
 ) => {
   const { title, condition } = payload;
   if (!title || !condition) throw new Error("Missing title or condition");
@@ -132,57 +149,42 @@ const handleSku = async (
   };
   const conditionCode = conditionMap[condition] || "";
 
-  const data = { title, condition, existingPairs, conditionCode };
-
   const template = await getPromptTemplate("sku", db);
-  const prompt = compilePrompt(template, data);
+  const prompt = compilePrompt(template, {
+    title,
+    condition,
+    existingPairs,
+    conditionCode,
+  });
 
-  // First attempt
-  const result = await getGroqClient().chatCompletion<string>(
+  const result = await getOpenRouterClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    {
-      temperature: 0.2,
-      maxTokens: 30,
-      reasoningEffort: "none",
-    },
+    { models: ctx.models, temperature: 0.2, maxTokens: 40, stop: ["\n"] },
   );
   if (!result.success) throw new Error(result.error);
 
   let sku = stripThinkTags(result.data!);
   sku = sku.replace(/^["']|["']$/g, "").trim();
+  sku = sku
+    .split(/\s+/)[0]
+    .replace(/[^A-Za-z0-9-]/g, "")
+    .toUpperCase();
 
-  // Retry if empty
-  if (!sku) {
-    console.warn("[handleSku] Empty response, retrying with maxTokens: 40");
-    const retryResult = await getGroqClient().chatCompletion<string>(
-      [{ role: "user", content: prompt }],
-      {
-        temperature: 0.2,
-        maxTokens: 40,
-        reasoningEffort: "none",
-      },
-    );
-    if (!retryResult.success) throw new Error(retryResult.error);
-    sku = stripThinkTags(retryResult.data!);
-    sku = sku.replace(/^["']|["']$/g, "").trim();
-  }
-
-  if (!sku) {
+  if (!looksLikeSku(sku)) {
     throw new Error(
-      "Generated SKU is empty – please check the prompt or model response.",
+      `Generated SKU is not valid ("${sku.slice(0, 60)}"). Try a different model.`,
     );
   }
 
-  await storeUsage(db, "sku", result); // or retryResult if retry happened
-
+  await storeUsage(db, "sku", result.modelUsed || ctx.models[0], result);
   console.log(`[handleSku] Clean SKU: "${sku}"`);
-
   return { sku };
 };
 
 const handleParagraphs = async (
   payload: GenerateParagraphsInput,
   db: D1Database,
+  ctx: HandlerContext,
 ) => {
   const { title, category, specifications, features, keywords } = payload;
   if (!title) throw new Error("Missing title");
@@ -195,29 +197,28 @@ const handleParagraphs = async (
     .join("\n");
   const keywordsList = (keywords || []).join(", ");
 
-  const data = {
+  const template = await getPromptTemplate("paragraphs", db);
+  const prompt = compilePrompt(template, {
     title,
     category: category || "General",
     specsList: specsList || "none",
     featuresList: featuresList || "none",
     keywordsList: keywordsList || "none",
-  };
+  });
 
-  const template = await getPromptTemplate("paragraphs", db);
-  const prompt = compilePrompt(template, data);
-
-  const result = await getGroqClient().chatCompletion<string>(
+  const result = await getOpenRouterClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     {
+      models: ctx.models,
       temperature: 0.5,
-      maxTokens: 800,
-      reasoningEffort: "none",
+      maxTokens: 1500,
+      reasoningEffort: "low",
     },
   );
   if (!result.success) throw new Error(result.error);
 
-  let raw = stripThinkTags(result.data!);
-  let paragraphs = raw
+  const raw = stripThinkTags(result.data!);
+  const paragraphs = raw
     .split(/\n\s*\n/)
     .map((p: string) => p.trim())
     .filter((p: string) => p.length > 0)
@@ -227,14 +228,14 @@ const handleParagraphs = async (
     throw new Error("Generated paragraphs are too short – try regenerating.");
   }
 
-  await storeUsage(db, "paragraphs", result);
-
+  await storeUsage(db, "paragraphs", result.modelUsed || ctx.models[0], result);
   return { paragraphs };
 };
 
 const handleFeatures = async (
   payload: GenerateFeaturesInput,
   db: D1Database,
+  ctx: HandlerContext,
 ) => {
   const { title, category, specifications, keywords } = payload;
   if (!title) throw new Error("Missing title");
@@ -244,22 +245,21 @@ const handleFeatures = async (
     .join("\n");
   const keywordsList = (keywords || []).join(", ");
 
-  const data = {
+  const template = await getPromptTemplate("features", db);
+  const prompt = compilePrompt(template, {
     title,
     category: category || "General",
     specsList: specsList || "none",
     keywordsList: keywordsList || "none",
-  };
+  });
 
-  const template = await getPromptTemplate("features", db);
-  const prompt = compilePrompt(template, data);
-
-  const result = await getGroqClient().chatCompletion<string>(
+  const result = await getOpenRouterClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
     {
+      models: ctx.models,
       temperature: 0.4,
-      maxTokens: 800,
-      reasoningEffort: "none",
+      maxTokens: 1500,
+      reasoningEffort: "low",
     },
   );
   if (!result.success) throw new Error(result.error);
@@ -268,10 +268,10 @@ const handleFeatures = async (
   const lines = raw.split("\n").filter((l: string) => l.trim());
   const features = lines
     .map((line: string) => {
-      const colonIndex = line.indexOf(":");
-      if (colonIndex === -1) return null;
-      const fTitle = line.substring(0, colonIndex).trim();
-      const fDescription = line.substring(colonIndex + 1).trim();
+      const idx = line.indexOf(":");
+      if (idx === -1) return null;
+      const fTitle = line.substring(0, idx).trim();
+      const fDescription = line.substring(idx + 1).trim();
       return fTitle && fDescription
         ? { title: fTitle, description: fDescription }
         : null;
@@ -280,12 +280,15 @@ const handleFeatures = async (
   if (features.length < 3)
     throw new Error("Generated fewer than 3 valid features");
 
-  await storeUsage(db, "features", result);
-
+  await storeUsage(db, "features", result.modelUsed || ctx.models[0], result);
   return { features: features.slice(0, 8) };
 };
 
-const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
+const handleNote = async (
+  payload: GenerateNoteInput,
+  db: D1Database,
+  ctx: HandlerContext,
+) => {
   const { description, title, category } = payload;
   if (!description) throw new Error("Missing description");
   const cleaned = description
@@ -298,22 +301,16 @@ const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
   const titleLine = title ? `**Product Title**: "${title}"` : "";
   const categoryLine = category ? `**Category**: "${category}"` : "";
 
-  const data = {
+  const template = await getPromptTemplate("note", db);
+  const prompt = compilePrompt(template, {
     description: cleaned,
     titleLine,
     categoryLine,
-  };
+  });
 
-  const template = await getPromptTemplate("note", db);
-  const prompt = compilePrompt(template, data);
-
-  const result = await getGroqClient().chatCompletion<string>(
+  const result = await getOpenRouterClient().chatCompletion<string>(
     [{ role: "user", content: prompt }],
-    {
-      temperature: 0.3,
-      maxTokens: 150,
-      reasoningEffort: "none",
-    },
+    { models: ctx.models, temperature: 0.3, maxTokens: 150 },
   );
   if (!result.success) throw new Error(result.error);
 
@@ -321,17 +318,20 @@ const handleNote = async (payload: GenerateNoteInput, db: D1Database) => {
   note = note.trim();
   if (!note || note.length < 3) note = null;
 
-  await storeUsage(db, "note", result);
-
+  await storeUsage(db, "note", result.modelUsed || ctx.models[0], result);
   return { note };
 };
 
-// ---------- Helper to store usage ----------
-async function storeUsage(db: D1Database, task: string, result: any) {
+// ---------- Usage ----------
+async function storeUsage(
+  db: D1Database,
+  task: string,
+  model: string,
+  result: any,
+) {
   if (!result.usage) return;
-  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
   await executeQuery(
-    `INSERT INTO usage_logs 
+    `INSERT INTO usage_logs
      (task, model, prompt_tokens, completion_tokens, total_tokens,
       request_timestamp, rate_limit_remaining, rate_limit_reset)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -347,6 +347,43 @@ async function storeUsage(db: D1Database, task: string, result: any) {
     ],
     db,
   );
+}
+
+// ---------- Model resolution ----------
+async function resolveModels(
+  task: string,
+  requestedModel?: string,
+): Promise<{ models: string[]; error?: string }> {
+  const all = await getModels();
+
+  if (requestedModel) {
+    const found = all.find((m) => m.slug === requestedModel);
+    if (!found) {
+      return {
+        models: [],
+        error: `Model "${requestedModel}" is not allowed. Choose from /api/models.`,
+      };
+    }
+    if (SHORT_TASKS.has(task) && found.isReasoningFirst) {
+      return {
+        models: [],
+        error: `Model "${requestedModel}" is a reasoning model and cannot be used for "${task}".`,
+      };
+    }
+    const sameClass = orderModelsForTask(all, found.isReasoningFirst).filter(
+      (s) => s !== requestedModel,
+    );
+    return { models: [requestedModel, ...sameClass].slice(0, 4) };
+  }
+
+  const wantsReasoning = REASONING_TASKS.has(task);
+  const queue = orderModelsForTask(all, wantsReasoning);
+
+  if (queue.length === 0) {
+    return { models: [], error: "No text models available" };
+  }
+
+  return { models: queue.slice(0, 4) };
 }
 
 // ---------- Task Registry ----------
@@ -366,18 +403,23 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (typeof body !== "object" || body === null) {
-      console.error(`[API:generate] ${requestId} - Invalid request body`);
       return NextResponse.json(
         { success: false, error: "Invalid request body" },
         { status: 400 },
       );
     }
 
-    const { task, ...payload } = body as { task?: string; [key: string]: any };
+    const {
+      task,
+      model: requestedModel,
+      ...payload
+    } = body as {
+      task?: string;
+      model?: string;
+      [key: string]: any;
+    };
+
     if (!task || typeof task !== "string") {
-      console.error(
-        `[API:generate] ${requestId} - Missing or invalid task field`,
-      );
       return NextResponse.json(
         { success: false, error: 'Missing or invalid "task" field' },
         { status: 400 },
@@ -386,25 +428,44 @@ export async function POST(request: Request) {
 
     const handler = taskHandlers[task];
     if (!handler) {
-      console.error(`[API:generate] ${requestId} - Unknown task: ${task}`);
       return NextResponse.json(
         { success: false, error: `Unknown task: ${task}` },
         { status: 400 },
       );
     }
 
+    const resolved = await resolveModels(task, requestedModel);
+    if (resolved.error || resolved.models.length === 0) {
+      console.error(
+        `[API:generate] ${requestId} - ${resolved.error || "no models"}`,
+      );
+      return NextResponse.json(
+        { success: false, error: resolved.error || "No models available" },
+        { status: 400 },
+      );
+    }
+
+    console.log(
+      `[API:generate] ${requestId} - Queue: ${resolved.models.join(" → ")}`,
+    );
+
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
 
+    const ctx: HandlerContext = {
+      models: resolved.models,
+      requestedModel,
+      requestId,
+    };
+
     const startTime = Date.now();
-    const data = await handler(payload, db);
+    const data = await handler(payload, db, ctx);
     const elapsed = Date.now() - startTime;
 
     console.log(`[API:generate] ${requestId} - Success in ${elapsed}ms`);
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     console.error(`[API:generate] ${requestId} - Error:`, error.message);
-    if (error.stack) console.error(error.stack);
     return NextResponse.json(
       { success: false, error: error.message || "Generation failed" },
       { status: 500 },

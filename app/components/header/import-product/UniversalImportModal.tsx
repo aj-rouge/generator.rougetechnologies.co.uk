@@ -1,9 +1,11 @@
 // app/components/import-product/UniversalImportModal.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X, Globe, Loader2, Sparkles } from "lucide-react";
 import { FieldSelectionTable } from "./FieldSelectionTable";
 import { IdentifierForm } from "./IdentifierForm";
 import { useNotification } from "../../../context/NotificationContext";
+import { ModelPicker } from "../../ModelPicker";
+import { ThinkingIndicator } from "../../ThinkingIndicator";
 
 // ----------------------------------------------------------------------------
 // Constants & Interfaces
@@ -21,28 +23,20 @@ interface GenerateApiResponse<T = any> {
   success: boolean;
   data: T;
   error?: string;
+  meta?: { model?: string };
 }
 
 interface ScrapedSource {
-  source: string; // e.g., "ebay", "amazon", "currys"
+  source: string;
   identifier: string;
   product: Record<string, any>;
   specifications?: any[];
 }
 
-// API response types
 interface ScrapeBatchResponse {
   success: boolean;
   data: ScrapedSource[];
   error?: string;
-}
-
-interface SkuGenerationResponse {
-  sku?: string;
-}
-
-interface ParagraphsGenerationResponse {
-  paragraphs?: string[];
 }
 
 interface FeatureItem {
@@ -50,13 +44,7 @@ interface FeatureItem {
   description: string;
 }
 
-interface FeaturesGenerationResponse {
-  features?: FeatureItem[];
-}
-
-interface TitleGenerationResponse {
-  title: string; // AI‑optimised title
-}
+type AiPhase = "idle" | "sku" | "paragraphs" | "features" | "title";
 
 // ----------------------------------------------------------------------------
 // Hook: useUniversalImport
@@ -103,7 +91,6 @@ function useUniversalImport() {
       }
       setScrapedSources(result.data);
 
-      // All fields start as skipped (null for regular fields, object for images)
       const initialSelections: Record<string, any> = {};
       for (const field of IMPORT_FIELDS) {
         if (field.key === "images") {
@@ -202,6 +189,8 @@ export default function UniversalImportModal({
 
   const { addNotification } = useNotification();
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiPhase, setAiPhase] = useState<AiPhase>("idle");
+  const [model, setModel] = useState<string>("");
 
   const getSelectedFieldValue = (fieldKey: string) => {
     const selection = fieldSelections[fieldKey];
@@ -276,14 +265,22 @@ export default function UniversalImportModal({
       });
       return;
     }
+
     setAiLoading(true);
+    // Short tasks (sku, title) must use a standard model. If the user
+    // picked a reasoning model in the picker, we ignore it for those
+    // and let the backend default kick in — but we still forward `model`
+    // for paragraphs/features where reasoning is allowed.
+    const modelPayload = model ? { model } : {};
+
     try {
-      // 1. Generate SKU
+      setAiPhase("sku");
       const skuRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           task: "sku",
+          ...modelPayload,
           title: selectedTitle,
           condition: condition || "New",
         }),
@@ -294,12 +291,13 @@ export default function UniversalImportModal({
       if (!skuData.success) throw new Error(skuData.error);
       const sku = skuData.data.sku;
 
-      // 2. Generate paragraphs
+      setAiPhase("paragraphs");
       const paraRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           task: "paragraphs",
+          ...modelPayload,
           title: selectedTitle,
           category: categoryName,
           specifications: selectedSpecs,
@@ -313,12 +311,13 @@ export default function UniversalImportModal({
       if (!paraData.success) throw new Error(paraData.error);
       const paragraphs = paraData.data.paragraphs;
 
-      // 3. Generate features
+      setAiPhase("features");
       const featRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           task: "features",
+          ...modelPayload,
           title: selectedTitle,
           category: categoryName,
           specifications: selectedSpecs,
@@ -331,12 +330,13 @@ export default function UniversalImportModal({
       if (!featData.success) throw new Error(featData.error);
       const features = featData.data.features;
 
-      // 4. Generate optimised title
+      setAiPhase("title");
       const titleRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           task: "title",
+          ...modelPayload,
           originalTitle: selectedTitle,
           categoryName,
           categoryKeywords,
@@ -350,7 +350,6 @@ export default function UniversalImportModal({
       if (!titleData.success) throw new Error(titleData.error);
       const generatedTitle = titleData.data.title;
 
-      // Build final import data (same as before)
       const finalData: any = {};
       if (sku) finalData.sku = sku;
       if (paragraphs) finalData.paragraphs = paragraphs;
@@ -382,6 +381,7 @@ export default function UniversalImportModal({
       });
     } finally {
       setAiLoading(false);
+      setAiPhase("idle");
     }
   };
 
@@ -396,14 +396,17 @@ export default function UniversalImportModal({
             <Globe className="w-5 h-5" />
             <h3 className="text-lg font-bold">Universal Product Import</h3>
           </div>
-          {!isLoading && (
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <ModelPicker value={model} onChange={setModel} />
+            {!isLoading && (
+              <button
+                onClick={onClose}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -414,8 +417,8 @@ export default function UniversalImportModal({
               isLoading={isLoading}
               errorMessage={errorMessage}
               onCancel={onClose}
-              initialAsin={asin} // 👈 new
-              onAsinChange={onAsinChange} // 👈 new
+              initialAsin={asin}
+              onAsinChange={onAsinChange}
             />
           ) : (
             <div className="space-y-4">
@@ -432,12 +435,18 @@ export default function UniversalImportModal({
                   ))}
                 </div>
               </div>
+
               <FieldSelectionTable
                 sources={scrapedSources}
                 fieldSelections={fieldSelections}
                 setFieldSelections={setFieldSelections}
                 addNotification={addNotification}
               />
+
+              {aiLoading && aiPhase !== "idle" && (
+                <ThinkingIndicator task={aiPhase} active={aiLoading} />
+              )}
+
               <div className="flex sm:flex-row flex-col-reverse justify-end gap-3 pt-2">
                 <button
                   onClick={handleBack}

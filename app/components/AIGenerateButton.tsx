@@ -1,12 +1,15 @@
+// app/components/AIGenerateButton.tsx
 import { useState, useEffect } from "react";
 import { Loader2, Sparkles, Pencil, X, Save } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
+import { ModelPicker } from "./ModelPicker";
+import { ThinkingIndicator, ThinkingTask } from "./ThinkingIndicator";
 
-// Generic response type for /api/generate
 interface GenerateApiResponse<T = any> {
   success: boolean;
   data: T;
   error?: string;
+  meta?: { model?: string };
 }
 
 interface PromptTemplateResponse {
@@ -27,6 +30,9 @@ interface AIGenerateButtonProps {
   disabled?: boolean;
   children: React.ReactNode;
   className?: string;
+  model?: string;
+  onModelChange?: (slug: string) => void;
+  showModelPicker?: boolean;
 }
 
 export function AIGenerateButton({
@@ -38,6 +44,9 @@ export function AIGenerateButton({
   disabled = false,
   children,
   className = "",
+  model: controlledModel,
+  onModelChange,
+  showModelPicker = true,
 }: AIGenerateButtonProps) {
   const [loading, setLoading] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
@@ -45,12 +54,21 @@ export function AIGenerateButton({
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [variables, setVariables] = useState<string[]>([]);
+
+  const [internalModel, setInternalModel] = useState("");
+  const model = controlledModel ?? internalModel;
+  const setModel = (slug: string) => {
+    if (onModelChange) onModelChange(slug);
+    else setInternalModel(slug);
+  };
+
   const { addNotification } = useNotification();
 
   useEffect(() => {
     if (showEditor) {
       fetchPrompt();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showEditor]);
 
   const fetchPrompt = async () => {
@@ -60,7 +78,6 @@ export function AIGenerateButton({
       const json = (await res.json()) as PromptTemplateResponse;
       if (json.success && json.data) {
         setPromptText(json.data.template_text);
-        // Ensure variables is an array
         const vars = json.data.variables;
         setVariables(Array.isArray(vars) ? vars : []);
       } else {
@@ -93,13 +110,12 @@ export function AIGenerateButton({
           type: "success",
         });
         return true;
-      } else {
-        addNotification({
-          message: json.error || "Failed to save prompt",
-          type: "error",
-        });
-        return false;
       }
+      addNotification({
+        message: json.error || "Failed to save prompt",
+        type: "error",
+      });
+      return false;
     } catch (e: any) {
       addNotification({ message: e.message, type: "error" });
       return false;
@@ -115,7 +131,11 @@ export function AIGenerateButton({
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, ...payload }),
+        body: JSON.stringify({
+          task,
+          model: model || undefined,
+          ...payload,
+        }),
       });
 
       const result = (await response.json()) as GenerateApiResponse;
@@ -148,7 +168,7 @@ export function AIGenerateButton({
 
   return (
     <div className="relative w-full">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           type="button"
           onClick={handleGenerate}
@@ -167,6 +187,8 @@ export function AIGenerateButton({
           {loading ? "Generating..." : children}
         </button>
 
+        {showModelPicker && <ModelPicker value={model} onChange={setModel} />}
+
         <button
           type="button"
           onClick={() => setShowEditor(!showEditor)}
@@ -176,6 +198,8 @@ export function AIGenerateButton({
           <Pencil className="w-4 h-4" />
         </button>
       </div>
+
+      <ThinkingIndicator task={task as ThinkingTask} active={loading} />
 
       {showEditor && (
         <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -194,7 +218,6 @@ export function AIGenerateButton({
             </button>
           </div>
 
-          {/* Display available variables */}
           {!loadingPrompt && (
             <div className="mb-3">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
