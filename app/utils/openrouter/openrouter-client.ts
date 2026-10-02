@@ -808,6 +808,7 @@ export class OpenRouterClient {
             `(${reasonTokens} reasoning tokens, ${visible} visible). ` +
             `Raise max_tokens or lower reasoning effort.`,
           reasoning: reasoningText,
+          content: contentText,
           usage,
         };
       }
@@ -816,6 +817,7 @@ export class OpenRouterClient {
         retryable: true,
         error: `Empty response (finish_reason=${finishReason})`,
         reasoning: reasoningText,
+        content: contentText,
         usage,
       };
     }
