@@ -1,28 +1,25 @@
 // app/components/AIGenerateButton.tsx
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Sparkles, Pencil, X, Save } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
-import { ModelPicker } from "./ModelPicker";
+import { ModelPicker, useModels } from "./ModelPicker";
+import { ReasoningControls } from "./ReasoningControls";
 import { ThinkingIndicator, ThinkingTask } from "./ThinkingIndicator";
-
-interface GenerateApiResponse<T = any> {
-  success: boolean;
-  data: T;
-  error?: string;
-  meta?: { model?: string };
-}
+import {
+  AUTO_REASONING,
+  describeReasoning,
+  type ReasoningPreference,
+} from "../utils/openrouter/reasoning";
+import { useAIStream } from "../utils/useAIStream";
 
 interface PromptTemplateResponse {
   success: boolean;
-  data?: {
-    template_text: string;
-    variables?: string[];
-  };
+  data?: { template_text: string; variables?: string[] };
   error?: string;
 }
 
 interface AIGenerateButtonProps {
-  task: "title" | "sku" | "paragraphs" | "features" | "note";
+  task: ThinkingTask;
   payload: Record<string, any>;
   onSuccess: (data: any) => void;
   fallback?: () => void;
@@ -48,7 +45,6 @@ export function AIGenerateButton({
   onModelChange,
   showModelPicker = true,
 }: AIGenerateButtonProps) {
-  const [loading, setLoading] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [promptText, setPromptText] = useState("");
   const [loadingPrompt, setLoadingPrompt] = useState(false);
@@ -56,6 +52,8 @@ export function AIGenerateButton({
   const [variables, setVariables] = useState<string[]>([]);
 
   const [internalModel, setInternalModel] = useState("");
+  const [reasoning, setReasoning] =
+    useState<ReasoningPreference>(AUTO_REASONING);
   const model = controlledModel ?? internalModel;
   const setModel = (slug: string) => {
     if (onModelChange) onModelChange(slug);
@@ -63,11 +61,20 @@ export function AIGenerateButton({
   };
 
   const { addNotification } = useNotification();
+  const { lookup } = useModels();
+  const modelMeta = model ? lookup(model) : null;
+
+  const stream = useAIStream<Record<string, any>>({
+    onError: (message) => {
+      addNotification({ message, type: "error" });
+      fallback?.();
+    },
+  });
+
+  const loading = stream.isActive;
 
   useEffect(() => {
-    if (showEditor) {
-      fetchPrompt();
-    }
+    if (showEditor) fetchPrompt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showEditor]);
 
@@ -78,8 +85,9 @@ export function AIGenerateButton({
       const json = (await res.json()) as PromptTemplateResponse;
       if (json.success && json.data) {
         setPromptText(json.data.template_text);
-        const vars = json.data.variables;
-        setVariables(Array.isArray(vars) ? vars : []);
+        setVariables(
+          Array.isArray(json.data.variables) ? json.data.variables : [],
+        );
       } else {
         addNotification({
           message: json.error || `Failed to load prompt for ${task}`,
@@ -95,7 +103,7 @@ export function AIGenerateButton({
     }
   };
 
-  const savePrompt = async () => {
+  const savePrompt = async (): Promise<boolean> => {
     setSavingPrompt(true);
     try {
       const res = await fetch(`/api/prompts/${task}`, {
@@ -125,45 +133,30 @@ export function AIGenerateButton({
   };
 
   const handleGenerate = async () => {
-    if (disabled) return;
-    setLoading(true);
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task,
-          model: model || undefined,
-          ...payload,
-        }),
-      });
+    if (disabled || loading) return;
 
-      const result = (await response.json()) as GenerateApiResponse;
+    const result = await stream.run({
+      task,
+      model: model || undefined,
+      reasoning,
+      ...payload,
+    });
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Generation failed");
-      }
+    if (!result) return;
 
-      onSuccess(result.data);
-      addNotification({ message: successMessage, type: "success" });
-    } catch (error: any) {
-      addNotification({ message: error.message, type: "error" });
-      if (fallback) fallback();
-    } finally {
-      setLoading(false);
+    if (result.note !== undefined) {
+      onSuccess(result.note);
+    } else {
+      onSuccess(result);
     }
+    addNotification({ message: successMessage, type: "success" });
   };
 
   const handleSaveAndGenerate = async () => {
-    const saved = await savePrompt();
-    if (saved) {
+    if (await savePrompt()) {
       setShowEditor(false);
       await handleGenerate();
     }
-  };
-
-  const handleSaveOnly = async () => {
-    await savePrompt();
   };
 
   return (
@@ -184,10 +177,32 @@ export function AIGenerateButton({
           ) : (
             <Sparkles className="w-4 h-4" />
           )}
-          {loading ? "Generating..." : children}
+          {loading ? "Generating…" : children}
         </button>
 
-        {showModelPicker && <ModelPicker value={model} onChange={setModel} />}
+        {showModelPicker && (
+          <>
+            <ModelPicker value={model} onChange={setModel} showSearch />
+            <ReasoningControls
+              slug={model}
+              value={reasoning}
+              onChange={setReasoning}
+              disabled={loading}
+              compact={false}
+            />
+            {modelMeta && (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {describeReasoning(
+                  {
+                    ...modelMeta,
+                    isReasoningFirst: modelMeta.isReasoningFirst ?? false,
+                  } as Parameters<typeof describeReasoning>[0],
+                  reasoning,
+                )}
+              </span>
+            )}
+          </>
+        )}
 
         <button
           type="button"
@@ -197,9 +212,30 @@ export function AIGenerateButton({
         >
           <Pencil className="w-4 h-4" />
         </button>
+
+        {loading && (
+          <button
+            type="button"
+            onClick={stream.cancel}
+            className="text-xs text-gray-500 hover:text-red-500 underline"
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
-      <ThinkingIndicator task={task as ThinkingTask} active={loading} />
+      <ThinkingIndicator
+        task={task}
+        status={stream.status}
+        reasoning={stream.reasoning}
+        content={stream.content}
+        model={stream.model}
+        elapsedMs={stream.elapsedMs}
+      />
+
+      {stream.status === "error" && stream.error && (
+        <div className="mt-2 text-xs text-red-500">{stream.error}</div>
+      )}
 
       {showEditor && (
         <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
@@ -212,7 +248,7 @@ export function AIGenerateButton({
             </h4>
             <button
               onClick={() => setShowEditor(false)}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400"
             >
               <X className="w-4 h-4" />
             </button>
@@ -243,7 +279,7 @@ export function AIGenerateButton({
           )}
 
           {loadingPrompt ? (
-            <div className="text-gray-500">Loading prompt...</div>
+            <div className="text-gray-500">Loading prompt…</div>
           ) : (
             <>
               <textarea
@@ -257,7 +293,7 @@ export function AIGenerateButton({
                 <button
                   onClick={handleSaveAndGenerate}
                   disabled={savingPrompt || loading}
-                  className="px-4 py-2 justify-center align-middle bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 justify-center bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-2 disabled:opacity-50"
                 >
                   {savingPrompt ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -267,9 +303,9 @@ export function AIGenerateButton({
                   Save & Generate
                 </button>
                 <button
-                  onClick={handleSaveOnly}
+                  onClick={savePrompt}
                   disabled={savingPrompt}
-                  className="px-4 py-2 justify-center align-middle bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center gap-2 disabled:opacity-50"
                 >
                   {savingPrompt ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

@@ -6,6 +6,12 @@ import { IdentifierForm } from "./IdentifierForm";
 import { useNotification } from "../../../context/NotificationContext";
 import { ModelPicker } from "../../ModelPicker";
 import { ThinkingIndicator } from "../../ThinkingIndicator";
+import { useAIStream } from "../../../utils/useAIStream";
+import { ReasoningControls } from "../../ReasoningControls";
+import {
+  AUTO_REASONING,
+  ReasoningPreference,
+} from "../../../utils/openrouter/reasoning";
 
 // ----------------------------------------------------------------------------
 // Constants & Interfaces
@@ -188,9 +194,13 @@ export default function UniversalImportModal({
   } = useUniversalImport();
 
   const { addNotification } = useNotification();
-  const [aiLoading, setAiLoading] = useState(false);
   const [aiPhase, setAiPhase] = useState<AiPhase>("idle");
   const [model, setModel] = useState<string>("");
+  const [reasoning, setReasoning] =
+    useState<ReasoningPreference>(AUTO_REASONING);
+
+  const stream = useAIStream<any>();
+  const aiLoading = stream.isActive;
 
   const getSelectedFieldValue = (fieldKey: string) => {
     const selection = fieldSelections[fieldKey];
@@ -266,108 +276,76 @@ export default function UniversalImportModal({
       return;
     }
 
-    setAiLoading(true);
-    // Short tasks (sku, title) must use a standard model. If the user
-    // picked a reasoning model in the picker, we ignore it for those
-    // and let the backend default kick in — but we still forward `model`
-    // for paragraphs/features where reasoning is allowed.
-    const modelPayload = model ? { model } : {};
-
+    // Each phase re-runs the same streaming pipeline. The model is whatever
+    // the user picked — no task-based restrictions.
+    const ask = async <T,>(
+      phase: AiPhase,
+      body: { task: string; [key: string]: any },
+    ) => {
+      setAiPhase(phase);
+      return (await stream.run({
+        model: model || undefined,
+        reasoning,
+        ...body,
+      })) as T | null;
+    };
     try {
-      setAiPhase("sku");
-      const skuRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task: "sku",
-          ...modelPayload,
-          title: selectedTitle,
-          condition: condition || "New",
-        }),
+      const skuRes = await ask<{ sku: string }>("sku", {
+        task: "sku",
+        title: selectedTitle,
+        condition: condition || "New",
       });
-      const skuData = (await skuRes.json()) as GenerateApiResponse<{
-        sku: string;
-      }>;
-      if (!skuData.success) throw new Error(skuData.error);
-      const sku = skuData.data.sku;
+      if (!skuRes) return;
+      const sku = skuRes.sku;
 
-      setAiPhase("paragraphs");
-      const paraRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task: "paragraphs",
-          ...modelPayload,
-          title: selectedTitle,
-          category: categoryName,
-          specifications: selectedSpecs,
-          features: [],
-          keywords: categoryKeywords,
-        }),
+      const paraRes = await ask<{ paragraphs: string[] }>("paragraphs", {
+        task: "paragraphs",
+        title: selectedTitle,
+        category: categoryName,
+        specifications: selectedSpecs,
+        features: [],
+        keywords: categoryKeywords,
       });
-      const paraData = (await paraRes.json()) as GenerateApiResponse<{
-        paragraphs: string[];
-      }>;
-      if (!paraData.success) throw new Error(paraData.error);
-      const paragraphs = paraData.data.paragraphs;
+      if (!paraRes) return;
+      const paragraphs = paraRes.paragraphs;
 
-      setAiPhase("features");
-      const featRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task: "features",
-          ...modelPayload,
-          title: selectedTitle,
-          category: categoryName,
-          specifications: selectedSpecs,
-          keywords: categoryKeywords,
-        }),
+      const featRes = await ask<{ features: FeatureItem[] }>("features", {
+        task: "features",
+        title: selectedTitle,
+        category: categoryName,
+        specifications: selectedSpecs,
+        keywords: categoryKeywords,
       });
-      const featData = (await featRes.json()) as GenerateApiResponse<{
-        features: FeatureItem[];
-      }>;
-      if (!featData.success) throw new Error(featData.error);
-      const features = featData.data.features;
+      if (!featRes) return;
+      const features = featRes.features;
 
-      setAiPhase("title");
-      const titleRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task: "title",
-          ...modelPayload,
-          originalTitle: selectedTitle,
-          categoryName,
-          categoryKeywords,
-          specifications: selectedSpecs,
-          brand: selectedBrand,
-        }),
+      const titleRes = await ask<{ title: string }>("title", {
+        task: "title",
+        originalTitle: selectedTitle,
+        categoryName,
+        categoryKeywords,
+        specifications: selectedSpecs,
+        brand: selectedBrand,
       });
-      const titleData = (await titleRes.json()) as GenerateApiResponse<{
-        title: string;
-      }>;
-      if (!titleData.success) throw new Error(titleData.error);
-      const generatedTitle = titleData.data.title;
+      if (!titleRes) return;
 
       const finalData: any = {};
       if (sku) finalData.sku = sku;
       if (paragraphs) finalData.paragraphs = paragraphs;
       if (features)
-        finalData.features = features.map((f: FeatureItem) => ({
+        finalData.features = features.map((f) => ({
           title: f.title,
           description: f.description,
         }));
-      finalData.title = generatedTitle || selectedTitle;
+      finalData.title = titleRes.title || selectedTitle;
+
       const selectedPrice = getSelectedFieldValue("price");
       if (selectedPrice) finalData.price = selectedPrice;
 
       const selectedImages = getSelectedFieldValue("images");
       if (selectedImages) finalData.images = selectedImages.slice(0, 16);
 
-      const selectedBrandVal = getSelectedFieldValue("brand");
-      if (selectedBrandVal) finalData.brand = selectedBrandVal;
-
+      if (selectedBrand) finalData.brand = selectedBrand;
       if (selectedSpecs.length) finalData.specifications = selectedSpecs;
 
       onImport(finalData);
@@ -380,7 +358,6 @@ export default function UniversalImportModal({
         type: "error",
       });
     } finally {
-      setAiLoading(false);
       setAiPhase("idle");
     }
   };
@@ -397,7 +374,13 @@ export default function UniversalImportModal({
             <h3 className="text-lg font-bold">Universal Product Import</h3>
           </div>
           <div className="flex items-center gap-3">
-            <ModelPicker value={model} onChange={setModel} />
+            <ModelPicker value={model} onChange={setModel} showSearch />
+            <ReasoningControls
+              slug={model}
+              value={reasoning}
+              onChange={setReasoning}
+              disabled={aiLoading}
+            />{" "}
             {!isLoading && (
               <button
                 onClick={onClose}
@@ -444,7 +427,14 @@ export default function UniversalImportModal({
               />
 
               {aiLoading && aiPhase !== "idle" && (
-                <ThinkingIndicator task={aiPhase} active={aiLoading} />
+                <ThinkingIndicator
+                  task={aiPhase}
+                  status={stream.status}
+                  reasoning={stream.reasoning}
+                  content={stream.content}
+                  model={stream.model}
+                  elapsedMs={stream.elapsedMs}
+                />
               )}
 
               <div className="flex sm:flex-row flex-col-reverse justify-end gap-3 pt-2">

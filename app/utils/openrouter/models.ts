@@ -1,4 +1,5 @@
 // utils/openrouter/models.ts
+import type { ReasoningEffort } from "./reasoning";
 
 export interface OpenRouterModel {
   id: string;
@@ -11,7 +12,15 @@ export interface OpenRouterModel {
     output_modalities?: string[];
   };
   supported_parameters: string[];
-  reasoning?: { mandatory?: boolean; default_enabled?: boolean };
+  /** Present only for models that expose a thinking channel. */
+  reasoning?: {
+    mandatory?: boolean;
+    default_enabled?: boolean;
+    default_effort?: ReasoningEffort;
+    /** null / omitted → no allowlist, any effort is accepted. */
+    supported_efforts?: ReasoningEffort[] | null;
+    supports_max_tokens?: boolean;
+  };
 }
 
 export interface AvailableModel {
@@ -20,10 +29,31 @@ export interface AvailableModel {
   provider: string;
   context_length: number;
   description: string;
-  isReasoningFirst: boolean;
   isFree: boolean;
-  inputPricePerM: number; // USD per 1M input tokens
-  outputPricePerM: number; // USD per 1M output tokens
+  inputPricePerM: number;
+  outputPricePerM: number;
+
+  // --- reasoning capabilities ---
+  /** Model exposes a thinking channel at all. */
+  supportsReasoning: boolean;
+  /** Thinks unless you explicitly turn it off. */
+  reasoningByDefault: boolean;
+  /** Cannot be turned off (`effort: "none"` is rejected). */
+  reasoningMandatory: boolean;
+  reasoningDefaultEffort?: ReasoningEffort;
+  /** `null` → all efforts accepted. */
+  reasoningSupportedEfforts?: ReasoningEffort[] | null;
+  supportsReasoningMaxTokens: boolean;
+
+  inputModalities: string[];
+  outputModalities: string[];
+
+  /** @deprecated alias of `reasoningByDefault`, kept for existing callers. */
+  isReasoningFirst: boolean;
+}
+
+export function isThinker(m: AvailableModel): boolean {
+  return m.reasoningMandatory || m.reasoningByDefault;
 }
 
 interface ModelsCache {
@@ -34,8 +64,6 @@ interface ModelsCache {
 let cache: ModelsCache | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// Only these are guaranteed broken / non-chat / leak reasoning. Everything
-// else is allowed through.
 const BLOCKED_PREFIXES: string[] = [
   "openrouter/",
   "google/lyria",
@@ -61,7 +89,11 @@ const BLOCKED_PREFIXES: string[] = [
   "nex-agi/",
 ];
 
-// Paid frontier models — what you actually want to use once you have credits.
+/**
+ * Ordering hints only — these are *not* an allowlist any more. Stale slugs are
+ * harmless (they simply don't match), and every non-blocked text model is
+ * selectable by the user.
+ */
 const PREFERRED_STANDARD: string[] = [
   "openai/gpt-4o-mini",
   "google/gemini-2.0-flash-001",
@@ -69,7 +101,6 @@ const PREFERRED_STANDARD: string[] = [
   "deepseek/deepseek-chat",
   "mistralai/mistral-small-3.1-24b-instruct",
   "meta-llama/llama-3.3-70b-instruct",
-  // free fallbacks if you want them
   "meta-llama/llama-3.3-70b-instruct:free",
   "google/gemma-3-27b-it:free",
 ];
@@ -83,49 +114,62 @@ const PREFERRED_REASONING: string[] = [
   "qwen/qwen3-235b-a22b:free",
 ];
 
+function numeric(v: string | number | undefined): number {
+  const n = typeof v === "string" ? parseFloat(v) : (v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function isFree(m: OpenRouterModel): boolean {
   const p = m.pricing || ({} as OpenRouterModel["pricing"]);
-  return (
-    (p.prompt === "0" || (p.prompt as unknown as number) === 0) &&
-    (p.completion === "0" || (p.completion as unknown as number) === 0)
-  );
+  return numeric(p.prompt) === 0 && numeric(p.completion) === 0;
 }
 
 function isBlocked(m: OpenRouterModel): boolean {
-  return BLOCKED_PREFIXES.some((p) => m.id.startsWith(p));
+  return BLOCKED_PREFIXES.some((p) => (m.id ?? "").startsWith(p));
 }
 
 function isTextCapable(m: OpenRouterModel): boolean {
   const arch = m.architecture;
-  if (!arch) return false;
-  const inputs = arch.input_modalities || [];
-  const outputs = arch.output_modalities || [];
+  const inputs = arch?.input_modalities ?? [];
+  const outputs = arch?.output_modalities ?? [];
+  if (inputs.length === 0 && outputs.length === 0) {
+    // Missing modality metadata: fall back to "does it advertise chat params".
+    return (m.supported_parameters ?? []).some((p) =>
+      ["temperature", "max_tokens", "tools", "reasoning"].includes(p),
+    );
+  }
   return inputs.includes("text") && outputs.includes("text");
 }
 
-function isReasoningFirst(m: OpenRouterModel): boolean {
-  const meta = m.reasoning;
-  return meta?.mandatory === true || meta?.default_enabled === true;
-}
-
 function pricePerM(raw: string | number | undefined): number {
-  const n = typeof raw === "string" ? parseFloat(raw) : (raw ?? 0);
-  if (!Number.isFinite(n)) return 0;
-  return n * 1_000_000;
+  return numeric(raw) * 1_000_000;
 }
 
 function toAvailable(m: OpenRouterModel): AvailableModel {
   const p = m.pricing || ({} as OpenRouterModel["pricing"]);
+  const r = m.reasoning;
+  const supportsReasoning = !!r;
   return {
     slug: m.id,
     name: m.name || m.id,
     provider: (m.id || "").split("/")[0] || "unknown",
     context_length: m.context_length || 0,
     description: m.description || "",
-    isReasoningFirst: isReasoningFirst(m),
     isFree: isFree(m),
     inputPricePerM: pricePerM(p.prompt),
     outputPricePerM: pricePerM(p.completion),
+
+    supportsReasoning,
+    reasoningByDefault: r?.default_enabled === true,
+    reasoningMandatory: r?.mandatory === true,
+    reasoningDefaultEffort: r?.default_effort,
+    reasoningSupportedEfforts: r?.supported_efforts ?? null,
+    supportsReasoningMaxTokens: r?.supports_max_tokens === true,
+
+    inputModalities: m.architecture?.input_modalities ?? [],
+    outputModalities: m.architecture?.output_modalities ?? [],
+
+    isReasoningFirst: r?.default_enabled === true,
   };
 }
 
@@ -150,10 +194,11 @@ export async function getModels(): Promise<AvailableModel[]> {
     .map(toAvailable)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const free = filtered.filter((m) => m.isFree).length;
-  const paid = filtered.length - free;
+  const thinkers = filtered.filter(isThinker).length;
   console.log(
-    `[models] Text models: ${filtered.length} (free: ${free}, paid: ${paid}) from ${all.length} total`,
+    `[models] Text models: ${filtered.length} ` +
+      `(thinking-by-default: ${thinkers}, free: ${filtered.filter((m) => m.isFree).length}) ` +
+      `from ${all.length} total`,
   );
 
   cache = { models: filtered, fetchedAt: Date.now() };
@@ -170,21 +215,77 @@ export async function findModel(slug: string): Promise<AvailableModel | null> {
   return models.find((m) => m.slug === slug) || null;
 }
 
+/** Like `findModel`, but never throws (safe inside a streaming loop). */
+export async function safeFindModel(
+  slug: string,
+): Promise<AvailableModel | null> {
+  try {
+    return await findModel(slug);
+  } catch {
+    return null;
+  }
+}
+
+export interface ModelGroups {
+  /** Always thinks (mandatory or default_enabled). */
+  reasoningByDefault: AvailableModel[];
+  /** Has a thinking channel, but off unless you ask for it. */
+  reasoningCapable: AvailableModel[];
+  standard: AvailableModel[];
+  counts: {
+    total: number;
+    reasoningByDefault: number;
+    reasoningCapable: number;
+    standard: number;
+    free: number;
+  };
+}
+
+export function groupModels(models: AvailableModel[]): ModelGroups {
+  const reasoningByDefault: AvailableModel[] = [];
+  const reasoningCapable: AvailableModel[] = [];
+  const standard: AvailableModel[] = [];
+
+  for (const m of models) {
+    if (isThinker(m)) reasoningByDefault.push(m);
+    else if (m.supportsReasoning) reasoningCapable.push(m);
+    else standard.push(m);
+  }
+
+  return {
+    reasoningByDefault,
+    reasoningCapable,
+    standard,
+    counts: {
+      total: models.length,
+      reasoningByDefault: reasoningByDefault.length,
+      reasoningCapable: reasoningCapable.length,
+      standard: standard.length,
+      free: models.filter((m) => m.isFree).length,
+    },
+  };
+}
+
+/**
+ * Fallback queue when the caller didn't pin a model. `wantsReasoning` is now
+ * only a *sorting* preference — it never gates anything.
+ */
 export function orderModelsForTask(
   available: AvailableModel[],
   wantsReasoning: boolean,
 ): string[] {
-  const pool = available.filter((m) => m.isReasoningFirst === wantsReasoning);
-  if (pool.length === 0) return available.map((m) => m.slug);
+  const pool = available.filter((m) => isThinker(m) === wantsReasoning);
+  const usable = pool.length > 0 ? pool : available;
 
   const preferred = wantsReasoning ? PREFERRED_REASONING : PREFERRED_STANDARD;
   const ordered: string[] = [];
-
   for (const slug of preferred) {
-    if (pool.some((m) => m.slug === slug)) ordered.push(slug);
+    if (usable.some((m) => m.slug === slug)) ordered.push(slug);
   }
-  for (const m of pool) {
-    if (!ordered.includes(m.slug)) ordered.push(m.slug);
-  }
+  // Free models first among the remainder — cheapest failure mode.
+  const rest = usable
+    .filter((m) => !ordered.includes(m.slug))
+    .sort((a, b) => Number(b.isFree) - Number(a.isFree));
+  for (const m of rest) ordered.push(m.slug);
   return ordered;
 }
