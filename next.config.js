@@ -13,11 +13,16 @@ const nextConfig = {
         hostname: "cdn.rougetechnologies.co.uk",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "m.media-amazon.com",
+        pathname: "/**",
+      },
     ],
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['127.0.0.1:8787', 'localhost:8787'],
+      allowedOrigins: ["127.0.0.1:8787", "localhost:8787"],
     },
   },
 };

@@ -1,19 +1,28 @@
+import ProductsTable from "../../../components/admin/analytics/ProductsTable";
 import { getDb, requireStaff } from "../../../utils/auth";
 import {
   getEmployeeSummaries,
   getDailyActivity,
-  getMostEditedProducts,
+  getProductsForAnalytics,
+  countProductsForAnalytics,
   startOfMonth,
   endOfMonth,
-  daysAgo,
-  startOfDay,
 } from "../../../utils/d1/analytics";
 import BarChart from "./BarChart";
 import EmployeeCard from "./EmployeeCard";
+import RangeFilter from "./RangeFilter";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ from?: string; to?: string }>;
+const PAGE_SIZE = 10;
+
+type SearchParams = Promise<{
+  from?: string;
+  to?: string;
+  view?: string;
+  sort?: string;
+  page?: string;
+}>;
 
 function parseRange(searchParams: { from?: string; to?: string }) {
   const now = new Date();
@@ -26,7 +35,6 @@ function parseRange(searchParams: { from?: string; to?: string }) {
       : endOfMonth(now);
     return { from, to };
   }
-  // Default: this calendar month
   return { from: startOfMonth(now), to: endOfMonth(now) };
 }
 
@@ -40,11 +48,26 @@ export default async function AnalyticsPage({
   const sp = await searchParams;
   const range = parseRange(sp);
 
-  const [summaries, daily, topProducts] = await Promise.all([
+  const initialView: "created" | "edits" =
+    sp.view === "edits" ? "edits" : "created";
+  const initialSort: "asc" | "desc" = sp.sort === "asc" ? "asc" : "desc";
+  const requestedPage = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+
+  const [summaries, daily, productTotal] = await Promise.all([
     getEmployeeSummaries(db, range),
     getDailyActivity(db, range),
-    getMostEditedProducts(db, range, 10),
+    countProductsForAnalytics(db, range, { view: initialView }),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(productTotal / PAGE_SIZE));
+  const initialPage = Math.min(requestedPage, totalPages);
+
+  const productRows = await getProductsForAnalytics(db, range, {
+    view: initialView,
+    sortDir: initialSort,
+    limit: PAGE_SIZE,
+    offset: (initialPage - 1) * PAGE_SIZE,
+  });
 
   const totalActions = summaries.reduce((s, r) => s + r.total_actions, 0);
   const totalCreated = summaries.reduce((s, r) => s + r.products_created, 0);
@@ -65,10 +88,9 @@ export default async function AnalyticsPage({
             {activeUsers === 1 ? "person" : "people"}
           </p>
         </div>
-        <RangeFilter from={sp.from} to={sp.to} />
+        <RangeFilter from={sp.from} to={sp.to} view={sp.view} sort={sp.sort} />
       </div>
 
-      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Total actions" value={totalActions} />
         <KpiCard label="Products created" value={totalCreated} tone="green" />
@@ -76,7 +98,6 @@ export default async function AnalyticsPage({
         <KpiCard label="Products deleted" value={totalDeleted} tone="red" />
       </div>
 
-      {/* Daily activity chart */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">Daily activity</h2>
         <BarChart
@@ -89,7 +110,6 @@ export default async function AnalyticsPage({
         />
       </div>
 
-      {/* Employee cards */}
       <div>
         <h2 className="text-lg font-semibold mb-4">By employee</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -104,49 +124,15 @@ export default async function AnalyticsPage({
         </div>
       </div>
 
-      {/* Most-edited products */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-          <h2 className="text-lg font-semibold">Most-edited products</h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800/50 text-left">
-            <tr>
-              <th className="px-6 py-3 font-medium">Product</th>
-              <th className="px-6 py-3 font-medium text-right">Edits</th>
-              <th className="px-6 py-3 font-medium text-right">Last edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topProducts.map((p) => (
-              <tr
-                key={p.product_id}
-                className="border-t border-gray-100 dark:border-gray-800"
-              >
-                <td className="px-6 py-3">
-                  <a
-                    href={`/products/${p.product_id}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {p.product_label || p.product_id}
-                  </a>
-                </td>
-                <td className="px-6 py-3 text-right tabular-nums">{p.edits}</td>
-                <td className="px-6 py-3 text-right text-gray-500">
-                  {new Date(p.last_edited_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-            {topProducts.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
-                  No products edited in this period
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ProductsTable
+        initialRows={productRows}
+        initialTotal={productTotal}
+        initialView={initialView}
+        initialSort={initialSort}
+        initialPage={initialPage}
+        from={sp.from}
+        to={sp.to}
+      />
     </div>
   );
 }
@@ -174,45 +160,6 @@ function KpiCard({
       <div className={`text-3xl font-semibold mt-2 ${colors[tone]}`}>
         {value}
       </div>
-    </div>
-  );
-}
-
-function RangeFilter({ from, to }: { from?: string; to?: string }) {
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
-  const weekAgo = new Date(Date.now() - 7 * 86400_000)
-    .toISOString()
-    .slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400_000)
-    .toISOString()
-    .slice(0, 10);
-
-  const link = (f: string, t: string) => `/admin/analytics?from=${f}&to=${t}`;
-
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <a
-        href={link(weekAgo, today)}
-        className="px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
-      >
-        Last 7 days
-      </a>
-      <a
-        href={link(monthAgo, today)}
-        className="px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
-      >
-        Last 30 days
-      </a>
-      <a
-        href={link(monthStart, today)}
-        className="px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
-      >
-        This month
-      </a>
     </div>
   );
 }

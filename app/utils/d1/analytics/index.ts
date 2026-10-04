@@ -196,7 +196,106 @@ export async function getMostEditedProducts(
   `;
   return executeQuery(sql, [range.from, range.to, limit], db);
 }
+// ----------------------------------------------------------------
+// 4. Product list for analytics: "latest created" (default) or
+//    "most edited", with pagination + sort direction.
+// ----------------------------------------------------------------
 
+export type ProductListRow = {
+  product_id: string;
+  product_label: string;
+  edits: number;
+  created_at: number | null; // null when a product was only edited, never created, in range
+  last_activity_at: number;
+  created_by: string | null; // who originally created the product
+};
+
+export type ProductListView = "created" | "edits";
+
+function productListHaving(view: ProductListView): string {
+  // "created" view only shows products actually created in the range.
+  return view === "created" ? "HAVING created_at IS NOT NULL" : "";
+}
+
+export async function countProductsForAnalytics(
+  db: D1Database,
+  range: DateRange,
+  opts: { view?: ProductListView } = {},
+): Promise<number> {
+  const view: ProductListView = opts.view ?? "created";
+  const sql = `
+    SELECT COUNT(*) AS total FROM (
+      SELECT
+        al.entity_id,
+        MIN(CASE WHEN al.action = 'create' THEN al.created_at END) AS created_at
+      FROM activity_log al
+      WHERE al.entity_type = 'product'
+        AND al.action IN ('create', 'update', 'delete')
+        AND al.entity_id IS NOT NULL
+        AND al.created_at >= ?
+        AND al.created_at <  ?
+      GROUP BY al.entity_id
+      ${productListHaving(view)}
+    )
+  `;
+  const rows = await executeQuery<{ total: number }>(
+    sql,
+    [range.from, range.to],
+    db,
+  );
+  return rows[0]?.total ?? 0;
+}
+
+export async function getProductsForAnalytics(
+  db: D1Database,
+  range: DateRange,
+  opts: {
+    view?: ProductListView;
+    sortDir?: "asc" | "desc";
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<ProductListRow[]> {
+  const view: ProductListView = opts.view ?? "created";
+  const dir = (opts.sortDir ?? "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
+  const limit = Math.min(Math.max(opts.limit ?? 10, 1), 100);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const orderColumn = view === "edits" ? "edits" : "created_at";
+
+  const sql = `
+    SELECT
+      al.entity_id                                          AS product_id,
+      COALESCE(MAX(al.entity_label), MAX(al.entity_id))     AS product_label,
+      SUM(CASE WHEN al.action = 'update' THEN 1 ELSE 0 END) AS edits,
+      MIN(CASE WHEN al.action = 'create' THEN al.created_at END) AS created_at,
+      MAX(al.created_at)                                    AS last_activity_at,
+      (
+        SELECT al2.user_name
+        FROM activity_log al2
+        WHERE al2.entity_type = 'product'
+          AND al2.entity_id   = al.entity_id
+          AND al2.action      = 'create'
+        ORDER BY al2.created_at ASC
+        LIMIT 1
+      )                                                     AS created_by
+    FROM activity_log al
+    WHERE al.entity_type = 'product'
+      AND al.action IN ('create', 'update', 'delete')
+      AND al.entity_id IS NOT NULL
+      AND al.created_at >= ?
+      AND al.created_at <  ?
+    GROUP BY al.entity_id
+    ${productListHaving(view)}
+    ORDER BY ${orderColumn} ${dir}, al.entity_id ASC
+    LIMIT ? OFFSET ?
+  `;
+  return executeQuery<ProductListRow>(
+    sql,
+    [range.from, range.to, limit, offset],
+    db,
+  );
+}
 // ----------------------------------------------------------------
 // 5. Recent events (for the live feed)
 // ----------------------------------------------------------------
