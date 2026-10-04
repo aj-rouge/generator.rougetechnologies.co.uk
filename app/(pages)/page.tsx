@@ -63,7 +63,7 @@ function DashboardSkeleton() {
 // Main page
 // ------------------------------------------------------------------
 export default async function Page(props: { searchParams: SearchParams }) {
-  const user = await requireSession("/"); // ← rename
+  const user = await requireSession("/");
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;

@@ -60,7 +60,7 @@ export default function ImageLibraryModal({
     fetch(`/api/search?q=${encodeURIComponent(debounced)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`Search failed: ${r.status}`);
-        return (await r.json()) as SearchApiResponse; // ← cast
+        return (await r.json()) as SearchApiResponse;
       })
       .then((d) => setResults(d.results || []))
       .catch(() => setResults([]))
@@ -74,7 +74,7 @@ export default function ImageLibraryModal({
     try {
       const res = await fetch(`/api/product/${p.id}/images`);
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
-      const data = (await res.json()) as ProductImagesApiResponse; // ← cast
+      const data = (await res.json()) as ProductImagesApiResponse;
       setProductImages(data.images || []);
     } catch {
       setProductImages([]);

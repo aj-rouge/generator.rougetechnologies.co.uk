@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { ChevronRight, User as UserIcon } from "lucide-react";
 import type { RecentEvent } from "../../../utils/d1/analytics";
@@ -8,7 +8,35 @@ import type { RecentEvent } from "../../../utils/d1/analytics";
 // ----------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------
-function fmtTime(ms: number): string {
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/** 4 Oct 2026 17:35:22 */
+function fmtAbsolute(ms: number): string {
+  const d = new Date(ms);
+  const day = d.getDate();
+  const month = MONTHS_SHORT[d.getMonth()];
+  const year = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${day} ${month} ${year} ${hh}:${mm}:${ss}`;
+}
+
+/** 4 days ago / just now / 3 months ago */
+function fmtRelative(ms: number): string {
   const d = new Date(ms);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
@@ -17,14 +45,19 @@ function fmtTime(ms: number): string {
   const diffDay = Math.floor(diffMs / 86_400_000);
 
   if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+  if (diffDay < 30) {
+    const w = Math.floor(diffDay / 7);
+    return `${w} week${w === 1 ? "" : "s"} ago`;
+  }
+  if (diffDay < 365) {
+    const mo = Math.floor(diffDay / 30);
+    return `${mo} month${mo === 1 ? "" : "s"} ago`;
+  }
+  const y = Math.floor(diffDay / 365);
+  return `${y} year${y === 1 ? "" : "s"} ago`;
 }
 
 function initials(name: string): string {
@@ -151,11 +184,35 @@ const badgeVariants: Variants = {
   },
 };
 
+const STORAGE_KEY = "analytics:relativeTime";
+
 // ----------------------------------------------------------------
 // Main component
 // ----------------------------------------------------------------
 export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Timestamp format preference — defaults to absolute, persisted in localStorage.
+  const [relativeTime, setRelativeTime] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(STORAGE_KEY) === "1") setRelativeTime(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleTimeFormat = () => {
+    setRelativeTime((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -165,6 +222,9 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
       return next;
     });
   };
+
+  const fmtTime = (ms: number) =>
+    relativeTime ? fmtRelative(ms) : fmtAbsolute(ms);
 
   if (events.length === 0) {
     return (
@@ -220,7 +280,6 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
           >
             {/* ---------- Row header ---------- */}
             <div className="px-4 py-3 flex items-start gap-3">
-              {/* Chevron — only rendered when the row is expandable */}
               {expandable ? (
                 <motion.span
                   animate={{ rotate: isExpanded ? 90 : 0 }}
@@ -234,7 +293,6 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
                 <span className="mt-1.5 w-4 shrink-0" aria-hidden />
               )}
 
-              {/* Avatar */}
               <motion.div
                 whileHover={{ scale: 1.08, rotate: 2 }}
                 transition={{ type: "spring", stiffness: 400, damping: 20 }}
@@ -246,7 +304,6 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
                 {initials(e.user_name || "?")}
               </motion.div>
 
-              {/* Main content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap text-sm">
                   <span className="font-semibold text-gray-900 dark:text-gray-100">
@@ -266,12 +323,31 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
                     {e.summary ?? `${e.action} ${e.entity_type}`}
                   </span>
 
-                  <span className="ml-auto text-xs text-gray-500 whitespace-nowrap">
+                  {/* Clickable timestamp — toggles format for the whole feed */}
+                  <button
+                    type="button"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      toggleTimeFormat();
+                    }}
+                    onKeyDown={(ev) => {
+                      // Prevent the outer row's Enter/Space handler from
+                      // also firing when the user tabs onto this button.
+                      if (ev.key === "Enter" || ev.key === " ") {
+                        ev.stopPropagation();
+                      }
+                    }}
+                    title={
+                      relativeTime
+                        ? `Absolute: ${fmtAbsolute(e.created_at)}`
+                        : `Relative: ${fmtRelative(e.created_at)}`
+                    }
+                    className="ml-auto text-xs text-gray-500 whitespace-nowrap tabular-nums hover:text-gray-900 dark:hover:text-white hover:underline decoration-dotted underline-offset-2"
+                  >
                     {fmtTime(e.created_at)}
-                  </span>
+                  </button>
                 </div>
 
-                {/* Meta line — no longer has a separate toggle button */}
                 <div className="mt-0.5 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                   {e.entity_type && (
                     <span className="font-mono">{e.entity_type}</span>
@@ -319,7 +395,6 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
                   className="border-t border-gray-200 dark:border-gray-800 overflow-hidden"
                   onClick={(ev) => ev.stopPropagation()}
                 >
-                  {/* Diff header */}
                   <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2 text-xs">
                     <motion.span
                       initial={{ scale: 0 }}
@@ -349,7 +424,6 @@ export default function ActivityFeed({ events }: { events: RecentEvent[] }) {
                     </span>
                   </div>
 
-                  {/* Diff lines */}
                   <div className="text-xs font-mono">
                     {changes.map((c: any, i: number) => (
                       <DiffBlock key={i} change={c} />
@@ -381,12 +455,10 @@ function DiffBlock({
       variants={diffLineVariants}
       className="border-b border-gray-100 dark:border-gray-800/60 last:border-b-0"
     >
-      {/* Field name row */}
       <div className="px-4 py-1.5 bg-gray-50/50 dark:bg-gray-800/30 text-gray-600 dark:text-gray-400 text-[11px] border-b border-gray-100 dark:border-gray-800/60">
         {change.field}
       </div>
 
-      {/* Removed line */}
       {change.old !== null && change.old !== undefined && (
         <motion.div
           variants={diffLineVariants}
@@ -401,7 +473,6 @@ function DiffBlock({
         </motion.div>
       )}
 
-      {/* Added line */}
       {change.new !== null && change.new !== undefined && (
         <motion.div
           variants={diffLineVariants}
