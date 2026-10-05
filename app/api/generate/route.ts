@@ -62,7 +62,6 @@ export async function POST(request: Request) {
       {
         models: resolved.models,
         temperature: spec.temperature,
-        maxTokens: spec.maxTokens,
         stop: spec.stop,
         reasoning: reasoningPref,
         signal: request.signal,

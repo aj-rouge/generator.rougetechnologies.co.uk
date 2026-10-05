@@ -129,7 +129,6 @@ export async function POST(request: Request) {
           requestId,
           task: spec.id,
           queue: models,
-          maxTokens: spec.maxTokens,
           reasoning: reasoningPref,
         });
 
@@ -138,7 +137,6 @@ export async function POST(request: Request) {
           {
             models,
             temperature: spec.temperature,
-            maxTokens: spec.maxTokens,
             stop: spec.stop,
             reasoning: reasoningPref,
             signal: request.signal,
