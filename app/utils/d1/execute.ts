@@ -48,7 +48,7 @@ async function resolveDB(db?: D1Database): Promise<D1Database> {
  * @param params - Query parameters
  * @param db - Optional D1Database instance (if not provided, will be fetched from context)
  */
-export const executeQuery = async (
+export const executeQuery = async <T = any>(
   sql: string,
   params: any[] = [],
   db: D1Database,
