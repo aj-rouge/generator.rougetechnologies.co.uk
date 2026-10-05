@@ -43,7 +43,11 @@ export interface OpenRouterOptions {
   model?: string;
   models?: string[];
   temperature?: number;
-  /** Visible-output budget. Reasoning headroom is added automatically. */
+  /**
+   * Visible-output budget. Omit to let the provider/model default apply.
+   * When set and reasoning is active, reasoning headroom is added on top
+   * (unless `rawReasoning` is true).
+   */
   maxTokens?: number;
   reasoning?: ReasoningPreference;
   /** @deprecated use `reasoning: { enabled: true, effort }` */
@@ -53,6 +57,13 @@ export interface OpenRouterOptions {
   stop?: string | string[];
   /** Abort from the caller (e.g. `request.signal` or a client disconnect). */
   signal?: AbortSignal;
+  /**
+   * Observability mode: skip reasoning headroom inflation, skip the
+   * thinking-only rejection, skip the reasoning-leak guard, and return
+   * empty-content responses as `success: true` so the caller can read the
+   * raw usage/cost of thinking without the client rewriting the outcome.
+   */
+  rawReasoning?: boolean;
 }
 
 export type ChatMessage = {
@@ -85,13 +96,22 @@ interface StreamOnceResult {
   generationId?: string;
 }
 
+interface CallOnceOpts {
+  temperature: number;
+  maxTokens?: number;
+  stop?: string | string[];
+  pref: ReasoningPreference;
+  rawReasoning: boolean;
+}
+
 // -----------------------------------------------------------------------------
 // Reasoning-leak guard
 //
 // Only a *fallback* for models that emit planning text straight into `content`
 // with no separate reasoning channel and no  thinking tags (nex-mini et al.).
 // With streaming we buffer the first ~160 chars of content so we can reject a
-// leaking model before the user ever sees it.
+// leaking model before the user ever sees it. Disabled entirely under
+// `rawReasoning`.
 // -----------------------------------------------------------------------------
 const LEAK_GUARD_CHARS = 160;
 
@@ -177,6 +197,28 @@ function extractReasoningText(part: any): string {
 const STREAM_IDLE_TIMEOUT_MS = 60_000;
 const NON_STREAM_TIMEOUT_MS = 120_000;
 
+/**
+ * Compute the `max_tokens` value to actually send, if any.
+ * - No budget provided → `undefined` (provider/model default applies).
+ * - Raw mode → the exact visible budget, no headroom inflation.
+ * - Reasoning inactive → the exact visible budget.
+ * - Reasoning active → visible budget + reasoning headroom.
+ */
+function resolveMaxTokens(
+  meta: AvailableModel | null,
+  maxTokens: number | undefined,
+  pref: ReasoningPreference,
+  rawReasoning: boolean,
+): number | undefined {
+  if (typeof maxTokens !== "number" || !Number.isFinite(maxTokens)) {
+    return undefined;
+  }
+  if (rawReasoning || !isReasoningActive(meta, pref)) {
+    return maxTokens;
+  }
+  return maxTokens + reasoningHeadroom(meta, pref);
+}
+
 export class OpenRouterClient {
   private apiKey: string;
   private baseURL: string;
@@ -222,17 +264,20 @@ export class OpenRouterClient {
       model,
       models,
       temperature = 0.5,
-      maxTokens = 800,
+      maxTokens,
       retries = 1,
       retryDelay = 800,
       stop,
       signal,
+      rawReasoning = false,
     } = options || {};
 
     const pref = this.normalizePref(options);
     const queue = models?.length ? models : [model || this.defaultModel];
     console.log(
-      `[OpenRouterClient] Queue (${queue.length}): ${queue.join(" → ")}`,
+      `[OpenRouterClient] Queue (${queue.length}): ${queue.join(" → ")}` +
+        (rawReasoning ? " [rawReasoning]" : "") +
+        (maxTokens === undefined ? " [no max_tokens]" : ""),
     );
 
     let lastError = "No models attempted";
@@ -249,11 +294,15 @@ export class OpenRouterClient {
             currentModel,
             meta,
             messages,
-            { temperature, maxTokens, stop, pref },
+            { temperature, maxTokens, stop, pref, rawReasoning },
             signal,
           );
 
           if (result.success) {
+            // Raw mode: caller explicitly wants to inspect empty/leaky output.
+            if (rawReasoning) {
+              return { ...result, modelUsed: currentModel };
+            }
             const text = typeof result.data === "string" ? result.data : "";
             const hasReasoningChannel = !!result.reasoning?.trim();
             if (text && !hasReasoningChannel && looksLikeReasoningLeak(text)) {
@@ -301,20 +350,18 @@ export class OpenRouterClient {
     model: string,
     meta: AvailableModel | null,
     messages: ChatMessage[],
-    opts: {
-      temperature: number;
-      maxTokens: number;
-      stop?: string | string[];
-      pref: ReasoningPreference;
-    },
+    opts: CallOnceOpts,
     externalSignal?: AbortSignal,
   ): Promise<OpenRouterResponse<T>> {
-    const { temperature, maxTokens, stop, pref } = opts;
+    const { temperature, maxTokens, stop, pref, rawReasoning } = opts;
 
     const reasoning = buildReasoningPayload(meta, pref);
-    const effectiveMaxTokens = isReasoningActive(meta, pref)
-      ? maxTokens + reasoningHeadroom(meta, pref)
-      : maxTokens;
+    const effectiveMaxTokens = resolveMaxTokens(
+      meta,
+      maxTokens,
+      pref,
+      rawReasoning,
+    );
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -328,8 +375,11 @@ export class OpenRouterClient {
       model,
       messages,
       temperature,
-      max_tokens: effectiveMaxTokens,
     };
+    // Only send max_tokens when the caller actually provided a budget.
+    if (effectiveMaxTokens !== undefined) {
+      requestBody.max_tokens = effectiveMaxTokens;
+    }
     if (reasoning) requestBody.reasoning = reasoning;
     if (stop) requestBody.stop = stop;
 
@@ -371,17 +421,31 @@ export class OpenRouterClient {
     const reasoningText = extractReasoningText(message).trim();
     const usage: OpenRouterUsage | undefined = data.usage;
 
-    if (!content) {
-      const reasonTokens = reasoningTokensOf(usage);
-      const visible = visibleTokensOf(usage);
-      if (reasonTokens > 0 && visible <= 1) {
+    // Raw mode: caller wants to inspect cost even when nothing visible came
+    // back. Only bail when *both* channels are empty.
+    if (rawReasoning) {
+      if (!content && !reasoningText) {
         return {
           success: false,
-          error:
-            `Model spent its whole token budget thinking ` +
-            `(${reasonTokens} reasoning tokens, ${visible} visible). ` +
-            `Raise max_tokens or lower reasoning effort.`,
+          error: `Empty response (finish_reason=${finishReason})`,
         };
+      }
+    } else if (!content) {
+      // Only meaningful when the provider actually reports a length cutoff.
+      // A "stop" finish with no visible content is just an empty answer, not a
+      // budget exhaustion — e.g. a stop sequence that fired at position 0.
+      if (finishReason === "length") {
+        const reasonTokens = reasoningTokensOf(usage);
+        const visible = visibleTokensOf(usage);
+        if (reasonTokens > 0 && visible <= 1) {
+          return {
+            success: false,
+            error:
+              `Model spent its whole token budget thinking ` +
+              `(${reasonTokens} reasoning tokens, ${visible} visible). ` +
+              `Raise max_tokens or lower reasoning effort.`,
+          };
+        }
       }
       return {
         success: false,
@@ -442,18 +506,21 @@ export class OpenRouterClient {
       model,
       models,
       temperature = 0.5,
-      maxTokens = 800,
+      maxTokens,
       retries = 0,
       retryDelay = 500,
       stop,
       signal,
+      rawReasoning = false,
     } = options;
 
     const pref = this.normalizePref(options);
     const queue = models?.length ? models : [model || this.defaultModel];
     handlers.onQueue?.(queue);
     console.log(
-      `[OpenRouterClient:stream] Queue (${queue.length}): ${queue.join(" → ")}`,
+      `[OpenRouterClient:stream] Queue (${queue.length}): ${queue.join(" → ")}` +
+        (rawReasoning ? " [rawReasoning]" : "") +
+        (maxTokens === undefined ? " [no max_tokens]" : ""),
     );
 
     let lastError = "No models attempted";
@@ -484,7 +551,7 @@ export class OpenRouterClient {
           currentModel,
           meta,
           messages,
-          { temperature, maxTokens, stop, pref },
+          { temperature, maxTokens, stop, pref, rawReasoning },
           {
             ...handlers,
             onReasoningDelta: (delta, full) => {
@@ -551,29 +618,30 @@ export class OpenRouterClient {
     model: string,
     meta: AvailableModel | null,
     messages: ChatMessage[],
-    opts: {
-      temperature: number;
-      maxTokens: number;
-      stop?: string | string[];
-      pref: ReasoningPreference;
-    },
+    opts: CallOnceOpts,
     handlers: ChatStreamHandlers,
     externalSignal?: AbortSignal,
   ): Promise<StreamOnceResult> {
-    const { temperature, maxTokens, stop, pref } = opts;
+    const { temperature, maxTokens, stop, pref, rawReasoning } = opts;
 
     const reasoningPayload = buildReasoningPayload(meta, pref);
-    const effectiveMaxTokens = isReasoningActive(meta, pref)
-      ? maxTokens + reasoningHeadroom(meta, pref)
-      : maxTokens;
+    const effectiveMaxTokens = resolveMaxTokens(
+      meta,
+      maxTokens,
+      pref,
+      rawReasoning,
+    );
 
     const requestBody: Record<string, unknown> = {
       model,
       messages,
       temperature,
-      max_tokens: effectiveMaxTokens,
       stream: true,
     };
+    // Only send max_tokens when the caller actually provided a budget.
+    if (effectiveMaxTokens !== undefined) {
+      requestBody.max_tokens = effectiveMaxTokens;
+    }
     if (reasoningPayload) requestBody.reasoning = reasoningPayload;
     if (stop) requestBody.stop = stop;
 
@@ -649,8 +717,8 @@ export class OpenRouterClient {
     let finishReason: string | null = null;
 
     // Leak guard: hold back the first N chars of content until we're sure the
-    // model isn't dumping its plan into the answer.
-    let guardPassed = false;
+    // model isn't dumping its plan into the answer. Skipped in raw mode.
+    let guardPassed = rawReasoning;
     let guardBuffer = "";
 
     const flushContent = (force = false) => {
@@ -796,21 +864,28 @@ export class OpenRouterClient {
       }
     }
 
-    if (!contentText.trim()) {
-      const reasonTokens = reasoningTokensOf(usage);
-      const visible = visibleTokensOf(usage);
-      if (reasonTokens > 0 && visible <= 1) {
-        return {
-          ok: false,
-          retryable: true,
-          error:
-            `Model spent its whole token budget thinking ` +
-            `(${reasonTokens} reasoning tokens, ${visible} visible). ` +
-            `Raise max_tokens or lower reasoning effort.`,
-          reasoning: reasoningText,
-          content: contentText,
-          usage,
-        };
+    // Raw mode: return whatever we got, empty or not, so the caller can read
+    // reasoning + usage. Otherwise reject thinking-only / empty responses.
+    if (!contentText.trim() && !rawReasoning) {
+      // Only meaningful when the provider actually reports a length cutoff.
+      // A "stop" finish with no visible content is just an empty answer, not a
+      // budget exhaustion — e.g. a stop sequence that fired at position 0.
+      if (finishReason === "length") {
+        const reasonTokens = reasoningTokensOf(usage);
+        const visible = visibleTokensOf(usage);
+        if (reasonTokens > 0 && visible <= 1) {
+          return {
+            ok: false,
+            retryable: true,
+            error:
+              `Model spent its whole token budget thinking ` +
+              `(${reasonTokens} reasoning tokens, ${visible} visible). ` +
+              `Raise max_tokens or lower reasoning effort.`,
+            reasoning: reasoningText,
+            content: contentText,
+            usage,
+          };
+        }
       }
       return {
         ok: false,

@@ -12,8 +12,6 @@ export interface TaskSpec<TIn = any, TOut = any> {
   id: TaskId;
   label: string;
   temperature: number;
-  /** Visible-output budget; reasoning headroom is added on top. */
-  maxTokens: number;
   stop?: string[];
   /** Merely the UI default — the user can override per request. */
   defaultReasoning: ReasoningPreference;
@@ -60,13 +58,17 @@ const CONDITION_CODES: Record<string, string> = {
 
 // ---------------------------------------------------------------------------
 // Task definitions
+//
+// NOTE: no per-task token cap is declared. Requests are sent without
+// `max_tokens`, so the provider/model default applies and the model is free to
+// finish naturally. Reasoning headroom is also irrelevant here — with no cap,
+// thinking tokens and visible tokens both draw from the model's own ceiling.
 // ---------------------------------------------------------------------------
 export const TASKS: Record<TaskId, TaskSpec> = {
   title: {
     id: "title",
     label: "Title",
     temperature: 0.3,
-    maxTokens: 120,
     defaultReasoning: { enabled: "auto" },
     async buildPrompt(input: any, db) {
       if (!input.originalTitle || !input.categoryName) {
@@ -97,8 +99,6 @@ export const TASKS: Record<TaskId, TaskSpec> = {
     id: "sku",
     label: "SKU",
     temperature: 0.2,
-    maxTokens: 60,
-    stop: ["\n"],
     defaultReasoning: { enabled: "auto" },
     async buildPrompt(input: any, db) {
       if (!input.title || !input.condition) {
@@ -143,7 +143,6 @@ export const TASKS: Record<TaskId, TaskSpec> = {
     id: "paragraphs",
     label: "Description paragraphs",
     temperature: 0.5,
-    maxTokens: 1500,
     defaultReasoning: { enabled: true, effort: "low" },
     async buildPrompt(input: any, db) {
       if (!input.title) throw new Error("Missing title");
@@ -181,7 +180,6 @@ export const TASKS: Record<TaskId, TaskSpec> = {
     id: "features",
     label: "Key features",
     temperature: 0.4,
-    maxTokens: 1500,
     defaultReasoning: { enabled: true, effort: "low" },
     async buildPrompt(input: any, db) {
       if (!input.title) throw new Error("Missing title");
@@ -219,7 +217,6 @@ export const TASKS: Record<TaskId, TaskSpec> = {
     id: "note",
     label: "Condition note",
     temperature: 0.3,
-    maxTokens: 200,
     defaultReasoning: { enabled: "auto" },
     async buildPrompt(input: any, db) {
       const cleaned = String(input.description ?? "")
@@ -282,6 +279,9 @@ export async function resolveModelQueue(
 
 // ---------------------------------------------------------------------------
 // Usage logging (shared by both routes)
+//
+// Token counts only. Dollar cost is deliberately not computed here — the
+// OpenRouter dashboard is the source of truth for spend per model.
 // ---------------------------------------------------------------------------
 export async function storeUsage(
   db: D1Database,

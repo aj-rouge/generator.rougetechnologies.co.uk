@@ -152,10 +152,13 @@ export function isReasoningActive(
 /**
  * Extra output tokens to add on top of the visible budget.
  *
- * Reasoning tokens count against `max_tokens` on most providers, so a 80-token
- * title budget will be entirely consumed by thinking. These are *guard rails*,
+ * Reasoning tokens count against `max_tokens` on most providers, so a small
+ * visible budget will be entirely consumed by thinking. These are *guard rails*,
  * not targets: the real protection is the "visible tokens === 0" check in the
  * client, which re-queues the next model instead of saving garbage.
+ *
+ * Not used when no `maxTokens` is passed to the client — in that case the
+ * provider/model default applies and there is no budget to top up.
  */
 const HEADROOM_BY_EFFORT: Record<ReasoningEffort, number> = {
   max: 12000,
