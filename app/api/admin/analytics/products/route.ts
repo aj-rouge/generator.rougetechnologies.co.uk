@@ -1,3 +1,4 @@
+// app/api/admin/analytics/products/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, requireStaff } from "../../../../utils/auth";
 import { countProductsForAnalytics, endOfMonth, getProductsForAnalytics, startOfMonth } from "../../../../utils/d1/analytics";

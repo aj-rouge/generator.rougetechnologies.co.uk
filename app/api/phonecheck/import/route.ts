@@ -5,6 +5,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { executeBatch } from "../../../utils/d1/execute";
 import { getProductBySku } from "../../../utils/d1/product/readProduct";
 import { generateSeoSlug } from "../../../utils/images/seoGenerator";
+import { getCurrentUser } from "../../../utils/auth";
+import { buildAuditStatementParts } from "../../../utils/audit/build";
+import type { Actor } from "../../../utils/audit/types";
 
 // ----------------------------------------------------------------------
 // Type Definitions
@@ -80,7 +83,7 @@ function generateTitle(
     battery = parseInt(batteryHealth, 10);
     if (isNaN(battery)) battery = 0;
   }
-  return `${make} ${model} ${color} ${memory} ${battery}% Fully Working`;
+  return `${make} ${model} ${color} ${memory} ${battery}% `;
 }
 
 // Helper to format database errors
@@ -111,6 +114,13 @@ function formatDbError(error: any): string {
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
   try {
     const { env } = await getCloudflareContext({ async: true });
     const db = (env as any).DB;
@@ -232,7 +242,7 @@ export async function POST(req: Request) {
       };
 
       try {
-        await upsertProductData(productId, productData, [], false, db, now);
+        await upsertProductData(productId, productData, [], db, now, { user });
         results.push({
           success: true,
           sku,
@@ -271,9 +281,9 @@ async function upsertProductData(
   productId: string,
   data: any,
   finalizedImages: any[],
-  isUpdate: boolean,
   db: any,
   createdAt?: number,
+  audit?: { user: Actor } | null,
 ) {
   const now = Math.floor(Date.now() / 1000);
   const createdAtTimestamp = createdAt ?? now;
@@ -352,6 +362,22 @@ async function upsertProductData(
     sql: "DELETE FROM product_feedbacks WHERE product_id = ?",
     params: [productId],
   });
+
+  if (audit) {
+    const { sql, params } = buildAuditStatementParts(audit.user, {
+      action: "create",
+      entityType: "product",
+      entityId: productId,
+      entityLabel: data.title,
+      changes: null,
+      metadata: {
+        source: "phonecheck_import",
+        sku: data.sku,
+        category: data.category,
+      },
+    });
+    queue.push({ sql, params });
+  }
 
   await executeBatch(queue, db);
 }
