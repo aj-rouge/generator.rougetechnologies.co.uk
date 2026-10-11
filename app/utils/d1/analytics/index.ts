@@ -28,6 +28,7 @@ export type DailyActivity = {
   day: string; // YYYY-MM-DD
   user_id: string;
   user_name: string;
+  action: string; // 'create' | 'update' | 'delete' | ...
   actions: number;
 };
 
@@ -131,13 +132,14 @@ export async function getDailyActivity(
       date(al.created_at / 1000, 'unixepoch') AS day,
       al.user_id,
       al.user_name,
+      al.action,
       COUNT(*) AS actions
     FROM activity_log al
     WHERE al.user_id IS NOT NULL
       AND al.created_at >= ?
       AND al.created_at <  ?
-    GROUP BY day, al.user_id
-    ORDER BY day ASC, al.user_name ASC
+    GROUP BY day, al.user_id, al.action
+    ORDER BY day ASC, al.user_name ASC, al.action ASC
   `;
   return executeQuery(sql, [range.from, range.to], db);
 }

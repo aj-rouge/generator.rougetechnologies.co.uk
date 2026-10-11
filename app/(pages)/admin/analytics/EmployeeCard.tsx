@@ -85,6 +85,7 @@ export default function EmployeeCard({
       >
         <Stat label="Created" value={summary.products_created} />
         <Stat label="Edited" value={summary.products_edited} />
+        <Stat label="Deleted" value={summary.products_deleted}/>
         <Stat label="Products" value={summary.distinct_products} />
       </motion.div>
 

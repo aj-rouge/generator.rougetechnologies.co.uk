@@ -242,13 +242,13 @@ export const ProductCard = ({
                 count={specCount}
                 color="text-slate-600 dark:text-slate-400"
               />
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-400 min-w-0">
                 {sortField === "updated_at" ? (
                   <Clock className="w-3 h-3" />
                 ) : (
                   <Calendar className="w-3 h-3" />
                 )}
-                <span>
+                <span className="truncate whitespace-nowrap">
                   {formatDate(
                     sortField === "updated_at"
                       ? product.updated_at

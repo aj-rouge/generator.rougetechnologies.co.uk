@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Home } from "lucide-react";
 import { requireStaff } from "../../utils/auth";
 import AdminNav from "./AdminNav";
 
@@ -18,10 +18,9 @@ export default async function AdminLayout({
         <div className="max-w-6xl mx-auto flex items-center gap-6 px-6 py-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="flex items-center gap-2 p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-            Dashboard
+            <Home className="w-4 h-4" />
           </Link>
           <AdminNav />
           <div className="ml-auto text-xs text-gray-400">

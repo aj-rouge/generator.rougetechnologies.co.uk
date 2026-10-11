@@ -461,13 +461,18 @@ export default function RecentProducts({
     setDraftFilter(false);
   }, []);
 
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp * 1000).toLocaleDateString(undefined, {
+  const formatDate = (timestamp: number) => {
+    const d = new Date(timestamp);
+    const now = new Date();
+    const sameYear = d.getFullYear() === now.getFullYear();
+    return d.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
+      ...(sameYear ? {} : { year: "numeric" }),
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
 
   const buildCategoryNameMap = (cats: any[]): Map<string, string> => {
     const map = new Map<string, string>();
