@@ -17,7 +17,16 @@ export interface AIStreamUsage {
   total_tokens: number;
   completion_tokens_details?: { reasoning_tokens?: number };
 }
-
+export interface WebAnnotation {
+  type: string;
+  url_citation: {
+    url: string;
+    title: string;
+    content?: string;
+    start_index?: number;
+    end_index?: number;
+  };
+}
 export interface AIStreamState<T> {
   status: AIStreamStatus;
   reasoning: string;
@@ -30,6 +39,8 @@ export interface AIStreamState<T> {
   usage: AIStreamUsage | null;
   reasoningTokens: number;
   elapsedMs: number;
+  annotations: WebAnnotation[];
+  webSearchUsed: boolean;
 }
 
 const EMPTY = {
@@ -44,6 +55,8 @@ const EMPTY = {
   usage: null,
   reasoningTokens: 0,
   elapsedMs: 0,
+  annotations: [] as WebAnnotation[],
+  webSearchUsed: false,
 };
 
 export interface RunArgs {
@@ -174,6 +187,8 @@ export function useAIStream<T = any>(options?: {
               ...s,
               queue: data?.queue ?? [],
               modelIndex: 0,
+              annotations: [],
+              webSearchUsed: !!data?.webSearch,
             }));
             break;
           case "model":
@@ -185,6 +200,17 @@ export function useAIStream<T = any>(options?: {
               reasoning: "",
               status: "thinking",
             }));
+            break;
+          case "annotations":
+            setState((s) => ({
+              ...s,
+              annotations:
+                (data?.annotations as WebAnnotation[]) ?? s.annotations,
+            }));
+            break;
+
+          case "web_search":
+            setState((s) => ({ ...s, webSearchUsed: !!data?.enabled }));
             break;
           case "reasoning":
             setState((s) => ({

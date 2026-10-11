@@ -2,11 +2,18 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, ChevronDown, ChevronRight } from "lucide-react";
+import { Brain, ChevronDown, ChevronRight, Globe } from "lucide-react";
 import { AIStreamStatus } from "../utils/useAIStream";
+import type { WebAnnotation } from "../utils/useAIStream";
 
 export type ThinkingTask = "title" | "sku" | "paragraphs" | "features" | "note";
 
+const SEARCH_MESSAGES = [
+  "Searching the web…",
+  "Gathering sources…",
+  "Reading results…",
+  "Cross-checking details…",
+];
 const TASK_LABEL: Record<ThinkingTask, string> = {
   title: "title",
   sku: "SKU",
@@ -55,6 +62,8 @@ interface ThinkingIndicatorProps {
   model?: string | null;
   elapsedMs?: number;
   className?: string;
+  annotations?: WebAnnotation[];
+  webSearch?: boolean;
 }
 
 export function ThinkingIndicator({
@@ -66,6 +75,8 @@ export function ThinkingIndicator({
   model,
   elapsedMs = 0,
   className = "",
+  annotations,
+  webSearch,
 }: ThinkingIndicatorProps) {
   const resolved: AIStreamStatus = status ?? (active ? "connecting" : "idle");
   const isActive =
@@ -80,8 +91,9 @@ export function ThinkingIndicator({
     if (resolved === "thinking") return THINK_MESSAGES;
     if (resolved === "writing") return WRITE_MESSAGES[task];
     if (resolved === "finalizing") return ["Checking the output…"];
+    if (webSearch) return SEARCH_MESSAGES;
     return CONNECT_MESSAGES[task];
-  }, [resolved, task]);
+  }, [resolved, task, webSearch]);
 
   useEffect(() => {
     if (!isActive) {
@@ -190,7 +202,42 @@ export function ThinkingIndicator({
               />
             )}
           </div>
-
+          {annotations && annotations.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Globe className="w-3 h-3 text-blue-500 shrink-0" />
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                Sources
+              </span>
+              {annotations.slice(0, 8).map((a, i) => {
+                let host = "";
+                try {
+                  host = new URL(a.url_citation.url).hostname.replace(
+                    /^www\./,
+                    "",
+                  );
+                } catch {
+                  host = a.url_citation.url;
+                }
+                return (
+                  <a
+                    key={a.url_citation.url + i}
+                    href={a.url_citation.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={a.url_citation.title || a.url_citation.url}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 max-w-[220px] truncate"
+                  >
+                    {a.url_citation.title?.trim() || host}
+                  </a>
+                );
+              })}
+              {annotations.length > 8 && (
+                <span className="text-[11px] text-gray-500">
+                  +{annotations.length - 8} more
+                </span>
+              )}
+            </div>
+          )}
           {/* Live chain of thought */}
           <AnimatePresence>
             {reasoningChars > 0 && (

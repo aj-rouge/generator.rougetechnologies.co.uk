@@ -1,6 +1,6 @@
 // app/components/AIGenerateButton.tsx
 import { useEffect, useState } from "react";
-import { Loader2, Sparkles, Pencil, X, Save } from "lucide-react";
+import { Loader2, Sparkles, Pencil, X, Save, Globe } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
 import { ModelPicker, useModels } from "./ModelPicker";
 import { ReasoningControls } from "./ReasoningControls";
@@ -50,6 +50,7 @@ export function AIGenerateButton({
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [variables, setVariables] = useState<string[]>([]);
+  const [webSearch, setWebSearch] = useState(false);
 
   const [internalModel, setInternalModel] = useState("");
   const [reasoning, setReasoning] =
@@ -139,6 +140,7 @@ export function AIGenerateButton({
       task,
       model: model || undefined,
       reasoning,
+      webSearch: webSearch ? { enabled: true, maxResults: 5 } : undefined,
       ...payload,
     });
 
@@ -203,7 +205,23 @@ export function AIGenerateButton({
             )}
           </>
         )}
-
+        <button
+          type="button"
+          onClick={() => setWebSearch((v) => !v)}
+          disabled={loading}
+          title={
+            webSearch
+              ? "Web search ON — the model will consult live results first"
+              : "Enable web search (uses OpenRouter's web plugin)"
+          }
+          className={`p-2 rounded transition-colors ${
+            webSearch
+              ? "text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          } disabled:opacity-50`}
+        >
+          <Globe className="w-4 h-4" />
+        </button>
         <button
           type="button"
           onClick={() => setShowEditor(!showEditor)}
@@ -231,6 +249,8 @@ export function AIGenerateButton({
         content={stream.content}
         model={stream.model}
         elapsedMs={stream.elapsedMs}
+        annotations={stream.annotations}
+        webSearch={webSearch}
       />
 
       {stream.status === "error" && stream.error && (

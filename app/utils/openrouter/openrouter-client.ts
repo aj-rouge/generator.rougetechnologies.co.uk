@@ -9,6 +9,56 @@ import {
   visibleTokensOf,
   type ReasoningPreference,
 } from "./reasoning";
+function buildWebPlugins(
+  opts?: WebSearchOptions,
+): Array<Record<string, unknown>> | undefined {
+  if (!opts?.enabled) return undefined;
+  const plugin: Record<string, unknown> = { id: "web" };
+  if (opts.maxResults && opts.maxResults > 0)
+    plugin.max_results = opts.maxResults;
+  return [plugin];
+}
+
+function extractAnnotations(part: any): WebAnnotation[] {
+  const arr = part?.annotations;
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(
+    (a: any) =>
+      a?.type === "url_citation" && typeof a?.url_citation?.url === "string",
+  ) as WebAnnotation[];
+}
+
+function mergeAnnotations(
+  existing: WebAnnotation[],
+  incoming: WebAnnotation[],
+): WebAnnotation[] {
+  if (incoming.length === 0) return existing;
+  const seen = new Set(existing.map((a) => a.url_citation.url));
+  const out = [...existing];
+  for (const a of incoming) {
+    if (!seen.has(a.url_citation.url)) {
+      out.push(a);
+      seen.add(a.url_citation.url);
+    }
+  }
+  return out;
+}
+export interface WebSearchOptions {
+  enabled: boolean;
+  /** Search results injected into the prompt. OpenRouter defaults to 5. */
+  maxResults?: number;
+}
+
+export interface WebAnnotation {
+  type: "url_citation";
+  url_citation: {
+    url: string;
+    title: string;
+    content?: string;
+    start_index?: number;
+    end_index?: number;
+  };
+}
 
 export interface OpenRouterUsage {
   prompt_tokens: number;
@@ -37,6 +87,8 @@ export interface OpenRouterResponse<T> {
   reasoningTokens?: number;
   visibleTokens?: number;
   generationId?: string;
+  annotations?: WebAnnotation[];
+  webSearchUsed?: boolean;
 }
 
 export interface OpenRouterOptions {
@@ -64,6 +116,7 @@ export interface OpenRouterOptions {
    * raw usage/cost of thinking without the client rewriting the outcome.
    */
   rawReasoning?: boolean;
+  webSearch?: WebSearchOptions;
 }
 
 export type ChatMessage = {
@@ -81,6 +134,7 @@ export interface ChatStreamHandlers {
   onContentDelta?: (delta: string, full: string) => void;
   onUsage?: (usage: OpenRouterUsage, model: string) => void;
   onFinish?: (finishReason: string | null) => void;
+  onAnnotations?: (annotations: WebAnnotation[]) => void;
 }
 
 interface StreamOnceResult {
@@ -94,6 +148,8 @@ interface StreamOnceResult {
   usage?: OpenRouterUsage;
   finishReason?: string | null;
   generationId?: string;
+  annotations?: WebAnnotation[];
+  webSearchUsed?: boolean;
 }
 
 interface CallOnceOpts {
@@ -102,6 +158,7 @@ interface CallOnceOpts {
   stop?: string | string[];
   pref: ReasoningPreference;
   rawReasoning: boolean;
+  webSearch?: WebSearchOptions;
 }
 
 // -----------------------------------------------------------------------------
@@ -270,6 +327,7 @@ export class OpenRouterClient {
       stop,
       signal,
       rawReasoning = false,
+      webSearch,
     } = options || {};
 
     const pref = this.normalizePref(options);
@@ -294,7 +352,7 @@ export class OpenRouterClient {
             currentModel,
             meta,
             messages,
-            { temperature, maxTokens, stop, pref, rawReasoning },
+            { temperature, maxTokens, stop, pref, rawReasoning, webSearch },
             signal,
           );
 
@@ -353,8 +411,9 @@ export class OpenRouterClient {
     opts: CallOnceOpts,
     externalSignal?: AbortSignal,
   ): Promise<OpenRouterResponse<T>> {
-    const { temperature, maxTokens, stop, pref, rawReasoning } = opts;
-
+    const { temperature, maxTokens, stop, pref, rawReasoning, webSearch } =
+      opts;
+    const plugins = buildWebPlugins(webSearch);
     const reasoning = buildReasoningPayload(meta, pref);
     const effectiveMaxTokens = resolveMaxTokens(
       meta,
@@ -382,6 +441,7 @@ export class OpenRouterClient {
     }
     if (reasoning) requestBody.reasoning = reasoning;
     if (stop) requestBody.stop = stop;
+    if (plugins) requestBody.plugins = plugins;
 
     let response: Response;
     try {
@@ -420,6 +480,7 @@ export class OpenRouterClient {
     const content = (message?.content ?? "").trim();
     const reasoningText = extractReasoningText(message).trim();
     const usage: OpenRouterUsage | undefined = data.usage;
+    const annotations = extractAnnotations(message);
 
     // Raw mode: caller wants to inspect cost even when nothing visible came
     // back. Only bail when *both* channels are empty.
@@ -491,6 +552,8 @@ export class OpenRouterClient {
       finishReason,
       truncated: finishReason === "length",
       generationId: response.headers.get("x-generation-id") ?? undefined,
+      annotations: annotations.length ? annotations : undefined,
+      webSearchUsed: !!plugins,
     };
   }
 
@@ -512,6 +575,7 @@ export class OpenRouterClient {
       stop,
       signal,
       rawReasoning = false,
+      webSearch,
     } = options;
 
     const pref = this.normalizePref(options);
@@ -551,7 +615,7 @@ export class OpenRouterClient {
           currentModel,
           meta,
           messages,
-          { temperature, maxTokens, stop, pref, rawReasoning },
+          { temperature, maxTokens, stop, pref, rawReasoning, webSearch },
           {
             ...handlers,
             onReasoningDelta: (delta, full) => {
@@ -587,6 +651,10 @@ export class OpenRouterClient {
             finishReason: finishReason ?? undefined,
             truncated: finishReason === "length",
             generationId,
+            annotations: result.annotations?.length
+              ? result.annotations
+              : undefined,
+            webSearchUsed: result.webSearchUsed,
           };
         }
 
@@ -622,8 +690,9 @@ export class OpenRouterClient {
     handlers: ChatStreamHandlers,
     externalSignal?: AbortSignal,
   ): Promise<StreamOnceResult> {
-    const { temperature, maxTokens, stop, pref, rawReasoning } = opts;
-
+    const { temperature, maxTokens, stop, pref, rawReasoning, webSearch } =
+      opts;
+    const plugins = buildWebPlugins(webSearch);
     const reasoningPayload = buildReasoningPayload(meta, pref);
     const effectiveMaxTokens = resolveMaxTokens(
       meta,
@@ -638,13 +707,11 @@ export class OpenRouterClient {
       temperature,
       stream: true,
     };
-    // Only send max_tokens when the caller actually provided a budget.
-    if (effectiveMaxTokens !== undefined) {
+    if (effectiveMaxTokens !== undefined)
       requestBody.max_tokens = effectiveMaxTokens;
-    }
     if (reasoningPayload) requestBody.reasoning = reasoningPayload;
     if (stop) requestBody.stop = stop;
-
+    if (plugins) requestBody.plugins = plugins;
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     externalSignal?.addEventListener("abort", onAbort);
@@ -708,18 +775,26 @@ export class OpenRouterClient {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    // Normalised channels.
     let reasoningText = "";
     let contentText = "";
     let sentReasoning = 0;
     let sentContent = 0;
     let usage: OpenRouterUsage | undefined;
     let finishReason: string | null = null;
+    let annotations: WebAnnotation[] = [];
 
     // Leak guard: hold back the first N chars of content until we're sure the
     // model isn't dumping its plan into the answer. Skipped in raw mode.
     let guardPassed = rawReasoning;
     let guardBuffer = "";
+
+    const absorbAnnotations = (candidate: any) => {
+      const incoming = extractAnnotations(candidate);
+      if (incoming.length === 0) return;
+      const before = annotations.length;
+      annotations = mergeAnnotations(annotations, incoming);
+      if (annotations.length > before) handlers.onAnnotations?.(annotations);
+    };
 
     const flushContent = (force = false) => {
       const split = splitThinkTags(contentText);
@@ -799,15 +874,15 @@ export class OpenRouterClient {
               retryable: false,
             };
           }
-
           if (chunk.usage) usage = chunk.usage as OpenRouterUsage;
-
+          absorbAnnotations(chunk); // ← renamed
           const choice = chunk.choices?.[0];
           if (!choice) continue;
           if (choice.finish_reason) finishReason = choice.finish_reason;
 
           const delta = choice.delta;
           if (!delta) continue;
+          absorbAnnotations(delta);
 
           // Native reasoning channel (does not go through the think splitter).
           const nativeReasoning = extractReasoningText(delta);
@@ -905,6 +980,8 @@ export class OpenRouterClient {
       usage,
       finishReason,
       generationId,
+      annotations,
+      webSearchUsed: !!plugins,
     };
   }
 }

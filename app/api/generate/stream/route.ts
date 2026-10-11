@@ -2,7 +2,10 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
-import { getOpenRouterClient } from "../../../utils/openrouter/openrouter-client";
+import {
+  getOpenRouterClient,
+  type WebSearchOptions,
+} from "../../../utils/openrouter/openrouter-client";
 import {
   AUTO_REASONING,
   type ReasoningPreference,
@@ -51,11 +54,13 @@ export async function POST(request: Request) {
     task,
     model: requestedModel,
     reasoning,
+    webSearch,
     ...input
   } = body as {
     task?: string;
     model?: string;
     reasoning?: ReasoningPreference;
+    webSearch?: WebSearchOptions;
     [key: string]: unknown;
   };
 
@@ -130,6 +135,7 @@ export async function POST(request: Request) {
           task: spec.id,
           queue: models,
           reasoning: reasoningPref,
+          webSearch: !!webSearch?.enabled,
         });
 
         const result = await client.chatCompletionStream(
@@ -139,6 +145,7 @@ export async function POST(request: Request) {
             temperature: spec.temperature,
             stop: spec.stop,
             reasoning: reasoningPref,
+            webSearch,
             signal: request.signal,
           },
           {
@@ -147,6 +154,8 @@ export async function POST(request: Request) {
               send("reasoning", { delta, length: full.length }),
             onContentDelta: (delta, full) =>
               send("content", { delta, length: full.length }),
+            onAnnotations: (annotations) =>
+              send("annotations", { annotations }),
             onUsage: (usage, model) => send("usage", { usage, model }),
           },
         );
@@ -187,6 +196,8 @@ export async function POST(request: Request) {
             finishReason: result.finishReason,
             truncated: result.truncated,
             generationId: result.generationId,
+            webSearchUsed: result.webSearchUsed,
+            annotations: result.annotations,
           },
         });
         finish({ model: result.modelUsed });
