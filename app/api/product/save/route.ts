@@ -288,11 +288,19 @@ async function upsertProductData(
       spec.key,
       spec.value,
       now,
+      now,
     ]);
     queue.push(
       ...buildBatchedInsert(
         "product_specifications",
-        ["product_id", "spec_order", "key", "value", "created_at"],
+        [
+          "product_id",
+          "spec_order",
+          "key",
+          "value",
+          "created_at",
+          "updated_at",
+        ],
         rows,
       ),
     );
