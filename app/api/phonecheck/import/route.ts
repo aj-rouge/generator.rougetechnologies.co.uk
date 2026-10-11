@@ -292,13 +292,14 @@ async function upsertProductData(
   // 1. Master record
   queue.push({
     sql: `
-      INSERT INTO products (
+       INSERT INTO products (
         id, slug, title, sku, ean, asin,
         baselinker_id, shopify_id, category,
-        condition, note, 
+        condition, note,
         vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
+        created_by, updated_by,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         title = excluded.title,
@@ -316,6 +317,7 @@ async function upsertProductData(
         quantity = excluded.quantity,
         price_brutto = excluded.price_brutto,
         shipping_method = excluded.shipping_method,
+        updated_by = excluded.updated_by,
         updated_at = excluded.updated_at
     `,
     params: [
@@ -336,6 +338,8 @@ async function upsertProductData(
       data.quantity ?? 0,
       data.price_brutto ?? null,
       data.shipping_method ?? null,
+      audit?.user?.name ?? null, // created_by
+      audit?.user?.name ?? null, // updated_by
       createdAtTimestamp,
       now,
     ],
