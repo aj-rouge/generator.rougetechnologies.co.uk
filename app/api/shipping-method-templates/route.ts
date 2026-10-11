@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = Date.now();
     const result = await executeQuery(
       `INSERT INTO shipping_method_templates (name, content, created_at, updated_at)
        VALUES (?, ?, ?, ?)`,

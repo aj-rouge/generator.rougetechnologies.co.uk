@@ -163,7 +163,7 @@ async function upsertProductData(
   createdAt?: number,
   audit?: AuditPayload | null,
 ) {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
   const createdAtTimestamp = createdAt ?? now;
   const queue: D1BatchStatement[] = [];
 
@@ -386,7 +386,7 @@ async function updateBaselinkerId(
   db: any,
   actor: User,
 ) {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
 
   // Fetch the current row so we can diff and label it.
   const before = await executeQuery(

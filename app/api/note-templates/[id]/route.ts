@@ -70,7 +70,7 @@ export async function PUT(
       );
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = Date.now();
     await executeQuery(
       `UPDATE note_templates
        SET name = ?, content = ?, updated_at = ?

@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = Date.now();
     const results: Array<{
       success: boolean;
       sku: string;
@@ -285,7 +285,7 @@ async function upsertProductData(
   createdAt?: number,
   audit?: { user: Actor } | null,
 ) {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
   const createdAtTimestamp = createdAt ?? now;
   const queue: any[] = [];
 

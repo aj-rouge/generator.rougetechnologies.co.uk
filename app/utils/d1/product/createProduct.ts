@@ -24,7 +24,7 @@ export const createFullProduct = async (product: {
   }>;
   feedbacks?: Array<{ name: string; content: string; count?: number }>;
 }): Promise<{ success: boolean; id: string }> => {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
 
   // This queue will hold all queries to execute at once
   const queue: Array<{ sql: string; params: any[] }> = [];

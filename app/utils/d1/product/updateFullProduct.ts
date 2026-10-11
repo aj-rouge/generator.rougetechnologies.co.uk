@@ -38,7 +38,7 @@ export const updateFullProduct = async (product: {
   }>;
   feedbacks: Array<{ name: string; content: string; count?: number }>;
 }): Promise<{ success: boolean; id: string }> => {
-  const now = Math.floor(Date.now() / 1000); // current Unix timestamp
+  const now = Date.now(); // current Unix timestamp
   const queries = [];
 
   // 1. Update the main product row
