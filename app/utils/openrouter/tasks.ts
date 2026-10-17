@@ -50,6 +50,7 @@ export function unwrapModelText(raw: string): string {
 const CONDITION_CODES: Record<string, string> = {
   New: "NEW",
   Used: "USE",
+  "Opened Never Used": "ONU",
   "Excellent Refurbished": "EX-REF",
   "Very Good Refurbished": "VG-REF",
   "Good Refurbished": "GD-REF",

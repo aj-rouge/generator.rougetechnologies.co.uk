@@ -27,6 +27,7 @@ const mapConditionToAbbreviation = (condition) => {
   const map = {
     New: "NEW",
     Used: "USE",
+    "Opened Never Used": "ONU",
     "Excellent Refurbished": "EX-REF",
     "Very Good Refurbished": "VG-REF",
     "Good Refurbished": "GD-REF",
@@ -81,7 +82,7 @@ const validateSkuFormat = (sku) => {
   }
 
   // Valid condition codes: single-part and hyphenated
-  const validSimpleConditions = ["NEW", "USE", "PARTS"];
+  const validSimpleConditions = ["NEW", "USE", "PARTS", "ONU"];
   const validHyphenatedConditions = ["EX-REF", "VG-REF", "GD-REF"];
 
   // Check last segment for simple codes
@@ -111,7 +112,7 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
     if (!sku) return null;
     const parts = sku.split("-");
     const lastSegment = parts[parts.length - 1];
-    const validSimple = ["NEW", "USE", "PARTS"];
+    const validSimple = ["NEW", "USE", "PARTS", "ONU"];
     if (validSimple.includes(lastSegment)) return lastSegment;
     if (parts.length >= 2) {
       const lastTwo = parts.slice(-2).join("-");
@@ -151,30 +152,9 @@ export default function SKUManager({ sku, title, condition, onSkuChange }) {
       },
       {
         id: 3,
-        name: "Title-Based Pattern",
-        description: "SKU should match product title",
-        check: () => {
-          if (!sku || !title) return false;
-          const suggested = suggestSkuFromTitle(title, condition);
-          const skuParts = sku.split("-");
-          const suggestedParts = suggested.split("-");
-          return skuParts[0] === suggestedParts[0];
-        },
-        importance: "warning",
-        condition: !!sku && !!title,
-        errorMessage:
-          sku &&
-          title &&
-          sku.split("-")[0] !==
-            suggestSkuFromTitle(title, condition).split("-")[0]
-            ? "Warning: Brand code doesn't match title. Consider generating with AI."
-            : null,
-      },
-      {
-        id: 4,
         name: "Condition Code Valid",
         description:
-          "Last segment(s) must be a valid condition code (NEW, USE, PARTS, EX-REF, VG-REF, GD-REF)",
+          "Last segment(s) must be a valid condition code (NEW, USE, ONU, PARTS, EX-REF, VG-REF, GD-REF)",
         check: () => isValidCondition,
         importance: "critical",
         condition: !!sku,

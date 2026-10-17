@@ -36,6 +36,7 @@ const gradeToCondition: Record<string, string> = {
   "EX-REF": "Excellent - Refurbished",
   "VG-REF": "Very Good - Refurbished",
   "GD-REF": "Good - Refurbished",
+  ONU: "Opened Never Used",
   USE: "Used",
   PARTS: "For parts or not working",
   B: "Used", // fallback for 'B' grade
