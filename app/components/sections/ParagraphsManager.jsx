@@ -396,7 +396,7 @@ export default function ParagraphsManager({
             return (
               <div
                 key={index}
-                className={`p-3 rounded border transition-all duration-300 ${
+                className={`group p-3 rounded border transition-all duration-300 ${
                   isEditing
                     ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
                     : para.length >= 160
@@ -500,8 +500,9 @@ export default function ParagraphsManager({
                       <>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                               Paragraph {index + 1} • {para.length} chars
+                              <Pencil className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </span>
                             {categoryKeywords.length > 0 &&
                               keywordMatches > 0 && (
@@ -519,13 +520,6 @@ export default function ParagraphsManager({
                           </div>
                           <div className="flex gap-2 flex-shrink-0">
                             <button
-                              onClick={() => startEdit(index)}
-                              className="flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-sm transition-colors"
-                            >
-                              <Pencil className="w-4 h-4" />
-                              <span>Edit</span>
-                            </button>
-                            <button
                               onClick={() => removeParagraph(index)}
                               className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800 text-sm transition-colors"
                             >
@@ -534,9 +528,24 @@ export default function ParagraphsManager({
                             </button>
                           </div>
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                          {para}
-                        </p>
+                        {/* Paragraph body — clickable to edit */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => startEdit(index)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              startEdit(index);
+                            }
+                          }}
+                          title="Click to edit"
+                          className="cursor-text rounded-md -mx-1 px-1 py-0.5 hover:bg-white/60 dark:hover:bg-gray-800/60 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                        >
+                          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {para}
+                          </p>
+                        </div>
                         {para.length < 160 && (
                           <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 flex items-center gap-1">
                             <AlertCircle className="h-3 w-3" /> Needs{" "}
