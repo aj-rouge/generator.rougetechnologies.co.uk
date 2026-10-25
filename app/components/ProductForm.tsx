@@ -30,12 +30,14 @@ import ExternalPlatformIdsSection from "./sections/ExternalPlatformIdsSection";
 // Type Interfaces
 // ----------------------------------------------------------------------------
 interface ProductImage {
-  url: string;
+  url: string | null;
   s3Path: string | null;
-  altText: string;
+  altText: string | null;
   isUploaded: boolean;
   needsUpload: boolean;
   uploadStatus: "pending" | "completed";
+  copyFromR2?: boolean;
+  sourceS3Path?: string | null;
 }
 
 interface ProductFormState {
@@ -216,6 +218,15 @@ export default function ProductForm({
     }
   }, [initialData, mode]);
 
+  const realImageCount = useMemo(
+    () =>
+      (formData.images || []).filter((img) => {
+        if (!img) return false;
+        if (img.copyFromR2) return !!img.sourceS3Path;
+        return typeof img.url === "string" && img.url.trim() !== "";
+      }).length,
+    [formData.images],
+  );
   // Derived values from selected category
   const selectedCategoryObj = useMemo(
     () => findCategoryBySlug(categories, formData.selectedCategory),
@@ -254,11 +265,17 @@ export default function ProductForm({
       selectedCategory: isInitial
         ? data?.category || ""
         : data?.selectedCategory || "",
-      images: (data?.images || []).map((img) => ({
-        url: img.url,
-        s3Path: img.s3Path,
-        altText: img.altText,
-      })),
+      images: (data?.images || [])
+        .filter((img) => {
+          if (!img) return false;
+          if (img.copyFromR2) return !!img.sourceS3Path;
+          return typeof img.url === "string" && img.url.trim() !== "";
+        })
+        .map((img) => ({
+          url: img.url,
+          s3Path: img.s3Path,
+          altText: img.altText,
+        })),
       vat_rate: data?.vat_rate ?? "",
       price_brutto: data?.price_brutto ?? "",
       rrp: data?.rrp ?? "",
@@ -271,7 +288,9 @@ export default function ProductForm({
     const current = getNormalizedData(formData);
     const original = getNormalizedData(initialData, true);
     const isDifferent = JSON.stringify(current) !== JSON.stringify(original);
-    const hasPendingUploads = formData.images.some((i) => i.needsUpload);
+    const hasPendingUploads = formData.images.some(
+      (i) => i.needsUpload && !i.isUploaded && !!i.url,
+    );
     return isDifferent || hasPendingUploads;
   }, [formData, initialData, mode]);
 
@@ -327,7 +346,7 @@ export default function ProductForm({
       quantity <= 0;
 
     const missingContent =
-      formData.images.length === 0 ||
+      realImageCount === 0 ||
       formData.paragraphs.length === 0 ||
       formData.features.length === 0;
 
@@ -339,7 +358,7 @@ export default function ProductForm({
     formData.rrp,
     formData.weight,
     formData.quantity,
-    formData.images.length,
+    realImageCount,
     formData.paragraphs.length,
     formData.features.length,
   ]);
@@ -357,7 +376,7 @@ export default function ProductForm({
     const quantity = getNumberOrNull(formData.quantity);
 
     const hasContent =
-      formData.images.length > 0 &&
+      realImageCount > 0 &&
       formData.features.length > 0 &&
       formData.paragraphs.length > 0;
 
@@ -378,7 +397,7 @@ export default function ProductForm({
     return hasContent && hasValidNumbers;
   }, [
     isFormValid,
-    formData.images.length,
+    realImageCount,
     formData.features.length,
     formData.paragraphs.length,
     formData.vat_rate,
@@ -467,9 +486,21 @@ export default function ProductForm({
       const categorySlug = generateSeoSlug(formData.selectedCategory);
       const productSlug = generateSeoSlug(formData.title);
       const slug = `${categorySlug}/${productSlug}`;
+      const cleanImages = (formData.images || []).filter((img) => {
+        if (!img) return false;
+        if (img.copyFromR2) return !!img.sourceS3Path;
+        return typeof img.url === "string" && img.url.trim() !== "";
+      });
+
+      if (cleanImages.length !== formData.images.length) {
+        console.info(
+          `[save] Dropping ${formData.images.length - cleanImages.length} empty image placeholder(s)`,
+        );
+      }
 
       const payload = {
         ...formData,
+        images: cleanImages, // ── NEW: stripped list
         slug,
         category: formData.selectedCategory,
         vat_rate: formData.vat_rate === "" ? null : Number(formData.vat_rate),
@@ -501,7 +532,9 @@ export default function ProductForm({
       });
 
       const result = (await response.json()) as SaveProductApiResponse;
-      if (!result.success) throw new Error(result.error);
+      if (!result.success) {
+        throw new Error(result.error || "Save failed");
+      }
 
       updateNotification(toastId, {
         message: draft ? "Draft saved!" : "Finalizing product information...",

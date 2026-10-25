@@ -51,12 +51,24 @@ export async function processImages(
   const finalized: any[] = [];
   const PUBLIC_DOMAIN = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN!;
 
-  // Log start
-  console.log(`🖼️ Processing ${uiImages.length} images for ${productSlug}`);
+  const validImages = (uiImages || []).filter((img) => {
+    if (!img) return false;
+    if (img.copyFromR2 && img.sourceS3Path) return true;
+    if (typeof img.url === "string" && img.url.trim() !== "") return true;
+    return false;
+  });
+
+  if (validImages.length !== (uiImages || []).length) {
+    console.warn(
+      `⚠️ Skipping ${uiImages.length - validImages.length} empty image placeholder(s) for ${productSlug}`,
+    );
+  }
+
+  console.log(`🖼️ Processing ${validImages.length} images for ${productSlug}`);
   const overallStart = performance.now();
 
   // Process each image in parallel with per‑image timing
-  const processPromises = uiImages.map(async (img, index) => {
+  const processPromises = validImages.map(async (img, index) => {
     const label = `Image ${index + 1}`;
     return measureTime(label, async () => {
       const targetS3Path = generateSeoFileName(
@@ -66,7 +78,6 @@ export async function processImages(
       );
       let finalUrl = "";
 
-      // ── NEW: copy from another product's R2 namespace ──────────────
       if (img.copyFromR2 && img.sourceS3Path) {
         const sourceKey = img.sourceS3Path
           .replace(PUBLIC_DOMAIN, "")
@@ -84,9 +95,7 @@ export async function processImages(
           },
         });
         finalUrl = `${PUBLIC_DOMAIN}/${targetS3Path}`;
-      }
-      // ─────────────────────────────────────────────────────────────
-      else if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
+      } else if (img.needsUpload && img.url?.includes("/temp-uploads/")) {
         const urlWithoutDomain = img.url.replace(PUBLIC_DOMAIN, "");
         const stagingKey = urlWithoutDomain.startsWith("/")
           ? urlWithoutDomain.slice(1)
@@ -108,7 +117,6 @@ export async function processImages(
         );
         finalUrl = result.url;
       } else {
-        // Restore from temp (edit mode)
         const prev = oldImages.find(
           (old) => old.url === img.url || old.s3_path === img.s3Path,
         );
@@ -126,7 +134,7 @@ export async function processImages(
 
       return {
         url: img.url,
-        s3_path: finalUrl || img.url, // fallback to original if failed
+        s3_path: finalUrl || img.url,
         alt_text: img.altText || "",
       };
     });

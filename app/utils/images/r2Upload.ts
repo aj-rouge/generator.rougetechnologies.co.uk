@@ -69,6 +69,11 @@ export async function uploadToR2FromUrl(
   bucket: any,
   images?: any,
 ) {
+  if (typeof imageUrl !== "string" || imageUrl.trim() === "") {
+    throw new Error(
+      `uploadToR2FromUrl: refusing to fetch invalid URL (${JSON.stringify(imageUrl)}) for ${targetPath}`,
+    );
+  }
   const response = await fetch(imageUrl, {
     headers: { "User-Agent": "Mozilla/5.0", Accept: "image/*" },
     signal: AbortSignal.timeout(30000),
