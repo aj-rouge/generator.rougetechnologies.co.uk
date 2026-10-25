@@ -16,7 +16,7 @@ import {
 import { useNotification } from "../../context/NotificationContext";
 import PhoneCheckImportButton from "../PhoneCheckImportButton";
 
-type SortField = "updated_at" | "created_at";
+type SortField = "created_at" | "updated_at";
 type SortOrder = "DESC" | "ASC";
 type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 
@@ -69,7 +69,7 @@ export default function RecentProducts({
 
   // Filter states
   const [sortField, setSortField] = useState<SortField>(
-    (searchParams.get("sortBy") as SortField) || "updated_at",
+    (searchParams.get("sortBy") as SortField) || "created_at",
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>(
     (searchParams.get("sortOrder") as SortOrder) || "DESC",
@@ -220,7 +220,7 @@ export default function RecentProducts({
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (limit !== 10) params.set("limit", limit.toString());
-    if (sortField !== "updated_at") params.set("sortBy", sortField);
+    if (sortField !== "created_at") params.set("sortBy", sortField);
     if (sortOrder !== "DESC") params.set("sortOrder", sortOrder);
     if (category) params.set("category", category);
     if (Object.keys(identifierRules).length > 0)

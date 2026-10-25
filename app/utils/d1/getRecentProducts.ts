@@ -69,7 +69,7 @@ export const getRecentProducts = async (options: {
     offset = 0,
     order = "DESC",
     category,
-    sortBy = "updated_at",
+    sortBy = "created_at",
     identifierRules = {},
     countFilters = {},
     db,

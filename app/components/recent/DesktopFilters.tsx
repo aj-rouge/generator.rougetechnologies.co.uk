@@ -29,7 +29,7 @@ import { FilterDropdown } from "./FilterDropdown";
 import { IdentifierRulesFilter } from "./IdentifierRulesFilter";
 import { CountFilters } from "./CountFilters";
 
-type SortField = "updated_at" | "created_at";
+type SortField = "created_at" | "updated_at";
 type SortOrder = "DESC" | "ASC";
 type LimitOption = 5 | 10 | 20 | 50 | 100 | 200 | 500;
 
@@ -86,8 +86,8 @@ const limitOptions = [5, 10, 20, 50, 100, 200, 500].map((n) => ({
   label: `${n} items`,
 }));
 const sortOptions = [
-  { value: "updated_at", label: "Updated Date" },
   { value: "created_at", label: "Created Date" },
+  { value: "updated_at", label: "Updated Date" },
 ] as const;
 
 export const DesktopFilters = ({

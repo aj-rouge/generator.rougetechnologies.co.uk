@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const limitParam = searchParams.get("limit") || "10";
   const offsetParam = searchParams.get("offset") || "0";
-  const sortByParam = searchParams.get("sortBy") || "updated_at";
+  const sortByParam = searchParams.get("sortBy") || "created_at";
   const sortOrderParam = searchParams.get("sortOrder") || "DESC";
   const categoryParam = searchParams.get("category") || undefined;
   const identifierRulesParam = searchParams.get("identifierRules") || "{}";

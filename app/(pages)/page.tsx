@@ -75,8 +75,8 @@ export default async function Page(props: { searchParams: SearchParams }) {
       500,
     );
     const sortBy = (
-      searchParams.sortBy === "created_at" ? "created_at" : "updated_at"
-    ) as "updated_at" | "created_at";
+      searchParams.sortBy === "updated_at" ? "updated_at" : "created_at"
+    ) as "created_at" | "updated_at";
     const sortOrder = (searchParams.sortOrder === "ASC" ? "ASC" : "DESC") as
       | "ASC"
       | "DESC";
