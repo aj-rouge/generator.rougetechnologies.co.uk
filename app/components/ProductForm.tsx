@@ -420,6 +420,15 @@ export default function ProductForm({
       });
       return;
     }
+    const MAX_TITLE_LENGTH = 80;
+    const titleLength = formData.title?.trim().length ?? 0;
+    if (titleLength > MAX_TITLE_LENGTH) {
+      addNotification({
+        message: `Title is too long — max ${MAX_TITLE_LENGTH} characters (currently ${titleLength}).`,
+        type: "error",
+      });
+      return;
+    }
 
     // Full validation only when not draft
     if (!draft) {

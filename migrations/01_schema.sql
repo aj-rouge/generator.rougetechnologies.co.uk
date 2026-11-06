@@ -129,7 +129,11 @@ CREATE INDEX IF NOT EXISTS idx_products_paragraphs_count ON products(paragraphs_
 CREATE INDEX IF NOT EXISTS idx_products_features_count  ON products(features_count);
 CREATE INDEX IF NOT EXISTS idx_products_feedbacks_count ON products(feedbacks_count);
 
+CREATE INDEX IF NOT EXISTS idx_products_created_at
+  ON products(created_at DESC, id DESC);
 
+CREATE INDEX IF NOT EXISTS idx_products_updated_at
+  ON products(updated_at DESC, id);   
 -- =====================================================
 -- 4. PRODUCT RELATIONS
 -- =====================================================

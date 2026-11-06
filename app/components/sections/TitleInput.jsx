@@ -11,7 +11,7 @@ import { AIGenerateButton } from "../AIGenerateButton";
 
 const TITLE_CONFIG = {
   MIN_LENGTH: 50,
-  // MAX_LENGTH: 80,  // COMMENTED: 80-character limit removed
+  MAX_LENGTH: 80, // COMMENTED: 80-character limit removed
   DISPLAY_KEYWORDS_LIMIT: 3,
 };
 
@@ -215,8 +215,8 @@ export default function TitleInput({
                 title.length < TITLE_CONFIG.MIN_LENGTH &&
                 ` (need ${TITLE_CONFIG.MIN_LENGTH - title.length} more)`}
               {/* COMMENTED: over-limit message removed */}
-              {/* {title.length > TITLE_CONFIG.MAX_LENGTH &&
-                ` (${title.length - TITLE_CONFIG.MAX_LENGTH} over)`} */}
+              {title.length > TITLE_CONFIG.MAX_LENGTH &&
+                ` (${title.length - TITLE_CONFIG.MAX_LENGTH} over)`}
             </span>
           </div>
         </div>
@@ -260,8 +260,7 @@ export default function TitleInput({
             currentLength={title.length}
             minLength={TITLE_CONFIG.MIN_LENGTH}
             // COMMENTED: maxLength prop removed – no upper limit shown
-            // maxLength={TITLE_CONFIG.MAX_LENGTH}
-            maxLength={9999} // effectively no limit (workaround)
+            maxLength={TITLE_CONFIG.MAX_LENGTH}
             showMinLine
             showMaxLine={false} // hide the max line since we removed the limit
             barHeight="h-2"
