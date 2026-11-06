@@ -147,8 +147,8 @@ export default function CategorySelector({
         {selectedCategory && !selectedValueExists && (
           <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
             <AlertCircle className="h-4 w-4" />
-            The selected category "{selectedCategory}" is not available. Please
-            select a valid category.
+            The selected category &quot;{selectedCategory}&quot; is not
+            available. Please select a valid category.
           </p>
         )}
 

@@ -5,7 +5,6 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 // This hooks into next dev to provision your bindings locally
 initOpenNextCloudflareForDev();
 const nextConfig = {
-  serverExternalPackages: ["sharp"],
   images: {
     remotePatterns: [
       {
