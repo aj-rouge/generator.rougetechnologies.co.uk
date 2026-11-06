@@ -215,7 +215,7 @@ function extractPlpEvent(html: string): any | null {
   const m = html.match(/const\s+raw\s*=\s*('(?:[^'\\]|\\[\s\S])*')\s*;/);
   if (!m) return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+    // eslint-disable-next-line no-new-func
     const jsonString = new Function(`return ${m[1]}`)() as string;
     return JSON.parse(jsonString);
   } catch {
