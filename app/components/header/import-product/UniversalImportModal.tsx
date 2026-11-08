@@ -13,6 +13,54 @@ import {
   ReasoningPreference,
 } from "../../../utils/openrouter/reasoning";
 
+export function extractEANFromScrapedProduct(
+  product: Record<string, any> | null | undefined,
+): string | null {
+  if (!product || typeof product !== "object") return null;
+
+  const details = product.product_details || {};
+  const attributes = product.attributes || {};
+  const specs = product.specifications || {};
+
+  const candidates: any[] = [
+    // top-level
+    product.ean,
+    product.EAN,
+    product.upc,
+    product.UPC,
+    product.gtin,
+    product.gtin13,
+    product.GTIN,
+    // product_details (Decodo Amazon response)
+    details.ean,
+    details.EAN,
+    details.upc,
+    details.UPC,
+    details.gtin,
+    details.gtin13,
+    details.GTIN,
+    details["EAN"],
+    details["UPC"],
+    details["GTIN"],
+    details["GTIN-13"],
+    // attribute maps (some providers)
+    ...(typeof attributes === "object" ? Object.values(attributes) : []),
+    ...(typeof specs === "object" ? Object.values(specs) : []),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+
+    const raw = typeof candidate === "number" ? String(candidate) : candidate;
+    if (typeof raw !== "string") continue;
+
+    const cleaned = raw.replace(/\D/g, "");
+    if (/^\d{8,14}$/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+  return null;
+}
 // ----------------------------------------------------------------------------
 // Constants & Interfaces
 // ----------------------------------------------------------------------------
@@ -20,6 +68,7 @@ export const IMPORT_FIELDS = [
   { key: "title", label: "Title" },
   { key: "price", label: "Price" },
   { key: "rrp", label: "RRP" },
+  { key: "ean", label: "EAN / UPC" },
   { key: "description", label: "Description" },
   { key: "images", label: "Images" },
   { key: "brand", label: "Brand" },
@@ -51,7 +100,13 @@ interface FeatureItem {
   description: string;
 }
 
-type AiPhase = "idle" | "sku" | "paragraphs" | "features" | "title";
+type AiPhase =
+  | "idle"
+  | "product_lookup"
+  | "sku"
+  | "paragraphs"
+  | "features"
+  | "title";
 
 // ----------------------------------------------------------------------------
 // Hook: useUniversalImport
@@ -140,6 +195,8 @@ function useUniversalImport() {
       if (fieldKey === "specifications") value = source.specifications;
       else if (fieldKey === "brand") value = source.product.brand;
       else if (fieldKey === "rrp") value = source.product.rrp;
+      else if (fieldKey === "ean")
+        value = extractEANFromScrapedProduct(source.product);
       else value = source.product[fieldKey];
       if (value !== null && value !== undefined && value !== "") {
         finalData[fieldKey] = value;
@@ -172,6 +229,8 @@ interface UniversalImportModalProps {
   categoryKeywords?: string[];
   asin?: string;
   onAsinChange?: (value: string) => void;
+  ean?: string;
+  onEanChange?: (value: string) => void;
 }
 
 export default function UniversalImportModal({
@@ -183,6 +242,8 @@ export default function UniversalImportModal({
   categoryKeywords = [],
   asin,
   onAsinChange,
+  ean,
+  onEanChange,
 }: UniversalImportModalProps) {
   const {
     status,
@@ -230,6 +291,8 @@ export default function UniversalImportModal({
         return source.product?.price || null;
       case "rrp":
         return source.product?.rrp || null;
+      case "ean":
+        return extractEANFromScrapedProduct(source.product);
       case "description":
         return source.product?.description || null;
       case "brand":
@@ -294,9 +357,57 @@ export default function UniversalImportModal({
       })) as T | null;
     };
     try {
+      setAiPhase("product_lookup");
+      const selectedEan = getSelectedFieldValue("ean");
+      let enrichedSpecs = [...selectedSpecs];
+      let enrichedBrand = selectedBrand;
+      let lookupTitle: string | null = null;
+
+      if (selectedEan) {
+        const lookup = await ask<{
+          specifications: { key: string; value: string }[];
+          brand: string | null;
+          model: string | null;
+          mpn: string | null;
+          title: string | null;
+          description: string | null;
+          sources: string[];
+        }>("product_lookup", {
+          task: "product_lookup",
+          ean: selectedEan,
+          upc: selectedEan,
+          title: selectedTitle,
+          brand: selectedBrand || undefined,
+          specifications: selectedSpecs,
+          webSearch: { enabled: true, maxResults: 8 },
+        });
+        if (!lookup) return;
+
+        // Merge without overwriting scraped values — those are trusted more.
+        const existingKeys = new Set(
+          enrichedSpecs.map((s: any) => String(s.key).toLowerCase()),
+        );
+        for (const spec of lookup.specifications ?? []) {
+          const k = String(spec.key).toLowerCase();
+          if (!existingKeys.has(k)) {
+            enrichedSpecs.push({
+              id: `lookup-${Date.now()}-${enrichedSpecs.length}`,
+              key: spec.key,
+              value: spec.value,
+            });
+            existingKeys.add(k);
+          }
+        }
+        if (!enrichedBrand && lookup.brand) enrichedBrand = lookup.brand;
+        if (lookup.title) lookupTitle = lookup.title;
+      }
+
+      // ── 2. Continue the existing pipeline, but pass enriched data ──
+      const enrichedTitle = lookupTitle || selectedTitle;
+
       const skuRes = await ask<{ sku: string }>("sku", {
         task: "sku",
-        title: selectedTitle,
+        title: enrichedTitle,
         condition: condition || "New",
       });
       if (!skuRes) return;
@@ -304,9 +415,9 @@ export default function UniversalImportModal({
 
       const paraRes = await ask<{ paragraphs: string[] }>("paragraphs", {
         task: "paragraphs",
-        title: selectedTitle,
+        title: enrichedTitle,
         category: categoryName,
-        specifications: selectedSpecs,
+        specifications: enrichedSpecs,
         features: [],
         keywords: categoryKeywords,
       });
@@ -315,9 +426,9 @@ export default function UniversalImportModal({
 
       const featRes = await ask<{ features: FeatureItem[] }>("features", {
         task: "features",
-        title: selectedTitle,
+        title: enrichedTitle,
         category: categoryName,
-        specifications: selectedSpecs,
+        specifications: enrichedSpecs,
         keywords: categoryKeywords,
       });
       if (!featRes) return;
@@ -325,11 +436,11 @@ export default function UniversalImportModal({
 
       const titleRes = await ask<{ title: string }>("title", {
         task: "title",
-        originalTitle: selectedTitle,
+        originalTitle: enrichedTitle,
         categoryName,
         categoryKeywords,
-        specifications: selectedSpecs,
-        brand: selectedBrand,
+        specifications: enrichedSpecs,
+        brand: enrichedBrand,
       });
       if (!titleRes) return;
 
@@ -341,7 +452,7 @@ export default function UniversalImportModal({
           title: f.title,
           description: f.description,
         }));
-      finalData.title = titleRes.title || selectedTitle;
+      finalData.title = titleRes.title || enrichedTitle;
 
       const selectedPrice = getSelectedFieldValue("price");
       if (selectedPrice) finalData.price = selectedPrice;
@@ -349,13 +460,19 @@ export default function UniversalImportModal({
       const selectedImages = getSelectedFieldValue("images");
       if (selectedImages) finalData.images = selectedImages.slice(0, 16);
 
-      if (selectedBrand) finalData.brand = selectedBrand;
-      if (selectedSpecs.length) finalData.specifications = selectedSpecs;
+      if (enrichedBrand) finalData.brand = enrichedBrand;
+      if (enrichedSpecs.length) finalData.specifications = enrichedSpecs;
+      if (selectedEan) finalData.ean = selectedEan;
 
       onImport(finalData);
       onClose();
       reset();
-      addNotification({ message: "AI Autofill complete!", type: "success" });
+      addNotification({
+        message: selectedEan
+          ? "AI Autofill complete (EAN lookup + generation)"
+          : "AI Autofill complete!",
+        type: "success",
+      });
     } catch (error: any) {
       addNotification({
         message: `AI Autofill failed: ${error.message}`,
@@ -378,7 +495,7 @@ export default function UniversalImportModal({
             <h3 className="text-lg font-bold">Universal Product Import</h3>
           </div>
           <div className="flex items-center gap-3">
-            <ModelPicker value={model} onChange={setModel} showSearch />
+            <ModelPicker value={model} onChange={setModel} />
             <ReasoningControls
               slug={model}
               value={reasoning}
@@ -406,6 +523,8 @@ export default function UniversalImportModal({
               onCancel={onClose}
               initialAsin={asin}
               onAsinChange={onAsinChange}
+              initialEan={ean}
+              onEanChange={onEanChange}
             />
           ) : (
             <div className="space-y-4">
@@ -438,6 +557,8 @@ export default function UniversalImportModal({
                   content={stream.content}
                   model={stream.model}
                   elapsedMs={stream.elapsedMs}
+                  annotations={stream.annotations} 
+                  webSearch={stream.webSearchUsed}
                 />
               )}
 

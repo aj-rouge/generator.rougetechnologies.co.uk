@@ -6,7 +6,13 @@ import { Brain, ChevronDown, ChevronRight, Globe } from "lucide-react";
 import { AIStreamStatus } from "../utils/useAIStream";
 import type { WebAnnotation } from "../utils/useAIStream";
 
-export type ThinkingTask = "title" | "sku" | "paragraphs" | "features" | "note";
+export type ThinkingTask =
+  | "title"
+  | "sku"
+  | "paragraphs"
+  | "features"
+  | "note"
+  | "product_lookup";
 
 const SEARCH_MESSAGES = [
   "Searching the web…",
@@ -20,6 +26,7 @@ const TASK_LABEL: Record<ThinkingTask, string> = {
   paragraphs: "description",
   features: "features",
   note: "note",
+  product_lookup: "product lookup",
 };
 
 const CONNECT_MESSAGES: Record<ThinkingTask, string[]> = {
@@ -32,6 +39,11 @@ const CONNECT_MESSAGES: Record<ThinkingTask, string[]> = {
   ],
   features: ["Reading specifications…", "Loading the features prompt…"],
   note: ["Reading the description…", "Loading the note prompt…"],
+  product_lookup: [
+    "Reading EAN/UPC…",
+    "Searching the web for this exact product…",
+    "Loading product lookup prompt…",
+  ],
 };
 
 const WRITE_MESSAGES: Record<ThinkingTask, string[]> = {
@@ -40,6 +52,11 @@ const WRITE_MESSAGES: Record<ThinkingTask, string[]> = {
   paragraphs: ["Drafting paragraphs…", "Refining wording…", "Almost there…"],
   features: ["Writing feature descriptions…", "Almost there…"],
   note: ["Extracting the note…"],
+  product_lookup: [
+    "Extracting specs from sources…",
+    "Cross-checking against scraped data…",
+    "Consolidating specifications…",
+  ],
 };
 
 const THINK_MESSAGES = [

@@ -22,6 +22,7 @@ export default function TitleInput({
   categoryName = "",
   specifications = [],
   brand = "",
+  ean = "",
 }) {
   // Format keywords for display
   const formatKeywords = (keywords) => {
@@ -229,6 +230,7 @@ export default function TitleInput({
             specifications,
             brand,
           }}
+          ean={ean}
           onSuccess={(data) => data.title && setTitle(data.title)}
           successMessage="Title generated successfully!"
           disabled={!hasCategory || !title}

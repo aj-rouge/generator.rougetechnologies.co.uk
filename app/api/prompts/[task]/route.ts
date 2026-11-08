@@ -1,3 +1,4 @@
+// app/api/prompts/[task]/route.ts
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { executeQuery } from "../../../utils/d1/execute";

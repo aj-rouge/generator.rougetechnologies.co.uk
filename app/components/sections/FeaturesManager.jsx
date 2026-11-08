@@ -46,6 +46,7 @@ export default function FeaturesManager({
   productTitle = "",
   categoryName = "",
   specifications = [],
+  ean = "",
 }) {
   const [newFeatureTitle, setNewFeatureTitle] = useState("");
   const [newFeatureDesc, setNewFeatureDesc] = useState("");
@@ -349,6 +350,7 @@ export default function FeaturesManager({
             specifications,
             keywords: categoryKeywords,
           }}
+          ean={ean}
           onSuccess={(data) => data.features && setFeatures(data.features)}
           successMessage="Features generated successfully!"
           disabled={!productTitle || !categoryName}

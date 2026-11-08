@@ -11,7 +11,11 @@ import {
   type ReasoningPreference,
 } from "../utils/openrouter/reasoning";
 import { useAIStream } from "../utils/useAIStream";
-
+const EAN_AWARE_TASKS = new Set<string>(["title", "paragraphs", "features"]);
+const eanLookupCache = new Map<
+  string,
+  { specifications: any[]; brand: string | null }
+>();
 interface PromptTemplateResponse {
   success: boolean;
   data?: { template_text: string; variables?: string[] };
@@ -30,6 +34,7 @@ interface AIGenerateButtonProps {
   model?: string;
   onModelChange?: (slug: string) => void;
   showModelPicker?: boolean;
+  ean?: string; 
 }
 
 export function AIGenerateButton({
@@ -44,6 +49,7 @@ export function AIGenerateButton({
   model: controlledModel,
   onModelChange,
   showModelPicker = true,
+  ean, 
 }: AIGenerateButtonProps) {
   const [showEditor, setShowEditor] = useState(false);
   const [promptText, setPromptText] = useState("");
@@ -132,26 +138,107 @@ export function AIGenerateButton({
       setSavingPrompt(false);
     }
   };
+  const [phase, setPhase] = useState<"idle" | "ean_lookup" | "generate">(
+    "idle",
+  );
 
+  const mergeSpecs = (
+    existing: any[] | undefined,
+    incoming: any[] | undefined,
+  ) => {
+    const merged = [...(existing || [])];
+    const keys = new Set(merged.map((s: any) => String(s.key).toLowerCase()));
+    for (const spec of incoming || []) {
+      const k = String(spec.key).toLowerCase();
+      if (!keys.has(k)) {
+        merged.push(spec);
+        keys.add(k);
+      }
+    }
+    return merged;
+  };
   const handleGenerate = async () => {
     if (disabled || loading) return;
 
-    const result = await stream.run({
-      task,
-      model: model || undefined,
-      reasoning,
-      webSearch: webSearch ? { enabled: true, maxResults: 5 } : undefined,
-      ...payload,
-    });
+    // Copy so we never mutate the parent's payload object.
+    let enrichedPayload: Record<string, any> = { ...payload };
 
-    if (!result) return;
+    const shouldLookup =
+      !!ean && task !== "product_lookup" && EAN_AWARE_TASKS.has(task);
 
-    if (result.note !== undefined) {
-      onSuccess(result.note);
-    } else {
-      onSuccess(result);
+    try {
+      if (shouldLookup) {
+        const cached = eanLookupCache.get(ean!);
+        if (cached) {
+          // Fast path — reuse specs from earlier in this session.
+          enrichedPayload.specifications = mergeSpecs(
+            enrichedPayload.specifications,
+            cached.specifications,
+          );
+          if (cached.brand && !enrichedPayload.brand) {
+            enrichedPayload.brand = cached.brand;
+          }
+        } else {
+          setPhase("ean_lookup");
+          const lookup = await stream.run({
+            task: "product_lookup",
+            model: model || undefined,
+            reasoning,
+            webSearch: { enabled: true, maxResults: 8 },
+            ean,
+            upc: ean,
+            title:
+              payload.title ||
+              payload.originalTitle ||
+              payload.productTitle ||
+              "",
+            brand: payload.brand,
+            specifications: payload.specifications,
+          });
+
+          // Lookup failing must not block generation — warn, then continue.
+          if (lookup?.specifications?.length) {
+            eanLookupCache.set(ean!, {
+              specifications: lookup.specifications,
+              brand: lookup.brand || null,
+            });
+            enrichedPayload.specifications = mergeSpecs(
+              enrichedPayload.specifications,
+              lookup.specifications,
+            );
+            if (lookup.brand && !enrichedPayload.brand) {
+              enrichedPayload.brand = lookup.brand;
+            }
+          } else {
+            addNotification({
+              message:
+                "EAN lookup returned no extra data — continuing with the scraped specs.",
+              type: "info",
+            });
+          }
+        }
+      }
+
+      setPhase("generate");
+      const result = await stream.run({
+        task,
+        model: model || undefined,
+        reasoning,
+        webSearch: webSearch ? { enabled: true, maxResults: 5 } : undefined,
+        ...enrichedPayload,
+      });
+
+      if (!result) return;
+
+      if (result.note !== undefined) {
+        onSuccess(result.note);
+      } else {
+        onSuccess(result);
+      }
+      addNotification({ message: successMessage, type: "success" });
+    } finally {
+      setPhase("idle");
     }
-    addNotification({ message: successMessage, type: "success" });
   };
 
   const handleSaveAndGenerate = async () => {
@@ -179,7 +266,11 @@ export function AIGenerateButton({
           ) : (
             <Sparkles className="w-4 h-4" />
           )}
-          {loading ? "Generating…" : children}
+          {phase === "ean_lookup"
+            ? "Looking up by EAN…"
+            : loading
+              ? "Generating…"
+              : children}{" "}
         </button>
 
         {showModelPicker && (
@@ -243,14 +334,14 @@ export function AIGenerateButton({
       </div>
 
       <ThinkingIndicator
-        task={task}
+        task={phase === "ean_lookup" ? "product_lookup" : task}
         status={stream.status}
         reasoning={stream.reasoning}
         content={stream.content}
         model={stream.model}
         elapsedMs={stream.elapsedMs}
         annotations={stream.annotations}
-        webSearch={webSearch}
+        webSearch={phase === "ean_lookup" ? true : webSearch}
       />
 
       {stream.status === "error" && stream.error && (

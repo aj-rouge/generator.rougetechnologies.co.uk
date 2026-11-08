@@ -1,6 +1,9 @@
 // FieldSelectionTable.tsx (final)
 import { useState } from "react";
-import { IMPORT_FIELDS } from "./UniversalImportModal";
+import {
+  extractEANFromScrapedProduct,
+  IMPORT_FIELDS,
+} from "./UniversalImportModal";
 import { Circle, CheckCircle } from "lucide-react";
 import { ExpandableTextCell } from "./ExpandableTextCell";
 import { SpecificationsCell } from "./SpecificationsCell";
@@ -30,17 +33,17 @@ function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
     const images = source.product.images;
     return images?.length ? images : null;
   }
-
+  if (fieldKey === "ean") {
+    return extractEANFromScrapedProduct(source.product);
+  }
   if (fieldKey === "rrp") {
     return source.product.rrp || null;
   }
-
   if (fieldKey === "price") {
     const price = source.product.price;
     if (price === null || price === undefined || price === "") return null;
     return price;
   }
-
   return source.product[fieldKey] || null;
 }
 

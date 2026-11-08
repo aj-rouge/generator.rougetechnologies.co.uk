@@ -6,7 +6,13 @@ import { getModels, orderModelsForTask, type AvailableModel } from "./models";
 import { AUTO_REASONING, type ReasoningPreference } from "./reasoning";
 import { stripThinkTags } from "./openrouter-client";
 
-export type TaskId = "title" | "sku" | "paragraphs" | "features" | "note";
+export type TaskId =
+  | "title"
+  | "sku"
+  | "paragraphs"
+  | "features"
+  | "note"
+  | "product_lookup";
 
 export interface TaskSpec<TIn = any, TOut = any> {
   id: TaskId;
@@ -236,6 +242,90 @@ export const TASKS: Record<TaskId, TaskSpec> = {
     postProcess(raw) {
       const note = unwrapModelText(raw).trim();
       return { note: note.length >= 3 ? note : null };
+    },
+  },
+  product_lookup: {
+    id: "product_lookup",
+    label: "Product lookup (EAN/UPC web search)",
+    temperature: 0.2,
+    defaultReasoning: { enabled: true, effort: "medium" },
+    async buildPrompt(input: any, db) {
+      if (!input.ean && !input.upc && !input.title) {
+        throw new Error("Product lookup needs at least an EAN/UPC or a title.");
+      }
+      const template = await getPromptTemplate("product_lookup", db);
+      return compilePrompt(template, {
+        ean: input.ean || "unknown",
+        upc: input.upc || input.ean || "unknown",
+        title: input.title || "unknown",
+        brand: input.brand || "unknown",
+        existingSpecs:
+          (input.specifications ?? [])
+            .map((s: any) => `${s.key}: ${s.value}`)
+            .join("\n") || "none",
+      });
+    },
+    postProcess(raw) {
+      const text = stripThinkTags(raw).trim();
+
+      // Preferred: strict JSON. Model is instructed to emit it.
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        try {
+          const parsed = JSON.parse(text.slice(start, end + 1));
+          if (parsed && typeof parsed === "object") {
+            const specs = Array.isArray(parsed.specifications)
+              ? parsed.specifications
+                  .filter((s: any) => s && s.key && s.value)
+                  .map((s: any) => ({
+                    key: String(s.key).trim().slice(0, 100),
+                    value: String(s.value).trim().slice(0, 400),
+                  }))
+                  .slice(0, 40)
+              : [];
+            return {
+              specifications: specs,
+              brand: parsed.brand ? String(parsed.brand).slice(0, 100) : null,
+              model: parsed.model ? String(parsed.model).slice(0, 100) : null,
+              mpn: parsed.mpn ? String(parsed.mpn).slice(0, 100) : null,
+              title: parsed.title ? String(parsed.title).slice(0, 250) : null,
+              description: parsed.description
+                ? String(parsed.description).slice(0, 2000)
+                : null,
+              sources: Array.isArray(parsed.sources)
+                ? parsed.sources
+                    .filter((u: any) => typeof u === "string")
+                    .slice(0, 10)
+                : [],
+            };
+          }
+        } catch {
+          /* fall through to line parsing */
+        }
+      }
+
+      // Fallback: parse `Key: value` lines. Some models ignore JSON instruction.
+      const specs: Array<{ key: string; value: string }> = [];
+      for (const line of text.split("\n")) {
+        const m = line.match(/^[\s*\-•]*([A-Za-z0-9 _/\-.]{2,60}):\s*(.+)$/);
+        if (m) {
+          specs.push({
+            key: m[1].trim().slice(0, 100),
+            value: m[2].trim().slice(0, 400),
+          });
+        }
+        if (specs.length >= 40) break;
+      }
+      return {
+        specifications: specs,
+        brand: null,
+        model: null,
+        mpn: null,
+        title: null,
+        description: null,
+        sources: [],
+      };
     },
   },
 };

@@ -7,8 +7,10 @@ interface IdentifierFormProps {
   isLoading: boolean;
   errorMessage: string;
   onCancel: () => void;
-  initialAsin?: string; // 👈 new
-  onAsinChange?: (value: string) => void; // 👈 new
+  initialAsin?: string;
+  onAsinChange?: (value: string) => void;
+  initialEan?: string;
+  onEanChange?: (value: string) => void;
 }
 
 export function IdentifierForm({
@@ -16,10 +18,12 @@ export function IdentifierForm({
   isLoading,
   errorMessage,
   onCancel,
-  initialAsin = "", // 👈 new
-  onAsinChange, // 👈 new
+  initialAsin = "",
+  onAsinChange,
+  initialEan = "",
+  onEanChange,
 }: IdentifierFormProps) {
-  const [ean, setEan] = useState("");
+  const [ean, setEan] = useState(initialEan); // 👈 seed from prop
   const [asin, setAsin] = useState(initialAsin); // 👈 seed from prop
   const [ebayUrl, setEbayUrl] = useState("");
   const [amazonUrl, setAmazonUrl] = useState("");
@@ -27,6 +31,10 @@ export function IdentifierForm({
   const handleAsinChange = (value: string) => {
     setAsin(value);
     onAsinChange?.(value);
+  };
+  const handleEanChange = (value: string) => {
+    setEan(value);
+    onEanChange?.(value);
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +58,7 @@ export function IdentifierForm({
           <input
             type="text"
             value={ean}
-            onChange={(e) => setEan(e.target.value)}
+            onChange={(e) => handleEanChange(e.target.value)}
             placeholder="EAN (e.g., 1234567890123)"
             className="p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-black dark:text-white"
             disabled={isLoading}
@@ -58,7 +66,7 @@ export function IdentifierForm({
           <input
             type="text"
             value={asin}
-            onChange={(e) => handleAsinChange(e.target.value)} // 👈 changed
+            onChange={(e) => handleAsinChange(e.target.value)}
             placeholder="ASIN (e.g., B08N5WRWND)"
             className="p-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 text-black dark:text-white"
             disabled={isLoading}

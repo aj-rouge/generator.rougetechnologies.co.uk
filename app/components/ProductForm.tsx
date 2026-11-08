@@ -655,6 +655,11 @@ export default function ProductForm({
       if (!isNaN(rrp)) updates.rrp = rrp;
     }
 
+    if (importedData.ean) {
+      const cleanEan = sanitizeField(importedData.ean);
+      if (cleanEan) updates.ean = cleanEan;
+    }
+
     if (importedData.brand) {
       const currentSpecs = [...(formData.specifications || [])];
       if (importedData.brand && !currentSpecs.some((s) => s.key === "Brand")) {
@@ -756,6 +761,8 @@ export default function ProductForm({
         isComplete={isComplete}
         asin={formData.asin}
         onAsinChange={(val) => updateForm({ asin: val })}
+        ean={formData.ean}
+        onEanChange={(val) => updateForm({ ean: val })}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 px-4 mt-28 xl:mt-36">
         <PricingSection
@@ -808,6 +815,7 @@ export default function ProductForm({
           categoryKeywords={currentCategoryKeywords}
           categoryName={categoryName}
           specifications={formData.specifications}
+          ean={formData.ean}
         />
       </div>
       <div className="px-4 flex-col flex gap-2">
@@ -819,6 +827,7 @@ export default function ProductForm({
           categoryName={categoryName}
           specifications={formData.specifications}
           features={formData.features}
+          ean={formData.ean}
         />
         <FeaturesManager
           features={formData.features}
@@ -827,6 +836,7 @@ export default function ProductForm({
           productTitle={formData.title}
           categoryName={categoryName}
           specifications={formData.specifications}
+          ean={formData.ean}
         />
         <SpecificationsManager
           specifications={formData.specifications}

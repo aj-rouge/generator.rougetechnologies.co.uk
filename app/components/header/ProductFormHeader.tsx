@@ -36,6 +36,8 @@ interface ProductFormHeaderProps {
   isComplete: boolean;
   asin?: string;
   onAsinChange?: (value: string) => void;
+  ean?: string;
+  onEanChange?: (value: string) => void;
 }
 
 export default function ProductFormHeader(props: ProductFormHeaderProps) {

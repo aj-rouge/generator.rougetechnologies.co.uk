@@ -26,6 +26,7 @@ export default function ParagraphsManager({
   categoryName = "",
   specifications = [],
   features = [],
+  ean = "",
 }) {
   const [newParagraph, setNewParagraph] = useState("");
   const [localParagraphsError, setLocalParagraphsError] = useState("");
@@ -275,6 +276,7 @@ export default function ParagraphsManager({
             features,
             keywords: categoryKeywords,
           }}
+          ean={ean}
           onSuccess={(data) =>
             data.paragraphs && setParagraphs(data.paragraphs)
           }
