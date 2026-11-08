@@ -462,7 +462,7 @@ export function ModelPicker({
       </div>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-[360px] max-w-[90vw] overflow-hidden rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-[500px] max-w-[90vw] overflow-hidden rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
           <div className="flex items-center gap-1.5 border-b border-gray-200 dark:border-gray-700 px-2 py-1.5">
             <Search className="w-3.5 h-3.5 shrink-0 text-gray-400" />
             <input
@@ -502,17 +502,17 @@ export function ModelPicker({
                     onMouseEnter={() => setActiveSlug(row.model.slug)}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => commit(row.model.slug)}
-                    className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs ${
+                    className={`flex cursor-pointer items-left gap-2 px-3 py-1.5 text-xs ${
                       row.model.slug === activeSlug
                         ? "bg-blue-50 dark:bg-blue-900/30"
                         : ""
                     } ${row.model.slug === value ? "font-medium" : ""}`}
                   >
-                    <span className="flex w-3 shrink-0 justify-center">
-                      {row.model.slug === value && (
+                    {row.model.slug === value && (
+                      <span className="flex w-3 shrink-0 justify-center">
                         <Check className="w-3 h-3 text-blue-500" />
-                      )}
-                    </span>
+                      </span>
+                    )}
                     <span className="flex-1 truncate text-gray-900 dark:text-gray-100">
                       {reasoningGlyph(row.model) && (
                         <span className="mr-1">
