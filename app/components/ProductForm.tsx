@@ -50,6 +50,9 @@ interface ProductFormState {
   seoSectionData: { name: string; sections: any[] };
   selectedCategory: string;
   note: string | null;
+  additional_description_1: string | null;
+  additional_description_2: string | null;
+  additional_description_3: string | null;
   feedbacks: any;
   images: ProductImage[];
   asin: string;
@@ -118,6 +121,9 @@ const INITIAL_FORM_STATE: ProductFormState = {
   seoSectionData: { name: "", sections: [] },
   selectedCategory: "",
   note: null,
+  additional_description_1: null,
+  additional_description_2: null,
+  additional_description_3: null,
   feedbacks: DEFAULT_FEEDBACKS,
   images: [],
   asin: "",
@@ -157,6 +163,15 @@ export default function ProductForm({
         price_brutto: sanitizeNumericField(initialData.price_brutto),
         shipping_method: sanitizeField(initialData.shipping_method) ?? "",
         note: sanitizeField(initialData.note),
+        additional_description_1: sanitizeField(
+          initialData.additional_description_1,
+        ),
+        additional_description_2: sanitizeField(
+          initialData.additional_description_2,
+        ),
+        additional_description_3: sanitizeField(
+          initialData.additional_description_3,
+        ),
         asin: sanitizeField(initialData.asin) ?? "",
         ean: sanitizeField(initialData.ean) ?? "",
         baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
@@ -194,6 +209,15 @@ export default function ProductForm({
         price_brutto: sanitizeNumericField(initialData.price_brutto),
         shipping_method: sanitizeField(initialData.shipping_method) ?? "",
         note: sanitizeField(initialData.note),
+        additional_description_1: sanitizeField(
+          initialData.additional_description_1,
+        ),
+        additional_description_2: sanitizeField(
+          initialData.additional_description_2,
+        ),
+        additional_description_3: sanitizeField(
+          initialData.additional_description_3,
+        ),
         asin: sanitizeField(initialData.asin) ?? "",
         ean: sanitizeField(initialData.ean) ?? "",
         baselinker_id: sanitizeField(initialData.baselinker_id) ?? "",
@@ -258,6 +282,9 @@ export default function ProductForm({
       paragraphs: data?.paragraphs || [],
       features: data?.features || [],
       note: data?.note || "",
+      additional_description_1: data?.additional_description_1 || "",
+      additional_description_2: data?.additional_description_2 || "",
+      additional_description_3: data?.additional_description_3 || "",
       asin: data?.asin || "",
       ean: data?.ean || "",
       baselinker_id: data?.baselinker_id || "",
@@ -524,6 +551,15 @@ export default function ProductForm({
         shopify_id: sanitizeField(formData.shopify_id),
         sku: sanitizeField(formData.sku),
         note: sanitizeField(formData.note),
+        additional_description_1: sanitizeField(
+          formData.additional_description_1,
+        ),
+        additional_description_2: sanitizeField(
+          formData.additional_description_2,
+        ),
+        additional_description_3: sanitizeField(
+          formData.additional_description_3,
+        ),
         shipping_method: sanitizeField(formData.shipping_method),
       };
 
@@ -800,6 +836,30 @@ export default function ProductForm({
         <NoteInput
           note={formData.note === null ? "" : formData.note}
           setNote={(val) => updateForm({ note: val === "" ? null : val })}
+          additionalDescription1={
+            formData.additional_description_1 === null
+              ? ""
+              : formData.additional_description_1
+          }
+          setAdditionalDescription1={(val) =>
+            updateForm({ additional_description_1: val === "" ? null : val })
+          }
+          additionalDescription2={
+            formData.additional_description_2 === null
+              ? ""
+              : formData.additional_description_2
+          }
+          setAdditionalDescription2={(val) =>
+            updateForm({ additional_description_2: val === "" ? null : val })
+          }
+          additionalDescription3={
+            formData.additional_description_3 === null
+              ? ""
+              : formData.additional_description_3
+          }
+          setAdditionalDescription3={(val) =>
+            updateForm({ additional_description_3: val === "" ? null : val })
+          }
         />
         <ImagesManager
           images={formData.images}

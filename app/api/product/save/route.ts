@@ -81,6 +81,9 @@ interface ProductData {
   shopify_id?: string | null;
   condition?: string | null;
   note?: string | null;
+  additional_description_1?: string | null;
+  additional_description_2?: string | null;
+  additional_description_3?: string | null;
   category: string;
   paragraphs?: string[];
   features?: Array<{ title: string; description: string }>;
@@ -174,10 +177,11 @@ async function upsertProductData(
         id, slug, title, sku, ean, asin,
         baselinker_id, shopify_id, category,
         condition, note,
+        additional_description_1, additional_description_2, additional_description_3,
         vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
         created_by, updated_by,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         title = excluded.title,
@@ -189,6 +193,9 @@ async function upsertProductData(
         category = excluded.category,
         condition = excluded.condition,
         note = excluded.note,
+        additional_description_1 = excluded.additional_description_1,
+        additional_description_2 = excluded.additional_description_2,
+        additional_description_3 = excluded.additional_description_3,
         vat_rate = excluded.vat_rate,
         rrp = excluded.rrp,
         weight = excluded.weight,
@@ -210,6 +217,9 @@ async function upsertProductData(
       data.category,
       data.condition || null,
       data.note || null,
+      data.additional_description_1 ?? null,
+      data.additional_description_2 ?? null,
+      data.additional_description_3 ?? null,
       data.vat_rate ?? 0,
       data.rrp ?? null,
       data.weight ?? null,
@@ -501,6 +511,15 @@ export async function POST(req: Request) {
     newData.baselinker_id = sanitizeString(newData.baselinker_id);
     newData.shopify_id = sanitizeString(newData.shopify_id);
     newData.note = sanitizeString(newData.note);
+    newData.additional_description_1 = sanitizeString(
+      newData.additional_description_1,
+    );
+    newData.additional_description_2 = sanitizeString(
+      newData.additional_description_2,
+    );
+    newData.additional_description_3 = sanitizeString(
+      newData.additional_description_3,
+    );
     newData.rrp = sanitizeString(newData.rrp);
     newData.weight = sanitizeString(newData.weight);
     newData.price_brutto = sanitizeString(newData.price_brutto);

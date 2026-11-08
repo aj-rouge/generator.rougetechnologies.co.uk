@@ -19,6 +19,7 @@ import {
 export const IMPORT_FIELDS = [
   { key: "title", label: "Title" },
   { key: "price", label: "Price" },
+  { key: "rrp", label: "RRP" },
   { key: "description", label: "Description" },
   { key: "images", label: "Images" },
   { key: "brand", label: "Brand" },
@@ -138,6 +139,7 @@ function useUniversalImport() {
       let value = null;
       if (fieldKey === "specifications") value = source.specifications;
       else if (fieldKey === "brand") value = source.product.brand;
+      else if (fieldKey === "rrp") value = source.product.rrp;
       else value = source.product[fieldKey];
       if (value !== null && value !== undefined && value !== "") {
         finalData[fieldKey] = value;
@@ -226,6 +228,8 @@ export default function UniversalImportModal({
         return source.product?.title || null;
       case "price":
         return source.product?.price || null;
+      case "rrp":
+        return source.product?.rrp || null;
       case "description":
         return source.product?.description || null;
       case "brand":

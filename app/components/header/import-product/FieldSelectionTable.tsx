@@ -30,6 +30,17 @@ function getFieldDisplayValue(source: ScrapedSource, fieldKey: string): any {
     const images = source.product.images;
     return images?.length ? images : null;
   }
+
+  if (fieldKey === "rrp") {
+    return source.product.rrp || null;
+  }
+
+  if (fieldKey === "price") {
+    const price = source.product.price;
+    if (price === null || price === undefined || price === "") return null;
+    return price;
+  }
+
   return source.product[fieldKey] || null;
 }
 

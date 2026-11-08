@@ -127,17 +127,19 @@ export async function scrapeUniversal(
       price = parseFloat(productData.price.value);
 
     let rrp: number | undefined;
+    const strikethrough = productData.price_strikethrough;
     if (
-      productData.price_upper &&
-      typeof productData.price_upper === "number" &&
-      productData.price_upper !== price
-    )
-      rrp = productData.price_upper;
-    else if (
-      productData.list_price &&
-      typeof productData.list_price === "number"
-    )
+      typeof strikethrough === "number" &&
+      strikethrough > 0 &&
+      strikethrough !== price
+    ) {
+      rrp = strikethrough;
+    } else if (
+      typeof productData.list_price === "number" &&
+      productData.list_price > 0
+    ) {
       rrp = productData.list_price;
+    }
 
     const images = productData.images || [];
     let description = "";

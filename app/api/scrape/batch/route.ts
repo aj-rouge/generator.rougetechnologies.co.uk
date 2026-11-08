@@ -1,3 +1,4 @@
+//api/scrape/batch/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeUniversal } from "../../../utils/scrape/decodo/universal";
 

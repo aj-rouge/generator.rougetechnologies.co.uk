@@ -1,5 +1,4 @@
 // utils/d1/product/readProduct.ts
-
 import { executeQuery } from "../execute";
 import type { D1Database } from "@cloudflare/workers-types";
 
@@ -12,9 +11,6 @@ export type AllowedProductLookupFields =
   | "baselinker_id"
   | "shopify_id";
 
-/**
- * Parses a JSON string into a JavaScript value.
- */
 function parseJSON(value: any): any {
   if (!value) return null;
   if (typeof value === "string") {
@@ -32,19 +28,16 @@ const sanitize = (value: any): any => {
   return value;
 };
 
-/**
- * Retrieve a product by a validated unique identifier field.
- * @param field - The identifier field (id, slug, sku, etc.)
- * @param value - The value of the identifier
- * @param options - Required options:
- *   - db: D1Database instance (must be passed from the caller)
- *   - transformToForm: whether to transform the result for the form
- */
+const sanitizeNullableText = (value: any): string | null => {
+  if (value === "null" || value === null || value === undefined) return null;
+  return value;
+};
+
 const getProductByField = async (
   field: AllowedProductLookupFields,
   value: string,
   options: {
-    db: D1Database; // <-- now required
+    db: D1Database;
     transformToForm?: boolean;
   },
 ): Promise<any | null> => {
@@ -122,6 +115,15 @@ const getProductByField = async (
       shopify_id: sanitize(product.shopify_id || ""),
       condition: product.product_condition || "New",
       note: cleanedNote,
+      additional_description_1: sanitizeNullableText(
+        product.additional_description_1,
+      ),
+      additional_description_2: sanitizeNullableText(
+        product.additional_description_2,
+      ),
+      additional_description_3: sanitizeNullableText(
+        product.additional_description_3,
+      ),
       created_at: product.created_at,
       updated_at: product.updated_at,
       paragraphs,
@@ -142,9 +144,6 @@ const getProductByField = async (
   }
   return product;
 };
-
-// --- Convenience typed wrappers ---
-// All wrappers now require `db` in the options object.
 
 export const getProductById = (
   id: string,

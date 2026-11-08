@@ -3,13 +3,15 @@ import { NextResponse } from "next/server";
 import { getProductById } from "../../utils/d1/product/readProduct";
 import { generateProductHTML } from "../../utils/htmlGenerator/generateProductHTML";
 import { executeQuery } from "../../utils/d1/execute";
-import { getCloudflareContext } from "@opennextjs/cloudflare"; // <-- import
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { D1Database } from "@cloudflare/workers-types";
 
 const DEFAULT_BASELINKER_CATEGORY_ID =
   process.env.BASELINKER_DEFAULT_CATEGORY_ID || "902373";
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const MAX_EXTRA_DESCRIPTION_LENGTH = 200;
 
 interface IncomingRequestBody {
   productId?: string;
@@ -25,6 +27,9 @@ interface BaseLinkerResponsePayload {
 interface CategoryDbRow {
   baselinker_category_id: string | number;
 }
+
+const clampExtra = (value: any): string =>
+  (value == null ? "" : String(value)).slice(0, MAX_EXTRA_DESCRIPTION_LENGTH);
 
 export async function POST(req: Request) {
   // 1. Fetch the D1 binding at the start
@@ -95,6 +100,9 @@ export async function POST(req: Request) {
       description: htmlDescription,
       images,
       features,
+      description_extra1: clampExtra(product.additional_description_1),
+      description_extra2: clampExtra(product.additional_description_2),
+      description_extra3: clampExtra(product.additional_description_3),
     };
 
     if (product.sku) payload.sku = String(product.sku);
@@ -103,11 +111,10 @@ export async function POST(req: Request) {
     if (isUpdate) payload.product_id = String(rawBaselinkerId);
 
     if (!isUpdate) {
-      // 3. Pass `db` to executeQuery
       const category = (await executeQuery(
         `SELECT baselinker_category_id FROM categories WHERE slug = ?`,
         [product.selectedCategory],
-        db, // <-- pass db
+        db,
       )) as CategoryDbRow[];
 
       const catId =
@@ -138,11 +145,10 @@ export async function POST(req: Request) {
       let userMessage =
         result.error_message || "Unknown BaseLinker integration failure";
       if (userMessage.includes("Product not found") && isUpdate) {
-        // 4. Pass `db` to executeQuery for the update
         await executeQuery(
           `UPDATE products SET baselinker_id = NULL WHERE id = ?`,
           [productId],
-          db, // <-- pass db
+          db,
         );
         return NextResponse.json(
           {
@@ -156,11 +162,10 @@ export async function POST(req: Request) {
     }
 
     if (!isUpdate && result.product_id) {
-      // 5. Pass `db` to executeQuery for the update
       await executeQuery(
         `UPDATE products SET baselinker_id = ?, updated_at = unixepoch() WHERE id = ?`,
         [result.product_id.toString(), productId],
-        db, // <-- pass db
+        db,
       );
     }
 
