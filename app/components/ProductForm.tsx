@@ -67,6 +67,7 @@ interface ProductFormState {
   quantity: number | "";
   price_brutto: number | "";
   shipping_method: string;
+  thresholds: { location: string; number: number | "" }[]; // ← NEW
   category?: string;
 }
 
@@ -111,7 +112,22 @@ const sanitizeNumericField = (value: any): number | "" => {
   const parsed = parseFloat(sanitized);
   return isNaN(parsed) ? "" : parsed;
 };
-
+// Parse thresholds from either an array or a JSON string; drop malformed rows.
+const parseThresholds = (raw: any) => {
+  let arr: any[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === "string" && raw.trim()) {
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      arr = [];
+    }
+  }
+  return arr.map((t: any) => ({
+    location: sanitizeField(t?.location) ?? "",
+    number: typeof t?.number === "number" && !isNaN(t.number) ? t.number : "",
+  }));
+};
 const INITIAL_FORM_STATE: ProductFormState = {
   sku: "",
   title: "",
@@ -138,6 +154,7 @@ const INITIAL_FORM_STATE: ProductFormState = {
   quantity: "",
   price_brutto: "",
   shipping_method: "",
+  thresholds: [],
 };
 
 export default function ProductForm({
@@ -162,6 +179,7 @@ export default function ProductForm({
         quantity: initialData.quantity ?? 0,
         price_brutto: sanitizeNumericField(initialData.price_brutto),
         shipping_method: sanitizeField(initialData.shipping_method) ?? "",
+        thresholds: parseThresholds(initialData.thresholds),
         note: sanitizeField(initialData.note),
         additional_description_1: sanitizeField(
           initialData.additional_description_1,
@@ -208,6 +226,7 @@ export default function ProductForm({
         quantity: initialData.quantity ?? 0,
         price_brutto: sanitizeNumericField(initialData.price_brutto),
         shipping_method: sanitizeField(initialData.shipping_method) ?? "",
+        thresholds: parseThresholds(initialData.thresholds),
         note: sanitizeField(initialData.note),
         additional_description_1: sanitizeField(
           initialData.additional_description_1,
@@ -309,6 +328,7 @@ export default function ProductForm({
       weight: data?.weight ?? "",
       quantity: data?.quantity ?? "",
       shipping_method: data?.shipping_method || "",
+      thresholds: parseThresholds(data?.thresholds),
       sku: data?.sku || "",
       specifications: data?.specifications || [],
     });
@@ -534,9 +554,23 @@ export default function ProductForm({
         );
       }
 
+      const cleanThresholds = (formData.thresholds || [])
+        .filter(
+          (t) =>
+            t &&
+            (t.location || "").trim() !== "" &&
+            t.number !== "" &&
+            t.number !== null &&
+            t.number !== undefined &&
+            !isNaN(Number(t.number)),
+        )
+        .map((t) => ({
+          location: (t.location || "").trim(),
+          number: Number(t.number),
+        }));
       const payload = {
         ...formData,
-        images: cleanImages, // ── NEW: stripped list
+        images: cleanImages,
         slug,
         category: formData.selectedCategory,
         vat_rate: formData.vat_rate === "" ? null : Number(formData.vat_rate),
@@ -561,6 +595,7 @@ export default function ProductForm({
           formData.additional_description_3,
         ),
         shipping_method: sanitizeField(formData.shipping_method),
+        thresholds: cleanThresholds.length ? cleanThresholds : null,
       };
 
       updateNotification(toastId, {
@@ -776,6 +811,7 @@ export default function ProductForm({
           weight={formData.weight}
           quantity={formData.quantity}
           shipping_method={formData.shipping_method}
+          thresholds={formData.thresholds} // ← NEW
           onUpdate={updateForm}
           disabled={mode === "edit" && !isDraft}
         />

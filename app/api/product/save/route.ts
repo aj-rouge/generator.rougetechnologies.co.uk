@@ -96,6 +96,7 @@ interface ProductData {
   quantity?: number;
   price_brutto?: number | null;
   shipping_method?: string | null;
+  thresholds?: Array<{ location: string; number: number }> | null;
 }
 
 interface FinalizedImage {
@@ -153,7 +154,7 @@ function buildBatchedInsert(
 }
 
 // ----------------------------------------------------------------------
-// upsertProductData — now accepts an optional audit payload.
+// upsertProductData — accepts an optional audit payload.
 // When present, the audit INSERT is appended to the same batch and runs
 // atomically with the mutation.
 // ----------------------------------------------------------------------
@@ -170,7 +171,7 @@ async function upsertProductData(
   const createdAtTimestamp = createdAt ?? now;
   const queue: D1BatchStatement[] = [];
 
-  // 1. Master product record
+  // 1. Master product record (thresholds stored as JSON TEXT)
   queue.push({
     sql: `
        INSERT INTO products (
@@ -178,10 +179,10 @@ async function upsertProductData(
         baselinker_id, shopify_id, category,
         condition, note,
         additional_description_1, additional_description_2, additional_description_3,
-        vat_rate, rrp, weight, quantity, price_brutto, shipping_method,
+        vat_rate, rrp, weight, quantity, price_brutto, shipping_method, thresholds,
         created_by, updated_by,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         title = excluded.title,
@@ -202,6 +203,7 @@ async function upsertProductData(
         quantity = excluded.quantity,
         price_brutto = excluded.price_brutto,
         shipping_method = excluded.shipping_method,
+        thresholds = excluded.thresholds,
         updated_by = excluded.updated_by,
         updated_at = excluded.updated_at
     `,
@@ -226,6 +228,7 @@ async function upsertProductData(
       data.quantity ?? 0,
       data.price_brutto ?? null,
       data.shipping_method ?? null,
+      data.thresholds?.length ? JSON.stringify(data.thresholds) : null,
       audit?.user?.name ?? null,
       audit?.user?.name ?? null,
       createdAtTimestamp,
@@ -360,7 +363,7 @@ async function upsertProductData(
     );
   }
 
-  // 8. Recompute counts
+  // 8. Recompute counts (thresholds is a TEXT column, not a child table)
   queue.push({
     sql: `
       UPDATE products SET
@@ -374,9 +377,8 @@ async function upsertProductData(
     params: [productId, productId, productId, productId, productId, productId],
   });
 
-  // 9. Audit row — appended to the same batch.
-  //    Inserted after the mutation so the transaction rolls back atomically
-  //    if either the mutation or the audit insert fails.
+  // 9. Audit row — appended to the same batch so the transaction rolls back
+  //    atomically if either the mutation or the audit insert fails.
   if (audit) {
     const { sql, params } = buildAuditStatementParts(audit.user, {
       action: isUpdate ? "update" : "create",
@@ -390,6 +392,7 @@ async function upsertProductData(
         features: data.features?.length ?? 0,
         specs: data.specifications?.length ?? 0,
         feedbacks: data.feedbacks?.length ?? 0,
+        thresholds: data.thresholds?.length ?? 0,
         source: "product_save_route",
       },
     });
@@ -552,11 +555,33 @@ export async function POST(req: Request) {
       productId = uuidv4();
     }
 
+    // ---- Normalize thresholds before diffing so []/null don't produce
+    //      phantom changes, and inner whitespace is consistent on both sides.
+    const normalizeThresholds = (t: any) =>
+      Array.isArray(t) && t.length
+        ? t
+            .filter(
+              (x) =>
+                x &&
+                (x.location || "").trim() !== "" &&
+                Number.isFinite(Number(x.number)),
+            )
+            .map((x) => ({
+              location: x.location.trim(),
+              number: Number(x.number),
+            }))
+        : null;
+
+    newData.thresholds = normalizeThresholds(newData.thresholds);
+    if (existing)
+      existing.thresholds = normalizeThresholds(existing.thresholds);
+
     // ---- Compute diff BEFORE mutation, using in-memory snapshots ----
     const changes = diffProduct(existing, newData);
     const hasRealChanges = changes.length > 0;
     const isUpdate = !!existing;
     const auditPayload = isUpdate && !hasRealChanges ? null : { user, changes };
+
     // ---- Move existing images to temp ----
     if (existing?.images) {
       await measureTime("moveExistingToTemp", async () =>

@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS products (
   rrp               DECIMAL(10,2),
   weight            DECIMAL(8,2),
   quantity          INTEGER DEFAULT 0,
+  thresholds        TEXT,
   price_brutto      DECIMAL(10,2),
   shipping_method   TEXT,
   image_count       INTEGER DEFAULT 0,
@@ -356,7 +357,7 @@ SELECT
   p.additional_description_1,
   p.additional_description_2,
   p.additional_description_3,
-  p.vat_rate, p.rrp, p.weight, p.quantity, p.price_brutto, p.shipping_method,
+  p.vat_rate, p.rrp, p.weight, p.quantity, p.thresholds, p.price_brutto, p.shipping_method,
   p.created_at, p.updated_at,
   p.image_count, p.specs_count, p.paragraphs_count, p.features_count, p.feedbacks_count,
   (SELECT json_group_array(content ORDER BY paragraph_order)

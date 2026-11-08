@@ -56,6 +56,7 @@ const getProductByField = async (
   product.images = parseJSON(product.images) || [];
   product.feedbacks = parseJSON(product.feedbacks) || [];
   product.specifications = parseJSON(product.specifications) || [];
+  product.thresholds = parseJSON(product.thresholds) || [];
   product.category_keywords = parseJSON(product.category_keywords_json) || [];
   product.condition_options = parseJSON(product.condition_options) || [];
 
@@ -131,6 +132,7 @@ const getProductByField = async (
       images,
       feedbacks,
       specifications,
+      thresholds: product.thresholds || [],
       selectedCategory: product.category_slug,
       vat_rate: toNumber(product.vat_rate, 0),
       price_brutto: toNumber(product.price_brutto, 0),

@@ -116,6 +116,26 @@ export function diffProduct(
       (fb: any) => normalizeValue(fb.content),
     ),
   );
+  // 7. Thresholds — index-keyed (order matters; first entry is primary),
+  //    value is the full { location, number } pair.
+  type Threshold = { idx: number; location: string; number: number };
+
+  const toThresholds = (arr: any[] | undefined | null): Threshold[] =>
+    (Array.isArray(arr) ? arr : []).map((t, i) => ({
+      idx: i + 1,
+      location: String(t?.location ?? ""),
+      number: Number(t?.number ?? 0),
+    }));
+
+  changes.push(
+    ...diffChildren<Threshold>(
+      "thresholds",
+      toThresholds(before.thresholds),
+      toThresholds(after.thresholds),
+      (t) => String(t.idx),
+      (t) => normalizeValue({ location: t.location, number: t.number }),
+    ),
+  );
 
   return changes;
 }

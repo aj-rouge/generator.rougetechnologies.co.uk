@@ -84,13 +84,41 @@ export default function SyncBaselinkerButton({
       ) {
         onBaselinkerCreated(result.baselinker_product_id);
       }
+      const thresholdInfo =
+        typeof result.threshold_count === "number" && result.threshold_count > 0
+          ? ` (${result.threshold_count} threshold${result.threshold_count === 1 ? "" : "s"} synced)`
+          : "";
 
       updateNotification(syncToastId, {
         message:
-          result.message || "Product synced with Baselinker successfully!",
+          (result.message || "Product synced with Baselinker successfully!") +
+          thresholdInfo,
         type: "success",
         duration: 4000,
       });
+      // Base rejected some thresholds — surface which ones and why
+      if (Array.isArray(result.skipped_thresholds) && result.skipped_thresholds.length) {
+        const list = result.skipped_thresholds
+          .map(
+            (s) =>
+              `${s.location} (${s.number}) — ${s.reason || "not Base-native"}`,
+          )
+          .join("; ");
+        addNotification({
+          message: `Skipped ${result.skipped_thresholds.length} threshold(s): ${list}`,
+          type: "warning",
+          duration: 10000,
+        });
+      }
+
+      // Base parameter warnings (validation issues that didn't abort the call)
+      if (Array.isArray(result.warnings) && result.warnings.length) {
+        addNotification({
+          message: `Base warnings: ${result.warnings.join("; ")}`,
+          type: "warning",
+          duration: 10000,
+        });
+      }
     } catch (error) {
       console.error("Baselinker Sync Error:", error);
       let userMessage = error.message;
