@@ -12,7 +12,6 @@ import SearchDropdown from "./SearchDropdown";
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
 
-// Explicitly define the expected format from your search endpoint
 interface SearchApiResponse {
   results: any[];
 }
@@ -37,12 +36,9 @@ export default function SearchBar() {
       setLoading(true);
       fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`)
         .then(async (res) => {
-          if (!res.ok) {
-            throw new Error(`Search failed: ${res.status}`);
-          }
+          if (!res.ok) throw new Error(`Search failed: ${res.status}`);
           return res.json();
         })
-        // Cast the resolved data to our interface
         .then((data: SearchApiResponse) => {
           setResults(data.results);
           setShowDropdown(true);
@@ -72,7 +68,6 @@ export default function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showDropdown || results.length === 0) return;
 

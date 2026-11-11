@@ -1,3 +1,4 @@
+// api/product/[id]/images/route.ts
 import { NextResponse } from "next/server";
 import { executeQuery } from "../../../../utils/d1/execute";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
