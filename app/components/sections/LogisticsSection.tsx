@@ -24,6 +24,9 @@ interface LogisticsSectionProps {
   shipping_method?: string;
   thresholds?: Threshold[];
   onUpdate: (payload: LogisticsUpdatePayload) => void;
+  // ⚠️ FEATURE DISABLED: prop kept in the interface so callers still type-check.
+  // Component currently ignores this value. To re-enable, see the
+  // "⚠️ FEATURE DISABLED" comments throughout this file.
   disabled?: boolean;
 }
 
@@ -33,7 +36,7 @@ export default function LogisticsSection({
   shipping_method = "",
   thresholds = [],
   onUpdate,
-  disabled = false,
+  // disabled = false, // ⚠️ FEATURE DISABLED — uncomment to re-enable
 }: LogisticsSectionProps) {
   const isFilled = (value: unknown): boolean => {
     if (value === null || value === undefined) return false;
@@ -51,7 +54,7 @@ export default function LogisticsSection({
     field: "weight",
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     const raw = e.target.value;
     if (raw === "") return onUpdate({ [field]: undefined });
     const num = parseFloat(raw);
@@ -59,7 +62,7 @@ export default function LogisticsSection({
   };
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     const raw = e.target.value;
     if (raw === "") return onUpdate({ quantity: undefined });
     const intVal = parseInt(raw, 10);
@@ -71,7 +74,7 @@ export default function LogisticsSection({
     field: keyof Threshold,
     value: string,
   ) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     const updated = thresholds.map((t, i) => {
       if (i !== index) return t;
       if (field === "number") {
@@ -85,12 +88,12 @@ export default function LogisticsSection({
   };
 
   const addThreshold = () => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     onUpdate({ thresholds: [...thresholds, { location: "", number: "" }] });
   };
 
   const removeThreshold = (index: number) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     onUpdate({ thresholds: thresholds.filter((_, i) => i !== index) });
   };
 
@@ -100,7 +103,10 @@ export default function LogisticsSection({
         <div className="flex items-center justify-between mb-4">
           <h2
             className={`block text-black dark:text-gray-100 font-medium ${
-              disabled ? "opacity-50" : ""
+              // ⚠️ FEATURE DISABLED — re-enable by uncommenting the line
+              // below and removing the `""` placeholder.
+              // disabled ? "opacity-50" : ""
+              ""
             }`}
           >
             Logistics
@@ -121,7 +127,7 @@ export default function LogisticsSection({
               value={weight === "" ? "" : weight}
               onChange={(e) => handleNumericChange("weight", e)}
               placeholder="0.00"
-              disabled={disabled}
+              /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -140,7 +146,7 @@ export default function LogisticsSection({
                 <button
                   type="button"
                   onClick={addThreshold}
-                  disabled={disabled}
+                  /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
                   className="text-xs px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   + Add
@@ -166,7 +172,7 @@ export default function LogisticsSection({
                         onChange={(v) =>
                           handleThresholdChange(index, "location", v)
                         }
-                        disabled={disabled}
+                        /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
                         placeholder="Location ID"
                       />
                       <input
@@ -177,13 +183,13 @@ export default function LogisticsSection({
                         }
                         placeholder="0"
                         min="0"
-                        disabled={disabled}
+                        /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
                         className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
                         onClick={() => removeThreshold(index)}
-                        disabled={disabled}
+                        /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
                         className="text-xs px-1.5 py-0.5 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Remove threshold"
                       >
@@ -209,7 +215,7 @@ export default function LogisticsSection({
                 value={quantity === "" ? "" : quantity}
                 onChange={handleQuantityChange}
                 placeholder="0"
-                disabled={disabled}
+                /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -222,7 +228,7 @@ export default function LogisticsSection({
           <ShippingMethodInput
             value={shipping_method || ""}
             onChange={(v) => onUpdate({ shipping_method: v })}
-            disabled={disabled}
+            /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
           />
         </div>
       </div>

@@ -18,6 +18,9 @@ interface PricingSectionProps {
   price_brutto?: number | "";
   rrp?: number | "";
   onUpdate: (payload: PricingUpdatePayload) => void;
+  // ⚠️ FEATURE DISABLED: prop kept in the interface so callers still type-check.
+  // Component currently ignores this value. To re-enable, see the
+  // "⚠️ FEATURE DISABLED" comments throughout this file.
   disabled?: boolean;
 }
 
@@ -26,7 +29,7 @@ export default function PricingSection({
   price_brutto = "",
   rrp = "",
   onUpdate,
-  disabled = false,
+  // disabled = false, // ⚠️ FEATURE DISABLED — uncomment to re-enable
 }: PricingSectionProps) {
   const isFilled = (value: unknown): boolean => {
     if (value === null || value === undefined) return false;
@@ -41,7 +44,7 @@ export default function PricingSection({
   const validationScore = (filledCount / total) * 100;
 
   const handleVatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     const raw = e.target.value;
     if (raw === "") {
       onUpdate({ vat_rate: undefined });
@@ -58,9 +61,9 @@ export default function PricingSection({
 
   const handleNumericChange = (
     field: "price_brutto" | "rrp",
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    if (disabled) return;
+    // if (disabled) return; // ⚠️ FEATURE DISABLED — uncomment to re-enable
     const raw = e.target.value;
     if (raw === "") {
       onUpdate({ [field]: undefined });
@@ -79,7 +82,12 @@ export default function PricingSection({
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2
-            className={`block text-black dark:text-gray-100 font-medium ${disabled ? "opacity-50" : ""}`}
+            className={`block text-black dark:text-gray-100 font-medium ${
+              // ⚠️ FEATURE DISABLED — re-enable by uncommenting the line
+              // below and removing the `""` placeholder.
+              // disabled ? "opacity-50" : ""
+              ""
+            }`}
           >
             Pricing
           </h2>
@@ -101,11 +109,12 @@ export default function PricingSection({
               value={vat_rate === "" ? "" : vat_rate}
               onChange={handleVatChange}
               onBlur={handleVatChange}
-              disabled={disabled}
+              /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Tax rate between 0% and {MAX_VAT_RATE}% (e.g., 20 for standard UK VAT)
+              Tax rate between 0% and {MAX_VAT_RATE}% (e.g., 20 for standard UK
+              VAT)
             </p>
           </div>
 
@@ -119,7 +128,7 @@ export default function PricingSection({
               value={price_brutto === "" ? "" : price_brutto}
               onChange={(e) => handleNumericChange("price_brutto", e)}
               placeholder="0.00"
-              disabled={disabled}
+              /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -137,7 +146,7 @@ export default function PricingSection({
               value={rrp === "" ? "" : rrp}
               onChange={(e) => handleNumericChange("rrp", e)}
               placeholder="0.00"
-              disabled={disabled}
+              /* disabled={disabled} */ /* ⚠️ FEATURE DISABLED */
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
