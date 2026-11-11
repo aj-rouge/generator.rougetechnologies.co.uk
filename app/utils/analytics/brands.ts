@@ -259,7 +259,6 @@ export async function getBrandAnalytics(): Promise<BrandAnalytics> {
     db,
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [summary, source, drift, inventory, lengthDist, segmentDist, catBrand] =
     results as Array<{ results: any[] }>;
 
